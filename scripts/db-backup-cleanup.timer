@@ -1,0 +1,14 @@
+[Unit]
+Description=Database Backup Cleanup Timer (Weekend Only)
+Requires=db-backup-cleanup.service
+
+[Timer]
+# Run every Saturday at 2 AM
+OnCalendar=Sat *-*-* 02:00:00
+# Also run every Sunday at 2 AM as backup
+OnCalendar=Sun *-*-* 02:00:00
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

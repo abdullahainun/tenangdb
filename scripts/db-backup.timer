@@ -1,0 +1,11 @@
+[Unit]
+Description=Database Backup Timer
+Requires=db-backup.service
+
+[Timer]
+OnCalendar=daily
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,48 @@
+database:
+  host: 192.168.43.117
+  port: 3306
+  username: aal
+  password: "B15millahs3k"
+  timeout: 30
+  mydumper:
+    enabled: true
+    binary_path: /usr/bin/mydumper
+    threads: 4
+    chunk_filesize: 100
+    compress_method: gzip
+    build_empty_files: false
+    use_defer: true
+    single_table: false
+    no_schemas: false
+    no_data: false
+
+backup:
+  directory: /home/aal/Workspace/Lab/db-backup-tool/backup
+  databases:
+    - pastefy
+  batch_size: 10
+  concurrency: 3
+  timeout: 30m
+  retry_count: 3
+  retry_delay: 10s
+
+upload:
+  enabled: false
+#   rclone_path: /usr/bin/rclone
+#   destination: "idriveomni:sgp1-omni/databases/"
+#   timeout: 300
+#   retry_count: 3
+
+logging:
+  level: info
+  format: json
+  file_path: /home/aal/Workspace/Lab/db-backup-tool/logs/db-backup.log
+# cleanup:
+#   enabled: true
+#   # Local files are cleaned up after successful upload (not time-based)
+#   # Only files uploaded more than 1 hour ago are eligible for cleanup (safety buffer)
+#   cleanup_uploaded_files: true
+#   # Remote cleanup still uses retention days
+#   remote_retention_days: 3
+#   # Weekend-only cleanup schedule
+#   weekend_only: true

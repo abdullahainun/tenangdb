@@ -1,0 +1,28 @@
+[Unit]
+Description=Database Backup Cleanup Service
+After=network.target
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+WorkingDirectory=/opt/db-backup-tool
+ExecStart=/opt/db-backup-tool/db-backup-tool cleanup --config /etc/db-backup-tool/config.yaml
+Environment=HOME=/root
+StandardOutput=journal
+StandardError=journal
+TimeoutStartSec=1800
+TimeoutStopSec=300
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/mnt/hdd/backup /home/vincent/backuplog /tmp
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+
+[Install]
+WantedBy=multi-user.target
