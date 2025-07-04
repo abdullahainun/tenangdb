@@ -1,4 +1,4 @@
-BINARY_NAME=db-backup-tool
+BINARY_NAME=tenangdb
 VERSION=$(shell git describe --tags --abbrev=0 2>/dev/null || echo "v0.1.0")
 BUILD_TIME=$(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 LDFLAGS=-ldflags "-X main.version=${VERSION} -X main.buildTime=${BUILD_TIME}"
@@ -33,11 +33,11 @@ install: build
 
 # Uninstall the application
 uninstall:
-	sudo systemctl stop db-backup.timer || true
-	sudo systemctl disable db-backup.timer || true
-	sudo rm -f /etc/systemd/system/db-backup.service
-	sudo rm -f /etc/systemd/system/db-backup.timer
-	sudo rm -rf /opt/db-backup-tool
+	sudo systemctl stop tenangdb.timer || true
+	sudo systemctl disable tenangdb.timer || true
+	sudo rm -f /etc/systemd/system/tenangdb.service
+	sudo rm -f /etc/systemd/system/tenangdb.timer
+	sudo rm -rf /opt/tenangdb
 	sudo systemctl daemon-reload
 
 # Run the application with default config

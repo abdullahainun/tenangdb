@@ -1,6 +1,6 @@
 [Unit]
-Description=Database Backup Timer
-Requires=db-backup.service
+Description=TenangDB Backup Timer
+Requires=tenangdb.service
 
 [Timer]
 OnCalendar=daily

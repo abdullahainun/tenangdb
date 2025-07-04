@@ -1,6 +1,8 @@
-# Database Backup Tool
+# TenangDB
 
 A robust MySQL backup tool with mydumper/mysqldump support, cloud uploads, and comprehensive management features.
+
+🔗 **Repository:** https://github.com/abdullahainun/tenangdb
 
 ## Features
 
@@ -16,20 +18,20 @@ A robust MySQL backup tool with mydumper/mysqldump support, cloud uploads, and c
 
 ```bash
 # Install
-go build -o db-backup-tool cmd/main.go
+go build -o tenangdb cmd/main.go
 
 # Configure
 cp configs/config.yaml my-config.yaml
 # Edit database credentials and mydumper settings
 
 # Backup
-./db-backup-tool --config my-config.yaml
+./tenangdb --config my-config.yaml
 
 # Restore
-./db-backup-tool restore --backup-path /path/to/backup --database target_db
+./tenangdb restore --backup-path /path/to/backup --database target_db
 
 # Cleanup
-./db-backup-tool cleanup --force --dry-run
+./tenangdb cleanup --force --dry-run
 ```
 
 ## Configuration
@@ -58,19 +60,19 @@ upload:
 
 ```bash
 # Backup all configured databases
-./db-backup-tool --config config.yaml
+./tenangdb --config config.yaml
 
 # Restore from backup
-./db-backup-tool restore -b /backup/db-2025-07-04_01-06-02 -d target_db
+./tenangdb restore -b /backup/db-2025-07-04_01-06-02 -d target_db
 
 # Cleanup uploaded files (weekend-only by default)
-./db-backup-tool cleanup
+./tenangdb cleanup
 
 # Force cleanup anytime
-./db-backup-tool cleanup --force
+./tenangdb cleanup --force
 
 # Preview cleanup (no deletion)
-./db-backup-tool cleanup --dry-run --force
+./tenangdb cleanup --dry-run --force
 ```
 
 ## Storage Integration
@@ -92,8 +94,8 @@ Supports any rclone backend: AWS S3, Google Cloud, Azure, Dropbox, etc.
 ```bash
 # Install as systemd service
 sudo cp scripts/*.service /etc/systemd/system/
-sudo systemctl enable db-backup.timer
-sudo systemctl start db-backup.timer
+sudo systemctl enable tenangdb.timer
+sudo systemctl start tenangdb.timer
 ```
 
 ## Security
