@@ -54,15 +54,25 @@ func NewClient(config *config.DatabaseConfig) (*Client, error) {
 }
 
 func (c *Client) CreateBackup(ctx context.Context, dbName, backupDir string) (string, error) {
-	timestamp := time.Now().Format("2006-01-02_15-04-05")
+	now := time.Now()
+	timestamp := now.Format("2006-01-02_15-04-05")
+	
+	// Create organized directory structure: database-backup/dbname/YYYY-MM/
+	yearMonth := now.Format("2006-01")
+	organizedBackupDir := filepath.Join(backupDir, dbName, yearMonth)
+	
+	// Ensure the organized directory exists
+	if err := os.MkdirAll(organizedBackupDir, 0755); err != nil {
+		return "", fmt.Errorf("failed to create organized backup directory: %w", err)
+	}
 
 	// Check if mydumper is enabled in config
 	if c.config.Mydumper != nil && c.config.Mydumper.Enabled {
-		return c.createMydumperBackup(ctx, dbName, backupDir, timestamp)
+		return c.createMydumperBackup(ctx, dbName, organizedBackupDir, timestamp)
 	}
 
 	// Fallback to mysqldump
-	return c.createMysqldumpBackup(ctx, dbName, backupDir, timestamp)
+	return c.createMysqldumpBackup(ctx, dbName, organizedBackupDir, timestamp)
 }
 
 func (c *Client) createMydumperBackup(ctx context.Context, dbName, backupDir, timestamp string) (string, error) {
