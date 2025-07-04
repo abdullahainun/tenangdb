@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"time"
 
-	"db-backup-tool/internal/config"
-	"db-backup-tool/internal/logger"
+	"github.com/abdullahainun/tenangdb/internal/config"
+	"github.com/abdullahainun/tenangdb/internal/logger"
 )
 
 type Service struct {

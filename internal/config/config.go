@@ -72,10 +72,14 @@ type LoggingConfig struct {
 }
 
 type CleanupConfig struct {
-	Enabled              bool `mapstructure:"enabled"`
-	CleanupUploadedFiles bool `mapstructure:"cleanup_uploaded_files"`
-	RemoteRetention      int  `mapstructure:"remote_retention_days"`
-	WeekendOnly          bool `mapstructure:"weekend_only"`
+	Enabled              bool     `mapstructure:"enabled"`
+	CleanupUploadedFiles bool     `mapstructure:"cleanup_uploaded_files"`
+	RemoteRetention      int      `mapstructure:"remote_retention_days"`
+	WeekendOnly          bool     `mapstructure:"weekend_only"`
+	AgeBasedCleanup      bool     `mapstructure:"age_based_cleanup"`
+	MaxAgeDays           int      `mapstructure:"max_age_days"`
+	VerifyCloudExists    bool     `mapstructure:"verify_cloud_exists"`
+	Databases            []string `mapstructure:"databases"`
 }
 
 type MetricsConfig struct {
@@ -148,6 +152,9 @@ func setDefaults() {
 	viper.SetDefault("cleanup.cleanup_uploaded_files", true)
 	viper.SetDefault("cleanup.remote_retention_days", 30)
 	viper.SetDefault("cleanup.weekend_only", true)
+	viper.SetDefault("cleanup.age_based_cleanup", false)
+	viper.SetDefault("cleanup.max_age_days", 7)
+	viper.SetDefault("cleanup.verify_cloud_exists", true)
 
 	viper.SetDefault("metrics.enabled", true)
 	viper.SetDefault("metrics.port", "8080")

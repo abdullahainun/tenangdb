@@ -23,7 +23,7 @@ database:
       threads: 4
 
 backup:
-  directory: /home/aal/Workspace/Lab/db-backup-tool/backup
+  directory: /home/aal/Workspace/Lab/tenangdb/backup
   databases:
     - pastefy
   batch_size: 10
@@ -42,18 +42,21 @@ upload:
 logging:
   level: info
   format: json
-  file_path: /home/aal/Workspace/Lab/db-backup-tool/logs/db-backup.log
+  file_path: /home/aal/Workspace/Lab/tenangdb/logs/db-backup.log
 
 metrics:
   enabled: true
   port: "8080"
-
-# cleanup:
-#   enabled: true
-#   # Local files are cleaned up after successful upload (not time-based)
-#   # Only files uploaded more than 1 hour ago are eligible for cleanup (safety buffer)
-#   cleanup_uploaded_files: true
-#   # Remote cleanup still uses retention days
-#   remote_retention_days: 3
-#   # Weekend-only cleanup schedule
-#   weekend_only: true
+cleanup:
+  enabled: true
+  # Local files are cleaned up after successful upload (not time-based)
+  # Only files uploaded more than 1 hour ago are eligible for cleanup (safety buffer)
+  cleanup_uploaded_files: true
+  # Remote cleanup still uses retention days
+  remote_retention_days: 3
+  # Weekend-only cleanup schedule
+  weekend_only: false
+  # Age-based cleanup configuration
+  age_based_cleanup: true
+  max_age_days: 7
+  verify_cloud_exists: true
