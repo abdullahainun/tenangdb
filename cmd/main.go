@@ -89,24 +89,26 @@ func newCleanupCommand() *cobra.Command {
 	var configFile string
 	var logLevel string
 	var dryRun bool
+	var force bool
 
 	cmd := &cobra.Command{
 		Use:   "cleanup",
 		Short: "Cleanup uploaded backup files",
 		Long:  `Remove local backup files that have been successfully uploaded to cloud storage.`,
 		Run: func(cmd *cobra.Command, args []string) {
-			runCleanup(configFile, logLevel, dryRun)
+			runCleanup(configFile, logLevel, dryRun, force)
 		},
 	}
 
 	cmd.Flags().StringVar(&configFile, "config", "configs/config.yaml", "config file path")
 	cmd.Flags().StringVar(&logLevel, "log-level", "info", "log level (debug, info, warn, error)")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "show what would be deleted without actually deleting")
+	cmd.Flags().BoolVar(&force, "force", false, "force cleanup regardless of day (bypass weekend-only restriction)")
 
 	return cmd
 }
 
-func runCleanup(configFile, logLevel string, dryRun bool) {
+func runCleanup(configFile, logLevel string, dryRun bool, force bool) {
 	ctx := context.Background()
 
 	// Load configuration first to get log file path
@@ -125,14 +127,20 @@ func runCleanup(configFile, logLevel string, dryRun bool) {
 		log.WithError(err).Warn("Failed to initialize file logger, using stdout")
 	}
 
-	// Check if today is weekend (Saturday or Sunday)
-	today := time.Now().Weekday()
-	if today != time.Saturday && today != time.Sunday {
-		log.Info("Cleanup only runs on weekends. Skipping cleanup.")
-		return
+	// Check if today is weekend (Saturday or Sunday) unless force flag is used
+	if !force {
+		today := time.Now().Weekday()
+		if today != time.Saturday && today != time.Sunday {
+			log.Info("Cleanup only runs on weekends. Use --force to cleanup anytime. Skipping cleanup.")
+			return
+		}
 	}
 
-	log.Info("Starting weekend cleanup process")
+	if force {
+		log.Info("Starting forced cleanup process")
+	} else {
+		log.Info("Starting weekend cleanup process")
+	}
 
 	// Initialize backup service to access uploaded files tracking
 	backupService, err := backup.NewService(cfg, log)
@@ -152,7 +160,11 @@ func runCleanup(configFile, logLevel string, dryRun bool) {
 		os.Exit(1)
 	}
 
-	log.Info("Weekend cleanup completed successfully")
+	if force {
+		log.Info("Forced cleanup completed successfully")
+	} else {
+		log.Info("Weekend cleanup completed successfully")
+	}
 }
 
 func showFilesToCleanup(service *backup.Service, log *logger.Logger) {
