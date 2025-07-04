@@ -15,13 +15,13 @@ import (
 )
 
 type Service struct {
-	config       *config.Config
-	logger       *logger.Logger
-	dbClient     *database.Client
-	uploader     *upload.Service
-	stats        *Statistics
+	config        *config.Config
+	logger        *logger.Logger
+	dbClient      *database.Client
+	uploader      *upload.Service
+	stats         *Statistics
 	uploadedFiles map[string]time.Time // Track uploaded files with timestamp
-	mu           sync.RWMutex
+	mu            sync.RWMutex
 }
 
 type Statistics struct {
@@ -48,10 +48,10 @@ func NewService(cfg *config.Config, log *logger.Logger) (*Service, error) {
 	}
 
 	return &Service{
-		config:       cfg,
-		logger:       log,
-		dbClient:     dbClient,
-		uploader:     uploader,
+		config:        cfg,
+		logger:        log,
+		dbClient:      dbClient,
+		uploader:      uploader,
 		uploadedFiles: make(map[string]time.Time),
 		stats: &Statistics{
 			TotalDatabases: len(cfg.Backup.Databases),
@@ -121,7 +121,7 @@ func (s *Service) processBatch(ctx context.Context, databases []string, concurre
 		wg.Add(1)
 		go func(database string) {
 			defer wg.Done()
-			
+
 			semaphore <- struct{}{}
 			defer func() { <-semaphore }()
 
@@ -156,7 +156,7 @@ func (s *Service) processDatabase(ctx context.Context, dbName string) {
 		} else {
 			log.Info("Cloud upload completed successfully")
 			s.incrementSuccessfulUploads()
-			
+
 			// Mark backup as uploaded for potential cleanup
 			s.markFileAsUploaded(backupPath)
 		}
@@ -214,7 +214,7 @@ func (s *Service) uploadDirectory(ctx context.Context, dirPath string) error {
 		if file.IsDir() {
 			continue // Skip subdirectories
 		}
-		
+
 		filePath := filepath.Join(dirPath, file.Name())
 		if err := s.uploader.Upload(ctx, filePath); err != nil {
 			return fmt.Errorf("failed to upload file %s: %w", file.Name(), err)
@@ -257,13 +257,13 @@ func (s *Service) logFinalStatistics() {
 	defer s.mu.RUnlock()
 
 	duration := s.stats.EndTime.Sub(s.stats.StartTime)
-	
+
 	s.logger.WithField("statistics", map[string]interface{}{
-		"total_databases":     s.stats.TotalDatabases,
-		"successful_backups":  s.stats.SuccessfulBackups,
-		"failed_backups":      s.stats.FailedBackups,
-		"successful_uploads":  s.stats.SuccessfulUploads,
-		"failed_uploads":      s.stats.FailedUploads,
+		"total_databases":    s.stats.TotalDatabases,
+		"successful_backups": s.stats.SuccessfulBackups,
+		"failed_backups":     s.stats.FailedBackups,
+		"successful_uploads": s.stats.SuccessfulUploads,
+		"failed_uploads":     s.stats.FailedUploads,
 		"duration":           duration.String(),
 		"start_time":         s.stats.StartTime.Format(time.RFC3339),
 		"end_time":           s.stats.EndTime.Format(time.RFC3339),
@@ -287,7 +287,7 @@ func (s *Service) markFileAsUploaded(filePath string) {
 func (s *Service) GetUploadedFiles() map[string]time.Time {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	
+
 	result := make(map[string]time.Time)
 	for k, v := range s.uploadedFiles {
 		result[k] = v
@@ -377,7 +377,7 @@ func (s *Service) removeBackupFile(backupPath string) error {
 
 func (s *Service) calculateDirectorySize(dirPath string) (int64, error) {
 	var totalSize int64
-	
+
 	err := filepath.Walk(dirPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -387,6 +387,6 @@ func (s *Service) calculateDirectorySize(dirPath string) (int64, error) {
 		}
 		return nil
 	})
-	
+
 	return totalSize, err
 }

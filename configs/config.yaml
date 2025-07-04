@@ -7,6 +7,7 @@ database:
   mydumper:
     enabled: true
     binary_path: /usr/bin/mydumper
+    defaults_file: ~/.my.cnf
     threads: 4
     chunk_filesize: 100
     compress_method: gzip
@@ -15,6 +16,11 @@ database:
     single_table: false
     no_schemas: false
     no_data: false
+    myloader:
+      enabled: true
+      binary_path: /usr/bin/myloader
+      defaults_file: ~/.my_restore.cnf
+      threads: 4
 
 backup:
   directory: /home/aal/Workspace/Lab/db-backup-tool/backup

@@ -25,26 +25,35 @@ type DatabaseConfig struct {
 }
 
 type BackupConfig struct {
-	Directory    string        `mapstructure:"directory"`
-	Databases    []string      `mapstructure:"databases"`
-	BatchSize    int           `mapstructure:"batch_size"`
-	Concurrency  int           `mapstructure:"concurrency"`
-	Timeout      time.Duration `mapstructure:"timeout"`
-	RetryCount   int           `mapstructure:"retry_count"`
-	RetryDelay   time.Duration `mapstructure:"retry_delay"`
+	Directory   string        `mapstructure:"directory"`
+	Databases   []string      `mapstructure:"databases"`
+	BatchSize   int           `mapstructure:"batch_size"`
+	Concurrency int           `mapstructure:"concurrency"`
+	Timeout     time.Duration `mapstructure:"timeout"`
+	RetryCount  int           `mapstructure:"retry_count"`
+	RetryDelay  time.Duration `mapstructure:"retry_delay"`
 }
 
 type MydumperConfig struct {
-	Enabled         bool   `mapstructure:"enabled"`
-	BinaryPath      string `mapstructure:"binary_path"`
-	Threads         int    `mapstructure:"threads"`
-	ChunkFilesize   int    `mapstructure:"chunk_filesize"`
-	CompressMethod  string `mapstructure:"compress_method"`
-	BuildEmptyFiles bool   `mapstructure:"build_empty_files"`
-	UseDefer        bool   `mapstructure:"use_defer"`
-	SingleTable     bool   `mapstructure:"single_table"`
-	NoSchemas       bool   `mapstructure:"no_schemas"`
-	NoData          bool   `mapstructure:"no_data"`
+	Enabled         bool            `mapstructure:"enabled"`
+	BinaryPath      string          `mapstructure:"binary_path"`
+	DefaultsFile    string          `mapstructure:"defaults_file"`
+	Threads         int             `mapstructure:"threads"`
+	ChunkFilesize   int             `mapstructure:"chunk_filesize"`
+	CompressMethod  string          `mapstructure:"compress_method"`
+	BuildEmptyFiles bool            `mapstructure:"build_empty_files"`
+	UseDefer        bool            `mapstructure:"use_defer"`
+	SingleTable     bool            `mapstructure:"single_table"`
+	NoSchemas       bool            `mapstructure:"no_schemas"`
+	NoData          bool            `mapstructure:"no_data"`
+	Myloader        *MyloaderConfig `mapstructure:"myloader"`
+}
+
+type MyloaderConfig struct {
+	Enabled      bool   `mapstructure:"enabled"`
+	BinaryPath   string `mapstructure:"binary_path"`
+	DefaultsFile string `mapstructure:"defaults_file"`
+	Threads      int    `mapstructure:"threads"`
 }
 
 type UploadConfig struct {
@@ -95,14 +104,14 @@ func setDefaults() {
 	viper.SetDefault("database.host", "localhost")
 	viper.SetDefault("database.port", 3306)
 	viper.SetDefault("database.timeout", 30)
-	
+
 	viper.SetDefault("backup.directory", "/tmp/db-backups")
 	viper.SetDefault("backup.batch_size", 10)
 	viper.SetDefault("backup.concurrency", 3)
 	viper.SetDefault("backup.timeout", "30m")
 	viper.SetDefault("backup.retry_count", 3)
 	viper.SetDefault("backup.retry_delay", "10s")
-	
+
 	// Mydumper defaults
 	viper.SetDefault("database.mydumper.enabled", true)
 	viper.SetDefault("database.mydumper.binary_path", "/usr/bin/mydumper")
@@ -114,16 +123,21 @@ func setDefaults() {
 	viper.SetDefault("database.mydumper.single_table", false)
 	viper.SetDefault("database.mydumper.no_schemas", false)
 	viper.SetDefault("database.mydumper.no_data", false)
-	
+
+	// Myloader defaults
+	viper.SetDefault("database.mydumper.myloader.enabled", true)
+	viper.SetDefault("database.mydumper.myloader.binary_path", "/usr/bin/myloader")
+	viper.SetDefault("database.mydumper.myloader.threads", 4)
+
 	viper.SetDefault("upload.enabled", true)
 	viper.SetDefault("upload.rclone_path", "/usr/bin/rclone")
 	viper.SetDefault("upload.timeout", 300)
 	viper.SetDefault("upload.retry_count", 3)
-	
+
 	viper.SetDefault("logging.level", "info")
 	viper.SetDefault("logging.format", "json")
 	viper.SetDefault("logging.file_path", "/var/log/db-backup.log")
-	
+
 	viper.SetDefault("cleanup.enabled", true)
 	viper.SetDefault("cleanup.cleanup_uploaded_files", true)
 	viper.SetDefault("cleanup.remote_retention_days", 30)
@@ -134,23 +148,23 @@ func validateConfig(config *Config) error {
 	if config.Database.Username == "" {
 		return fmt.Errorf("database username is required")
 	}
-	
+
 	if len(config.Backup.Databases) == 0 {
 		return fmt.Errorf("at least one database must be specified")
 	}
-	
+
 	if config.Backup.BatchSize <= 0 {
 		return fmt.Errorf("batch size must be greater than 0")
 	}
-	
+
 	if config.Backup.Concurrency <= 0 {
 		return fmt.Errorf("concurrency must be greater than 0")
 	}
-	
+
 	if config.Upload.Enabled && config.Upload.Destination == "" {
 		return fmt.Errorf("upload destination is required when upload is enabled")
 	}
-	
+
 	// Mydumper validation
 	if config.Database.Mydumper != nil && config.Database.Mydumper.Enabled {
 		if config.Database.Mydumper.Threads <= 0 {
@@ -159,12 +173,19 @@ func validateConfig(config *Config) error {
 		if config.Database.Mydumper.ChunkFilesize <= 0 {
 			return fmt.Errorf("mydumper chunk filesize must be greater than 0")
 		}
-		if config.Database.Mydumper.CompressMethod != "" && 
-		   config.Database.Mydumper.CompressMethod != "gzip" && 
-		   config.Database.Mydumper.CompressMethod != "lz4" {
+		if config.Database.Mydumper.CompressMethod != "" &&
+			config.Database.Mydumper.CompressMethod != "gzip" &&
+			config.Database.Mydumper.CompressMethod != "lz4" {
 			return fmt.Errorf("mydumper compress method must be 'gzip', 'lz4', or empty")
 		}
+
+		// Myloader validation
+		if config.Database.Mydumper.Myloader != nil && config.Database.Mydumper.Myloader.Enabled {
+			if config.Database.Mydumper.Myloader.Threads <= 0 {
+				return fmt.Errorf("myloader threads must be greater than 0")
+			}
+		}
 	}
-	
+
 	return nil
 }

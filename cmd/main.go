@@ -7,9 +7,9 @@ import (
 	"syscall"
 	"time"
 
+	"db-backup-tool/internal/backup"
 	"db-backup-tool/internal/config"
 	"db-backup-tool/internal/logger"
-	"db-backup-tool/internal/backup"
 
 	"github.com/spf13/cobra"
 )
@@ -48,7 +48,7 @@ func run(cmd *cobra.Command, args []string) {
 
 	// Initialize logger
 	log := logger.NewLogger(logLevel)
-	
+
 	// Load configuration
 	cfg, err := config.LoadConfig(configFile)
 	if err != nil {
@@ -100,7 +100,7 @@ func runCleanup(configFile, logLevel string, dryRun bool) {
 
 	// Initialize logger
 	log := logger.NewLogger(logLevel)
-	
+
 	// Load configuration
 	cfg, err := config.LoadConfig(configFile)
 	if err != nil {
@@ -139,7 +139,7 @@ func runCleanup(configFile, logLevel string, dryRun bool) {
 
 func showFilesToCleanup(service *backup.Service, log *logger.Logger) {
 	uploadedFiles := service.GetUploadedFiles()
-	
+
 	if len(uploadedFiles) == 0 {
 		log.Info("No uploaded files to cleanup")
 		return

@@ -1,12 +1,14 @@
 package database
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"db-backup-tool/internal/config"
@@ -53,12 +55,12 @@ func NewClient(config *config.DatabaseConfig) (*Client, error) {
 
 func (c *Client) CreateBackup(ctx context.Context, dbName, backupDir string) (string, error) {
 	timestamp := time.Now().Format("2006-01-02_15-04-05")
-	
+
 	// Check if mydumper is enabled in config
 	if c.config.Mydumper != nil && c.config.Mydumper.Enabled {
 		return c.createMydumperBackup(ctx, dbName, backupDir, timestamp)
 	}
-	
+
 	// Fallback to mysqldump
 	return c.createMysqldumpBackup(ctx, dbName, backupDir, timestamp)
 }
@@ -72,39 +74,46 @@ func (c *Client) createMydumperBackup(ctx context.Context, dbName, backupDir, ti
 
 	// Build mydumper command
 	args := []string{
-		"--single-transaction",
 		"--routines",
-		"--triggers",
+		"--triggers", 
 		"--events",
-		"--use-savepoints",
-		fmt.Sprintf("--host=%s", c.config.Host),
-		fmt.Sprintf("--port=%d", c.config.Port),
-		fmt.Sprintf("--user=%s", c.config.Username),
+		"--no-locks",
+		"--trx-consistency-only",
 		fmt.Sprintf("--outputdir=%s", dbBackupDir),
 		fmt.Sprintf("--database=%s", dbName),
 		fmt.Sprintf("--threads=%d", c.config.Mydumper.Threads),
 		fmt.Sprintf("--chunk-filesize=%d", c.config.Mydumper.ChunkFilesize),
 	}
 
-	if c.config.Password != "" {
-		args = append(args, fmt.Sprintf("--password=%s", c.config.Password))
+	// Use defaults-file if specified, otherwise use individual connection parameters
+	if c.config.Mydumper.DefaultsFile != "" {
+		args = append(args, fmt.Sprintf("--defaults-file=%s", c.config.Mydumper.DefaultsFile))
+	} else {
+		args = append(args, fmt.Sprintf("--host=%s", c.config.Host))
+		args = append(args, fmt.Sprintf("--port=%d", c.config.Port))
+		args = append(args, fmt.Sprintf("--user=%s", c.config.Username))
+		if c.config.Password != "" {
+			args = append(args, fmt.Sprintf("--password=%s", c.config.Password))
+		}
 	}
 
 	if c.config.Mydumper.CompressMethod != "" {
-		args = append(args, fmt.Sprintf("--compress-method=%s", c.config.Mydumper.CompressMethod))
+		args = append(args, "--compress")
 	}
 
 	if c.config.Mydumper.BuildEmptyFiles {
 		args = append(args, "--build-empty-files")
 	}
 
-	if c.config.Mydumper.UseDefer {
-		args = append(args, "--use-defer")
-	}
+	// --use-defer is not a valid mydumper option, skip it
+	// if c.config.Mydumper.UseDefer {
+	//	args = append(args, "--use-defer")
+	// }
 
-	if c.config.Mydumper.SingleTable {
-		args = append(args, "--single-table")
-	}
+	// --single-table is not a valid mydumper option, skip it
+	// if c.config.Mydumper.SingleTable {
+	//	args = append(args, "--single-table")
+	// }
 
 	if c.config.Mydumper.NoSchemas {
 		args = append(args, "--no-schemas")
@@ -115,12 +124,19 @@ func (c *Client) createMydumperBackup(ctx context.Context, dbName, backupDir, ti
 	}
 
 	cmd := exec.CommandContext(ctx, c.config.Mydumper.BinaryPath, args...)
-	cmd.Stderr = os.Stderr
+
+	// Capture both stdout and stderr for better error reporting
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	// Log the command being executed for debugging
+	fmt.Printf("DEBUG: Executing command: %s %s\n", c.config.Mydumper.BinaryPath, strings.Join(args, " "))
 
 	if err := cmd.Run(); err != nil {
 		// Remove failed backup directory
 		os.RemoveAll(dbBackupDir)
-		return "", fmt.Errorf("mydumper failed: %w", err)
+		return "", fmt.Errorf("mydumper failed: %w, stdout: %s, stderr: %s", err, stdout.String(), stderr.String())
 	}
 
 	// Verify backup directory was created and has content
@@ -157,7 +173,7 @@ func (c *Client) createMysqldumpBackup(ctx context.Context, dbName, backupDir, t
 	args = append(args, dbName)
 
 	cmd := exec.CommandContext(ctx, "mysqldump", args...)
-	
+
 	// Create output file
 	outFile, err := os.Create(backupPath)
 	if err != nil {
@@ -234,9 +250,9 @@ func (c *Client) verifyMydumperBackup(backupDir string) error {
 	// Check if at least one .sql file exists (excluding metadata)
 	sqlFileFound := false
 	for _, file := range files {
-		if filepath.Ext(file.Name()) == ".sql" || 
-		   filepath.Ext(file.Name()) == ".gz" ||
-		   filepath.Ext(file.Name()) == ".lz4" {
+		if filepath.Ext(file.Name()) == ".sql" ||
+			filepath.Ext(file.Name()) == ".gz" ||
+			filepath.Ext(file.Name()) == ".lz4" {
 			sqlFileFound = true
 			break
 		}
@@ -251,6 +267,90 @@ func (c *Client) verifyMydumperBackup(backupDir string) error {
 
 func (c *Client) CreateDirectory(path string) error {
 	return os.MkdirAll(path, 0755)
+}
+
+func (c *Client) RestoreBackup(ctx context.Context, backupPath, dbName string) error {
+	// Check if myloader is enabled and backup is from mydumper
+	if c.config.Mydumper != nil && c.config.Mydumper.Enabled &&
+		c.config.Mydumper.Myloader != nil && c.config.Mydumper.Myloader.Enabled {
+
+		// Check if backup path is a directory (mydumper backup)
+		if info, err := os.Stat(backupPath); err == nil && info.IsDir() {
+			return c.restoreWithMyloader(ctx, backupPath, dbName)
+		}
+	}
+
+	// Fallback to mysql restore for .sql files
+	return c.restoreWithMysql(ctx, backupPath, dbName)
+}
+
+func (c *Client) restoreWithMyloader(ctx context.Context, backupDir, dbName string) error {
+	// Build myloader command
+	args := []string{
+		"--overwrite-tables",
+		"--database", dbName,
+		"--directory", backupDir,
+		fmt.Sprintf("--threads=%d", c.config.Mydumper.Myloader.Threads),
+	}
+
+	// Use defaults-file if specified, otherwise use individual connection parameters
+	if c.config.Mydumper.Myloader.DefaultsFile != "" {
+		args = append(args, fmt.Sprintf("--defaults-file=%s", c.config.Mydumper.Myloader.DefaultsFile))
+	} else {
+		args = append(args, fmt.Sprintf("--host=%s", c.config.Host))
+		args = append(args, fmt.Sprintf("--port=%d", c.config.Port))
+		args = append(args, fmt.Sprintf("--user=%s", c.config.Username))
+		if c.config.Password != "" {
+			args = append(args, fmt.Sprintf("--password=%s", c.config.Password))
+		}
+	}
+
+	cmd := exec.CommandContext(ctx, c.config.Mydumper.Myloader.BinaryPath, args...)
+
+	// Capture stderr for better error reporting
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("myloader failed: %w, stderr: %s", err, stderr.String())
+	}
+
+	return nil
+}
+
+func (c *Client) restoreWithMysql(ctx context.Context, backupPath, dbName string) error {
+	// Build mysql command
+	args := []string{
+		fmt.Sprintf("--host=%s", c.config.Host),
+		fmt.Sprintf("--port=%d", c.config.Port),
+		fmt.Sprintf("--user=%s", c.config.Username),
+		dbName,
+	}
+
+	if c.config.Password != "" {
+		args = append(args, fmt.Sprintf("--password=%s", c.config.Password))
+	}
+
+	cmd := exec.CommandContext(ctx, "mysql", args...)
+
+	// Open backup file
+	backupFile, err := os.Open(backupPath)
+	if err != nil {
+		return fmt.Errorf("failed to open backup file: %w", err)
+	}
+	defer backupFile.Close()
+
+	cmd.Stdin = backupFile
+
+	// Capture stderr for better error reporting
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("mysql restore failed: %w, stderr: %s", err, stderr.String())
+	}
+
+	return nil
 }
 
 func (c *Client) Close() error {
