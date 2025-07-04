@@ -1,13 +1,13 @@
 [Unit]
-Description=Database Backup Cleanup Service
+Description=TenangDB Backup Cleanup Service
 After=network.target
 
 [Service]
 Type=oneshot
 User=root
 Group=root
-WorkingDirectory=/opt/db-backup-tool
-ExecStart=/opt/db-backup-tool/db-backup-tool cleanup --config /etc/db-backup-tool/config.yaml
+WorkingDirectory=/opt/tenangdb
+ExecStart=/opt/tenangdb/tenangdb cleanup --config /etc/tenangdb/config.yaml
 Environment=HOME=/root
 StandardOutput=journal
 StandardError=journal

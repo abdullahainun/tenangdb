@@ -1,5 +1,5 @@
 [Unit]
-Description=Database Backup Service
+Description=TenangDB Backup Service
 After=network.target mysqld.service
 Requires=mysqld.service
 
@@ -7,8 +7,8 @@ Requires=mysqld.service
 Type=oneshot
 User=root
 Group=root
-WorkingDirectory=/opt/db-backup-tool
-ExecStart=/opt/db-backup-tool/db-backup-tool --config /etc/db-backup-tool/config.yaml
+WorkingDirectory=/opt/tenangdb
+ExecStart=/opt/tenangdb/tenangdb --config /etc/tenangdb/config.yaml
 Environment=HOME=/root
 StandardOutput=journal
 StandardError=journal

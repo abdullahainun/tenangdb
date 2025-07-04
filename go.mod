@@ -1,4 +1,4 @@
-module db-backup-tool
+module github.com/abdullahainun/tenangdb
 
 go 1.23.0
 

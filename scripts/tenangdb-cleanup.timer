@@ -1,6 +1,6 @@
 [Unit]
-Description=Database Backup Cleanup Timer (Weekend Only)
-Requires=db-backup-cleanup.service
+Description=TenangDB Backup Cleanup Timer (Weekend Only)
+Requires=tenangdb-cleanup.service
 
 [Timer]
 # Run every Saturday at 2 AM
