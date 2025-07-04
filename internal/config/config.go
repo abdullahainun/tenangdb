@@ -13,6 +13,7 @@ type Config struct {
 	Upload   UploadConfig   `mapstructure:"upload"`
 	Logging  LoggingConfig  `mapstructure:"logging"`
 	Cleanup  CleanupConfig  `mapstructure:"cleanup"`
+	Metrics  MetricsConfig  `mapstructure:"metrics"`
 }
 
 type DatabaseConfig struct {
@@ -75,6 +76,11 @@ type CleanupConfig struct {
 	CleanupUploadedFiles bool `mapstructure:"cleanup_uploaded_files"`
 	RemoteRetention      int  `mapstructure:"remote_retention_days"`
 	WeekendOnly          bool `mapstructure:"weekend_only"`
+}
+
+type MetricsConfig struct {
+	Enabled bool   `mapstructure:"enabled"`
+	Port    string `mapstructure:"port"`
 }
 
 func LoadConfig(configPath string) (*Config, error) {
@@ -142,6 +148,9 @@ func setDefaults() {
 	viper.SetDefault("cleanup.cleanup_uploaded_files", true)
 	viper.SetDefault("cleanup.remote_retention_days", 30)
 	viper.SetDefault("cleanup.weekend_only", true)
+
+	viper.SetDefault("metrics.enabled", true)
+	viper.SetDefault("metrics.port", "8080")
 }
 
 func validateConfig(config *Config) error {

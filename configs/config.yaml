@@ -43,6 +43,11 @@ logging:
   level: info
   format: json
   file_path: /home/aal/Workspace/Lab/db-backup-tool/logs/db-backup.log
+
+metrics:
+  enabled: true
+  port: "8080"
+
 # cleanup:
 #   enabled: true
 #   # Local files are cleaned up after successful upload (not time-based)

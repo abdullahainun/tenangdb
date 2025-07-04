@@ -10,6 +10,7 @@ import (
 	"db-backup-tool/internal/backup"
 	"db-backup-tool/internal/config"
 	"db-backup-tool/internal/logger"
+	"db-backup-tool/internal/metrics"
 	"db-backup-tool/pkg/database"
 
 	"github.com/spf13/cobra"
@@ -64,6 +65,17 @@ func run(cmd *cobra.Command, args []string) {
 		// Fallback to stdout logger
 		log = logger.NewLogger(logLevel)
 		log.WithError(err).Warn("Failed to initialize file logger, using stdout")
+	}
+
+	// Initialize Prometheus metrics if enabled
+	if cfg.Metrics.Enabled {
+		metrics.Init()
+		go func() {
+			log.WithField("port", cfg.Metrics.Port).Info("Starting Prometheus metrics server")
+			if err := metrics.StartMetricsServer(cfg.Metrics.Port); err != nil {
+				log.WithError(err).Error("Failed to start metrics server")
+			}
+		}()
 	}
 
 	// Initialize backup service

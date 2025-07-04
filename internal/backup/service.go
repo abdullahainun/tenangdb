@@ -10,6 +10,7 @@ import (
 
 	"db-backup-tool/internal/config"
 	"db-backup-tool/internal/logger"
+	"db-backup-tool/internal/metrics"
 	"db-backup-tool/internal/upload"
 	"db-backup-tool/pkg/database"
 )
@@ -64,16 +65,22 @@ func (s *Service) Run(ctx context.Context) error {
 	s.stats.StartTime = time.Now()
 	s.mu.Unlock()
 
+	// Initialize metrics
+	metrics.SetTotalDatabases(s.stats.TotalDatabases)
+	metrics.RecordBackupStart("")
+
 	s.logger.Info("Starting database backup process")
 	s.logger.WithField("total_databases", s.stats.TotalDatabases).Info("Backup statistics")
 
 	// Create backup directory if it doesn't exist
 	if err := s.createBackupDirectory(); err != nil {
+		metrics.SetBackupProcessStopped()
 		return fmt.Errorf("failed to create backup directory: %w", err)
 	}
 
 	// Process databases in batches
 	if err := s.processDatabasesBatch(ctx); err != nil {
+		metrics.SetBackupProcessStopped()
 		return fmt.Errorf("batch processing failed: %w", err)
 	}
 
@@ -81,6 +88,7 @@ func (s *Service) Run(ctx context.Context) error {
 	s.stats.EndTime = time.Now()
 	s.mu.Unlock()
 
+	metrics.SetBackupProcessStopped()
 	s.logFinalStatistics()
 	return nil
 }
@@ -137,25 +145,41 @@ func (s *Service) processDatabase(ctx context.Context, dbName string) {
 	log := s.logger.WithDatabase(dbName)
 	log.Info("Starting database backup")
 
+	backupStartTime := time.Now()
+
 	// Create backup with retry logic
 	backupPath, err := s.createBackupWithRetry(ctx, dbName)
+	backupDuration := time.Since(backupStartTime)
+	
 	if err != nil {
 		log.WithError(err).Error("Database backup failed")
 		s.incrementFailedBackups()
+		metrics.RecordBackupEnd(dbName, backupDuration, false, 0)
 		return
+	}
+
+	// Get backup size
+	backupSize, sizeErr := s.getBackupSize(backupPath)
+	if sizeErr != nil {
+		log.WithError(sizeErr).Warn("Failed to get backup size")
+		backupSize = 0
 	}
 
 	log.WithField("backup_file", backupPath).Info("Database backup completed successfully")
 	s.incrementSuccessfulBackups()
+	metrics.RecordBackupEnd(dbName, backupDuration, true, backupSize)
 
 	// Upload to cloud if enabled
 	if s.uploader != nil {
+		uploadStartTime := time.Now()
 		if err := s.uploadBackup(ctx, backupPath); err != nil {
 			log.WithError(err).Error("Cloud upload failed")
 			s.incrementFailedUploads()
+			metrics.RecordUploadEnd(dbName, time.Since(uploadStartTime), false)
 		} else {
 			log.Info("Cloud upload completed successfully")
 			s.incrementSuccessfulUploads()
+			metrics.RecordUploadEnd(dbName, time.Since(uploadStartTime), true)
 
 			// Mark backup as uploaded for potential cleanup
 			s.markFileAsUploaded(backupPath)
@@ -389,4 +413,20 @@ func (s *Service) calculateDirectorySize(dirPath string) (int64, error) {
 	})
 
 	return totalSize, err
+}
+
+// getBackupSize calculates the size of a backup file or directory
+func (s *Service) getBackupSize(backupPath string) (int64, error) {
+	info, err := os.Stat(backupPath)
+	if err != nil {
+		return 0, fmt.Errorf("failed to stat backup path: %w", err)
+	}
+
+	if info.IsDir() {
+		// For mydumper directories, calculate total size
+		return s.calculateDirectorySize(backupPath)
+	} else {
+		// For mysqldump files, return file size
+		return info.Size(), nil
+	}
 }
