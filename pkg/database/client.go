@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"db-backup-tool/internal/config"
+	"github.com/abdullahainun/tenangdb/internal/config"
 
 	_ "github.com/go-sql-driver/mysql"
 )
@@ -56,11 +56,11 @@ func NewClient(config *config.DatabaseConfig) (*Client, error) {
 func (c *Client) CreateBackup(ctx context.Context, dbName, backupDir string) (string, error) {
 	now := time.Now()
 	timestamp := now.Format("2006-01-02_15-04-05")
-	
+
 	// Create organized directory structure: database-backup/dbname/YYYY-MM/
 	yearMonth := now.Format("2006-01")
 	organizedBackupDir := filepath.Join(backupDir, dbName, yearMonth)
-	
+
 	// Ensure the organized directory exists
 	if err := os.MkdirAll(organizedBackupDir, 0755); err != nil {
 		return "", fmt.Errorf("failed to create organized backup directory: %w", err)
@@ -85,7 +85,7 @@ func (c *Client) createMydumperBackup(ctx context.Context, dbName, backupDir, ti
 	// Build mydumper command
 	args := []string{
 		"--routines",
-		"--triggers", 
+		"--triggers",
 		"--events",
 		"--no-locks",
 		"--trx-consistency-only",

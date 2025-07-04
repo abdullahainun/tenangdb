@@ -8,11 +8,11 @@ import (
 	"sync"
 	"time"
 
-	"db-backup-tool/internal/config"
-	"db-backup-tool/internal/logger"
-	"db-backup-tool/internal/metrics"
-	"db-backup-tool/internal/upload"
-	"db-backup-tool/pkg/database"
+	"github.com/abdullahainun/tenangdb/internal/config"
+	"github.com/abdullahainun/tenangdb/internal/logger"
+	"github.com/abdullahainun/tenangdb/internal/metrics"
+	"github.com/abdullahainun/tenangdb/internal/upload"
+	"github.com/abdullahainun/tenangdb/pkg/database"
 )
 
 type Service struct {
@@ -150,7 +150,7 @@ func (s *Service) processDatabase(ctx context.Context, dbName string) {
 	// Create backup with retry logic
 	backupPath, err := s.createBackupWithRetry(ctx, dbName)
 	backupDuration := time.Since(backupStartTime)
-	
+
 	if err != nil {
 		log.WithError(err).Error("Database backup failed")
 		s.incrementFailedBackups()

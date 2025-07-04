@@ -4,14 +4,15 @@ import (
 	"context"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
-	"db-backup-tool/internal/backup"
-	"db-backup-tool/internal/config"
-	"db-backup-tool/internal/logger"
-	"db-backup-tool/internal/metrics"
-	"db-backup-tool/pkg/database"
+	"github.com/abdullahainun/tenangdb/internal/backup"
+	"github.com/abdullahainun/tenangdb/internal/config"
+	"github.com/abdullahainun/tenangdb/internal/logger"
+	"github.com/abdullahainun/tenangdb/internal/metrics"
+	"github.com/abdullahainun/tenangdb/pkg/database"
 
 	"github.com/spf13/cobra"
 )
@@ -23,7 +24,7 @@ var (
 
 func main() {
 	var rootCmd = &cobra.Command{
-		Use:   "db-backup-tool",
+		Use:   "tenangdb",
 		Short: "A robust database backup tool with batch processing and cloud upload",
 		Long:  `A Go-based database backup tool that supports batch processing, cloud uploads via rclone, and graceful error handling.`,
 		Run:   run,
@@ -34,7 +35,7 @@ func main() {
 
 	// Add cleanup subcommand
 	rootCmd.AddCommand(newCleanupCommand())
-	
+
 	// Add restore subcommand
 	rootCmd.AddCommand(newRestoreCommand())
 
@@ -102,13 +103,14 @@ func newCleanupCommand() *cobra.Command {
 	var logLevel string
 	var dryRun bool
 	var force bool
+	var databases string
 
 	cmd := &cobra.Command{
 		Use:   "cleanup",
 		Short: "Cleanup uploaded backup files",
 		Long:  `Remove local backup files that have been successfully uploaded to cloud storage.`,
 		Run: func(cmd *cobra.Command, args []string) {
-			runCleanup(configFile, logLevel, dryRun, force)
+			runCleanup(configFile, logLevel, dryRun, force, databases)
 		},
 	}
 
@@ -116,11 +118,12 @@ func newCleanupCommand() *cobra.Command {
 	cmd.Flags().StringVar(&logLevel, "log-level", "info", "log level (debug, info, warn, error)")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "show what would be deleted without actually deleting")
 	cmd.Flags().BoolVar(&force, "force", false, "force cleanup regardless of day (bypass weekend-only restriction)")
+	cmd.Flags().StringVar(&databases, "databases", "", "comma-separated list of databases to cleanup (overrides config)")
 
 	return cmd
 }
 
-func runCleanup(configFile, logLevel string, dryRun bool, force bool) {
+func runCleanup(configFile, logLevel string, dryRun bool, force bool, databases string) {
 	ctx := context.Background()
 
 	// Load configuration first to get log file path
@@ -154,6 +157,24 @@ func runCleanup(configFile, logLevel string, dryRun bool, force bool) {
 		log.Info("Starting weekend cleanup process")
 	}
 
+	// Parse databases from command line and merge with config
+	var selectedDatabases []string
+	if databases != "" {
+		// Command line overrides config
+		selectedDatabases = strings.Split(databases, ",")
+		for i, db := range selectedDatabases {
+			selectedDatabases[i] = strings.TrimSpace(db)
+		}
+		log.Infof("Using databases from command line: %v", selectedDatabases)
+	} else if len(cfg.Cleanup.Databases) > 0 {
+		// Use config databases
+		selectedDatabases = cfg.Cleanup.Databases
+		log.Infof("Using databases from config: %v", selectedDatabases)
+	} else {
+		// No filter, cleanup all databases
+		log.Info("No database filter specified, cleaning up all databases")
+	}
+
 	// Initialize backup service to access uploaded files tracking
 	backupService, err := backup.NewService(cfg, log)
 	if err != nil {
@@ -163,6 +184,12 @@ func runCleanup(configFile, logLevel string, dryRun bool, force bool) {
 	if dryRun {
 		log.Info("DRY RUN MODE: No files will be actually deleted")
 		showFilesToCleanup(backupService, log)
+		
+		// Show age-based cleanup files if enabled
+		if cfg.Cleanup.AgeBasedCleanup {
+			cleanupService := backup.NewCleanupService(&cfg.Cleanup, &cfg.Upload, log)
+			showAgeBasedFilesToCleanup(cleanupService, cfg.Backup.Directory, selectedDatabases, log)
+		}
 		return
 	}
 
@@ -170,6 +197,15 @@ func runCleanup(configFile, logLevel string, dryRun bool, force bool) {
 	if err := backupService.CleanupUploadedFiles(ctx); err != nil {
 		log.WithError(err).Error("Cleanup process failed")
 		os.Exit(1)
+	}
+
+	// Perform age-based cleanup if enabled
+	if cfg.Cleanup.AgeBasedCleanup {
+		cleanupService := backup.NewCleanupService(&cfg.Cleanup, &cfg.Upload, log)
+		if err := cleanupService.CleanupAgeBasedFiles(ctx, cfg.Backup.Directory, selectedDatabases); err != nil {
+			log.WithError(err).Error("Age-based cleanup failed")
+			os.Exit(1)
+		}
 	}
 
 	if force {
@@ -198,6 +234,88 @@ func showFilesToCleanup(service *backup.Service, log *logger.Logger) {
 	for _, file := range filesToClean {
 		log.WithField("file", file).Info("Would delete")
 	}
+}
+
+func showAgeBasedFilesToCleanup(cleanupService *backup.CleanupService, backupDir string, selectedDatabases []string, log *logger.Logger) {
+	// Get old files based on age
+	oldFiles, err := cleanupService.GetOldFiles(backupDir, cleanupService.GetConfig().MaxAgeDays)
+	if err != nil {
+		log.WithError(err).Error("Failed to get old files for age-based cleanup")
+		return
+	}
+
+	// Filter by selected databases if specified
+	if len(selectedDatabases) > 0 {
+		filteredFiles := []string{}
+		for _, file := range oldFiles {
+			if shouldCleanupFile(file, selectedDatabases) {
+				filteredFiles = append(filteredFiles, file)
+			}
+		}
+		oldFiles = filteredFiles
+	}
+
+	if len(oldFiles) == 0 {
+		log.Info("No old files found for age-based cleanup")
+		return
+	}
+
+	log.WithField("old_files_count", len(oldFiles)).Info("Age-based files that would be cleaned up:")
+	for _, file := range oldFiles {
+		log.WithField("file", file).Info("Would delete (age-based)")
+	}
+}
+
+// shouldCleanupFile checks if a file should be cleaned up based on database filter
+func shouldCleanupFile(filePath string, selectedDatabases []string) bool {
+	if len(selectedDatabases) == 0 {
+		return true // no filter, cleanup all
+	}
+
+	// Extract database name from file path
+	// Expected format: /path/to/backup/database_name/file.sql.gz
+	parts := strings.Split(filePath, "/")
+	if len(parts) < 2 {
+		return false
+	}
+
+	// Find database name in path
+	var dbName string
+	for _, part := range parts {
+		if part != "" && part != "." && part != ".." {
+			// Check if this part looks like a database name
+			// by checking if it matches any of the selected databases
+			for _, selectedDB := range selectedDatabases {
+				if strings.Contains(part, selectedDB) {
+					dbName = selectedDB
+					break
+				}
+			}
+			if dbName != "" {
+				break
+			}
+		}
+	}
+
+	// If no database found in path, check filename
+	if dbName == "" {
+		filename := parts[len(parts)-1]
+		for _, selectedDB := range selectedDatabases {
+			if strings.HasPrefix(filename, selectedDB) {
+				dbName = selectedDB
+				break
+			}
+		}
+	}
+
+	// Check if database should be cleaned up
+	for _, selectedDB := range selectedDatabases {
+		if dbName == selectedDB {
+			return true
+		}
+	}
+
+	return false
 }
 
 func newRestoreCommand() *cobra.Command {
