@@ -64,10 +64,10 @@ Untuk setup alerting, tambahkan rules berikut di Prometheus:
 
 ```yaml
 groups:
-  - name: db_backup_alerts
+  - name: tenangdb_alerts
     rules:
       - alert: BackupFailed
-        expr: increase(db_backup_failed_total[1h]) > 0
+        expr: increase(tenangdb_backup_failed_total[1h]) > 0
         for: 0m
         labels:
           severity: critical
@@ -76,7 +76,7 @@ groups:
           description: "Database {{ $labels.database }} backup failed"
 
       - alert: BackupTooSlow
-        expr: histogram_quantile(0.95, rate(db_backup_duration_seconds_bucket[5m])) > 1800
+        expr: histogram_quantile(0.95, rate(tenangdb_backup_duration_seconds_bucket[5m])) > 1800
         for: 5m
         labels:
           severity: warning
@@ -85,7 +85,7 @@ groups:
           description: "Database {{ $labels.database }} backup taking more than 30 minutes"
 
       - alert: NoRecentBackup
-        expr: time() - db_backup_last_timestamp > 86400
+        expr: time() - tenangdb_backup_last_timestamp > 86400
         for: 0m
         labels:
           severity: warning
