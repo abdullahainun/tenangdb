@@ -175,11 +175,11 @@ func (s *Service) processDatabase(ctx context.Context, dbName string) {
 		if err := s.uploadBackup(ctx, backupPath); err != nil {
 			log.WithError(err).Error("Cloud upload failed")
 			s.incrementFailedUploads()
-			metrics.RecordUploadEnd(dbName, time.Since(uploadStartTime), false)
+			metrics.RecordUploadEnd(dbName, "rclone", time.Since(uploadStartTime), false, 0)
 		} else {
 			log.Info("Cloud upload completed successfully")
 			s.incrementSuccessfulUploads()
-			metrics.RecordUploadEnd(dbName, time.Since(uploadStartTime), true)
+			metrics.RecordUploadEnd(dbName, "rclone", time.Since(uploadStartTime), true, backupSize)
 
 			// Mark backup as uploaded for potential cleanup
 			s.markFileAsUploaded(backupPath)
