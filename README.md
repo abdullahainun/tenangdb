@@ -16,23 +16,53 @@ A robust MySQL backup tool with mydumper/mysqldump support, cloud uploads, and c
 
 ## Quick Start
 
+### 1. Install Dependencies
 ```bash
-# Install
-go build -o tenangdb cmd/main.go
+# Test all required dependencies
+make test-deps
 
-# Configure
-cp configs/config.yaml my-config.yaml
-# Edit database credentials and mydumper settings
-
-# Backup
-./tenangdb --config my-config.yaml
-
-# Restore
-./tenangdb restore --backup-path /path/to/backup --database target_db
-
-# Cleanup
-./tenangdb cleanup --force --dry-run
+# Install missing dependencies (Ubuntu/Debian)
+sudo apt update && sudo apt install mydumper mysql-client
+curl https://rclone.org/install.sh | sudo bash
 ```
+
+### 2. Build & Install
+```bash
+# Clone and build
+git clone https://github.com/abdullahainun/tenangdb.git
+cd tenangdb
+make build
+
+# Install system-wide (optional)
+sudo make install
+```
+
+### 3. Configure
+```bash
+# Copy example config
+cp configs/config.yaml /etc/tenangdb/config.yaml
+
+# Edit configuration
+nano /etc/tenangdb/config.yaml
+# Update database credentials, backup directories, etc.
+```
+
+### 4. Usage Examples
+```bash
+# Test configuration
+./tenangdb backup --config configs/config.yaml --dry-run
+
+# Run backup
+./tenangdb backup --config configs/config.yaml
+
+# Selective cleanup
+./tenangdb cleanup --databases myapp,logs --force
+
+# Restore database
+./tenangdb restore --backup-path /backup/myapp-2025-07-05_10-30-15 --target-database myapp_restored
+```
+
+📖 **For detailed installation guide, see [INSTALL.md](INSTALL.md)**
 
 ## Configuration
 
@@ -60,19 +90,39 @@ upload:
 
 ```bash
 # Backup all configured databases
-./tenangdb --config config.yaml
+./tenangdb backup --config config.yaml
+
+# Backup with specific log level
+./tenangdb backup --config config.yaml --log-level debug
 
 # Restore from backup
-./tenangdb restore -b /backup/db-2025-07-04_01-06-02 -d target_db
+./tenangdb restore --backup-path /backup/db-2025-07-04_01-06-02 --target-database restored_db
 
-# Cleanup uploaded files (weekend-only by default)
-./tenangdb cleanup
+# Cleanup uploaded files
+./tenangdb cleanup --config config.yaml
 
-# Force cleanup anytime
-./tenangdb cleanup --force
+# Force cleanup anytime (bypass weekend-only)
+./tenangdb cleanup --force --config config.yaml
+
+# Cleanup specific databases only
+./tenangdb cleanup --databases app_db,logs_db --force
 
 # Preview cleanup (no deletion)
 ./tenangdb cleanup --dry-run --force
+
+# Age-based cleanup with verification
+./tenangdb cleanup --force --config config.yaml  # Uses age_based_cleanup from config
+```
+
+### Log Levels
+Available log levels: `panic`, `fatal`, `error`, `warn`, `info` (default), `debug`, `trace`
+
+```bash
+# Silent mode (errors only)
+./tenangdb backup --log-level error
+
+# Verbose debugging
+./tenangdb backup --log-level trace
 ```
 
 ## Storage Integration
