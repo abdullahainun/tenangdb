@@ -29,6 +29,9 @@ deps:
 
 # Install the application
 install: build
+	sudo cp ${BINARY_NAME} /usr/local/bin/
+	sudo mkdir -p /etc/tenangdb /var/log/tenangdb /opt/tenangdb/backup
+	sudo cp configs/config.yaml /etc/tenangdb/config.yaml.example
 	sudo ./scripts/install.sh
 
 # Uninstall the application
@@ -56,6 +59,10 @@ lint:
 security:
 	gosec ./...
 
+# Test dependencies
+test-deps:
+	./scripts/test-dependencies.sh
+
 # Build Docker image
 docker-build:
 	docker build -t ${BINARY_NAME}:${VERSION} .
@@ -74,4 +81,5 @@ help:
 	@echo "  fmt        - Format code"
 	@echo "  lint       - Lint code"
 	@echo "  security   - Check for security issues"
+	@echo "  test-deps  - Test required dependencies"
 	@echo "  docker-build - Build Docker image"
