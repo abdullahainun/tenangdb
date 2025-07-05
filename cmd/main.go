@@ -60,11 +60,18 @@ func run(cmd *cobra.Command, args []string) {
 		log.WithError(err).Fatal("Failed to load configuration")
 	}
 
-	// Initialize file logger with config
-	log, err := logger.NewFileLogger(logLevel, cfg.Logging.FilePath)
+	// Determine effective log level: CLI flag overrides config
+	effectiveLogLevel := logLevel
+	if logLevel == "info" && cfg.Logging.Level != "" {
+		// If CLI uses default "info" and config has a level set, use config
+		effectiveLogLevel = cfg.Logging.Level
+	}
+
+	// Initialize file logger with effective log level
+	log, err := logger.NewFileLogger(effectiveLogLevel, cfg.Logging.FilePath)
 	if err != nil {
 		// Fallback to stdout logger
-		log = logger.NewLogger(logLevel)
+		log = logger.NewLogger(effectiveLogLevel)
 		log.WithError(err).Warn("Failed to initialize file logger, using stdout")
 	}
 
@@ -134,11 +141,18 @@ func runCleanup(configFile, logLevel string, dryRun bool, force bool, databases 
 		log.WithError(err).Fatal("Failed to load configuration")
 	}
 
-	// Initialize file logger with config
-	log, err := logger.NewFileLogger(logLevel, cfg.Logging.FilePath)
+	// Determine effective log level: CLI flag overrides config
+	effectiveLogLevel := logLevel
+	if logLevel == "info" && cfg.Logging.Level != "" {
+		// If CLI uses default "info" and config has a level set, use config
+		effectiveLogLevel = cfg.Logging.Level
+	}
+
+	// Initialize file logger with effective log level
+	log, err := logger.NewFileLogger(effectiveLogLevel, cfg.Logging.FilePath)
 	if err != nil {
 		// Fallback to stdout logger
-		log = logger.NewLogger(logLevel)
+		log = logger.NewLogger(effectiveLogLevel)
 		log.WithError(err).Warn("Failed to initialize file logger, using stdout")
 	}
 
@@ -355,11 +369,18 @@ func runRestore(configFile, logLevel, backupPath, targetDatabase string) {
 		log.WithError(err).Fatal("Failed to load configuration")
 	}
 
-	// Initialize file logger with config
-	log, err := logger.NewFileLogger(logLevel, cfg.Logging.FilePath)
+	// Determine effective log level: CLI flag overrides config
+	effectiveLogLevel := logLevel
+	if logLevel == "info" && cfg.Logging.Level != "" {
+		// If CLI uses default "info" and config has a level set, use config
+		effectiveLogLevel = cfg.Logging.Level
+	}
+
+	// Initialize file logger with effective log level
+	log, err := logger.NewFileLogger(effectiveLogLevel, cfg.Logging.FilePath)
 	if err != nil {
 		// Fallback to stdout logger
-		log = logger.NewLogger(logLevel)
+		log = logger.NewLogger(effectiveLogLevel)
 		log.WithError(err).Warn("Failed to initialize file logger, using stdout")
 	}
 
