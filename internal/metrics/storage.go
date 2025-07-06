@@ -37,6 +37,27 @@ type UploadMetrics struct {
 	FailureCount    int64     `json:"failure_count"`
 }
 
+// RestoreMetrics represents metrics for restore operations
+type RestoreMetrics struct {
+	Database        string    `json:"database"`
+	LastRestore     time.Time `json:"last_restore"`
+	DurationSeconds float64   `json:"duration_seconds"`
+	Status          string    `json:"status"`
+	SuccessCount    int64     `json:"success_count"`
+	FailureCount    int64     `json:"failure_count"`
+}
+
+// CleanupMetrics represents metrics for cleanup operations
+type CleanupMetrics struct {
+	LastCleanup     time.Time `json:"last_cleanup"`
+	FilesRemoved    int64     `json:"files_removed"`
+	BytesFreed      int64     `json:"bytes_freed"`
+	DurationSeconds float64   `json:"duration_seconds"`
+	Status          string    `json:"status"`
+	SuccessCount    int64     `json:"success_count"`
+	FailureCount    int64     `json:"failure_count"`
+}
+
 // SystemMetrics represents system-level metrics
 type SystemMetrics struct {
 	TotalDatabases      int       `json:"total_databases"`
@@ -47,9 +68,11 @@ type SystemMetrics struct {
 
 // MetricsData represents the complete metrics data structure
 type MetricsData struct {
-	System  SystemMetrics            `json:"system"`
-	Backups map[string]BackupMetrics `json:"backups"`
-	Uploads map[string]UploadMetrics `json:"uploads"`
+	System   SystemMetrics             `json:"system"`
+	Backups  map[string]BackupMetrics  `json:"backups"`
+	Uploads  map[string]UploadMetrics  `json:"uploads"`
+	Restores map[string]RestoreMetrics `json:"restores"`
+	Cleanup  CleanupMetrics            `json:"cleanup"`
 }
 
 // NewMetricsStorage creates a new metrics storage instance
@@ -75,8 +98,10 @@ func (s *MetricsStorage) LoadMetrics() (*MetricsData, error) {
 		System: SystemMetrics{
 			SystemHealthy: true,
 		},
-		Backups: make(map[string]BackupMetrics),
-		Uploads: make(map[string]UploadMetrics),
+		Backups:  make(map[string]BackupMetrics),
+		Uploads:  make(map[string]UploadMetrics),
+		Restores: make(map[string]RestoreMetrics),
+		Cleanup:  CleanupMetrics{},
 	}
 	
 	// Check if file exists
@@ -200,6 +225,62 @@ func (s *MetricsStorage) SetBackupProcessActive(active bool) error {
 	data.System.BackupProcessActive = active
 	if !active {
 		data.System.LastBackupProcess = time.Now()
+	}
+	
+	return s.SaveMetrics(data)
+}
+
+// UpdateRestoreMetrics updates restore metrics for a database
+func (s *MetricsStorage) UpdateRestoreMetrics(database string, duration time.Duration, success bool) error {
+	data, err := s.LoadMetrics()
+	if err != nil {
+		return err
+	}
+	
+	// Get existing metrics or create new
+	restore, exists := data.Restores[database]
+	if !exists {
+		restore = RestoreMetrics{
+			Database: database,
+		}
+	}
+	
+	// Update metrics
+	restore.LastRestore = time.Now()
+	restore.DurationSeconds = duration.Seconds()
+	
+	if success {
+		restore.Status = "success"
+		restore.SuccessCount++
+	} else {
+		restore.Status = "failed"
+		restore.FailureCount++
+	}
+	
+	data.Restores[database] = restore
+	
+	return s.SaveMetrics(data)
+}
+
+// UpdateCleanupMetrics updates cleanup metrics
+func (s *MetricsStorage) UpdateCleanupMetrics(duration time.Duration, success bool, filesRemoved int64, bytesFreed int64) error {
+	data, err := s.LoadMetrics()
+	if err != nil {
+		return err
+	}
+	
+	// Update cleanup metrics
+	data.Cleanup.LastCleanup = time.Now()
+	data.Cleanup.DurationSeconds = duration.Seconds()
+	data.Cleanup.FilesRemoved += filesRemoved
+	data.Cleanup.BytesFreed += bytesFreed
+	
+	if success {
+		data.Cleanup.Status = "success"
+		data.Cleanup.SuccessCount++
+	} else {
+		data.Cleanup.Status = "failed"
+		data.Cleanup.FailureCount++
 	}
 	
 	return s.SaveMetrics(data)

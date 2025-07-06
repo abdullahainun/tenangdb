@@ -27,6 +27,20 @@ type ExporterMetrics struct {
 	uploadBytes       *prometheus.CounterVec
 	uploadTimestamp   *prometheus.GaugeVec
 	
+	// Restore metrics
+	restoreDuration   *prometheus.GaugeVec
+	restoreSuccess    *prometheus.CounterVec
+	restoreFailed     *prometheus.CounterVec
+	restoreTimestamp  *prometheus.GaugeVec
+	
+	// Cleanup metrics
+	cleanupDuration   prometheus.Gauge
+	cleanupSuccess    prometheus.Counter
+	cleanupFailed     prometheus.Counter
+	cleanupFiles      prometheus.Gauge
+	cleanupBytes      prometheus.Gauge
+	cleanupTimestamp  prometheus.Gauge
+	
 	// System metrics
 	totalDatabases    prometheus.Gauge
 	processActive     prometheus.Gauge
@@ -109,6 +123,70 @@ func NewExporterMetrics(storage *MetricsStorage) *ExporterMetrics {
 			},
 			[]string{"database"},
 		),
+		restoreDuration: prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Name: "tenangdb_restore_duration_seconds",
+				Help: "Duration of the last restore operation in seconds",
+			},
+			[]string{"database"},
+		),
+		restoreSuccess: prometheus.NewCounterVec(
+			prometheus.CounterOpts{
+				Name: "tenangdb_restore_success_total",
+				Help: "Total number of successful restores",
+			},
+			[]string{"database"},
+		),
+		restoreFailed: prometheus.NewCounterVec(
+			prometheus.CounterOpts{
+				Name: "tenangdb_restore_failed_total",
+				Help: "Total number of failed restores",
+			},
+			[]string{"database"},
+		),
+		restoreTimestamp: prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Name: "tenangdb_restore_last_timestamp",
+				Help: "Timestamp of the last restore operation",
+			},
+			[]string{"database"},
+		),
+		cleanupDuration: prometheus.NewGauge(
+			prometheus.GaugeOpts{
+				Name: "tenangdb_cleanup_duration_seconds",
+				Help: "Duration of the last cleanup operation in seconds",
+			},
+		),
+		cleanupSuccess: prometheus.NewCounter(
+			prometheus.CounterOpts{
+				Name: "tenangdb_cleanup_success_total",
+				Help: "Total number of successful cleanup operations",
+			},
+		),
+		cleanupFailed: prometheus.NewCounter(
+			prometheus.CounterOpts{
+				Name: "tenangdb_cleanup_failed_total",
+				Help: "Total number of failed cleanup operations",
+			},
+		),
+		cleanupFiles: prometheus.NewGauge(
+			prometheus.GaugeOpts{
+				Name: "tenangdb_cleanup_files_removed_total",
+				Help: "Total number of files removed by cleanup",
+			},
+		),
+		cleanupBytes: prometheus.NewGauge(
+			prometheus.GaugeOpts{
+				Name: "tenangdb_cleanup_bytes_freed_total",
+				Help: "Total bytes freed by cleanup operations",
+			},
+		),
+		cleanupTimestamp: prometheus.NewGauge(
+			prometheus.GaugeOpts{
+				Name: "tenangdb_cleanup_last_timestamp",
+				Help: "Timestamp of the last cleanup operation",
+			},
+		),
 		totalDatabases: prometheus.NewGauge(
 			prometheus.GaugeOpts{
 				Name: "tenangdb_total_databases",
@@ -150,6 +228,16 @@ func (e *ExporterMetrics) Register() {
 		e.uploadFailed,
 		e.uploadBytes,
 		e.uploadTimestamp,
+		e.restoreDuration,
+		e.restoreSuccess,
+		e.restoreFailed,
+		e.restoreTimestamp,
+		e.cleanupDuration,
+		e.cleanupSuccess,
+		e.cleanupFailed,
+		e.cleanupFiles,
+		e.cleanupBytes,
+		e.cleanupTimestamp,
 		e.totalDatabases,
 		e.processActive,
 		e.systemHealth,
@@ -200,6 +288,26 @@ func (e *ExporterMetrics) UpdateMetrics() error {
 		if !upload.LastUpload.IsZero() {
 			e.uploadTimestamp.WithLabelValues(upload.Database).Set(float64(upload.LastUpload.Unix()))
 		}
+	}
+	
+	// Update restore metrics
+	for _, restore := range data.Restores {
+		e.restoreDuration.WithLabelValues(restore.Database).Set(restore.DurationSeconds)
+		e.restoreSuccess.WithLabelValues(restore.Database).Add(float64(restore.SuccessCount))
+		e.restoreFailed.WithLabelValues(restore.Database).Add(float64(restore.FailureCount))
+		if !restore.LastRestore.IsZero() {
+			e.restoreTimestamp.WithLabelValues(restore.Database).Set(float64(restore.LastRestore.Unix()))
+		}
+	}
+	
+	// Update cleanup metrics
+	e.cleanupDuration.Set(data.Cleanup.DurationSeconds)
+	e.cleanupSuccess.Add(float64(data.Cleanup.SuccessCount))
+	e.cleanupFailed.Add(float64(data.Cleanup.FailureCount))
+	e.cleanupFiles.Set(float64(data.Cleanup.FilesRemoved))
+	e.cleanupBytes.Set(float64(data.Cleanup.BytesFreed))
+	if !data.Cleanup.LastCleanup.IsZero() {
+		e.cleanupTimestamp.Set(float64(data.Cleanup.LastCleanup.Unix()))
 	}
 	
 	return nil

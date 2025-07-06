@@ -205,6 +205,13 @@ func runCleanup(configFile, logLevel string, dryRun bool, force bool, databases 
 		log.Info("No database filter specified, cleaning up all databases")
 	}
 
+	// Initialize metrics storage
+	metricsPath := "/var/lib/tenangdb/metrics.json"
+	if cfg.Metrics.Enabled && cfg.Metrics.StoragePath != "" {
+		metricsPath = cfg.Metrics.StoragePath
+	}
+	metricsStorage := metrics.NewMetricsStorage(metricsPath)
+
 	// Initialize backup service to access uploaded files tracking
 	backupService, err := backup.NewService(cfg, log)
 	if err != nil {
@@ -223,9 +230,16 @@ func runCleanup(configFile, logLevel string, dryRun bool, force bool, databases 
 		return
 	}
 
+	// Record cleanup start
+	cleanupStartTime := time.Now()
+	var totalFilesRemoved int64
+	var totalBytesFreed int64
+
 	// Perform cleanup of uploaded files
 	if err := backupService.CleanupUploadedFiles(ctx); err != nil {
 		log.WithError(err).Error("Cleanup process failed")
+		cleanupDuration := time.Since(cleanupStartTime)
+		metricsStorage.UpdateCleanupMetrics(cleanupDuration, false, totalFilesRemoved, totalBytesFreed)
 		os.Exit(1)
 	}
 
@@ -234,9 +248,15 @@ func runCleanup(configFile, logLevel string, dryRun bool, force bool, databases 
 		cleanupService := backup.NewCleanupService(&cfg.Cleanup, &cfg.Upload, log)
 		if err := cleanupService.CleanupAgeBasedFiles(ctx, cfg.Backup.Directory, selectedDatabases); err != nil {
 			log.WithError(err).Error("Age-based cleanup failed")
+			cleanupDuration := time.Since(cleanupStartTime)
+			metricsStorage.UpdateCleanupMetrics(cleanupDuration, false, totalFilesRemoved, totalBytesFreed)
 			os.Exit(1)
 		}
 	}
+
+	// Record successful cleanup
+	cleanupDuration := time.Since(cleanupStartTime)
+	metricsStorage.UpdateCleanupMetrics(cleanupDuration, true, totalFilesRemoved, totalBytesFreed)
 
 	if force {
 		log.Info("Forced cleanup completed successfully")
@@ -407,12 +427,33 @@ func runRestore(configFile, logLevel, backupPath, targetDatabase string) {
 	}
 	defer dbClient.Close()
 
+	// Initialize metrics storage
+	metricsPath := "/var/lib/tenangdb/metrics.json"
+	if cfg.Metrics.Enabled && cfg.Metrics.StoragePath != "" {
+		metricsPath = cfg.Metrics.StoragePath
+	}
+	metricsStorage := metrics.NewMetricsStorage(metricsPath)
+
 	log.WithField("backup_path", backupPath).WithField("target_database", targetDatabase).Info("Starting database restore")
 
+	// Record restore start
+	restoreStartTime := time.Now()
+	metrics.RecordRestoreStart(targetDatabase)
+
 	// Perform restore
-	if err := dbClient.RestoreBackup(ctx, backupPath, targetDatabase); err != nil {
-		log.WithError(err).Fatal("Database restore failed")
+	err = dbClient.RestoreBackup(ctx, backupPath, targetDatabase)
+	restoreDuration := time.Since(restoreStartTime)
+
+	if err != nil {
+		log.WithError(err).Error("Database restore failed")
+		metrics.RecordRestoreEnd(targetDatabase, restoreDuration, false)
+		metricsStorage.UpdateRestoreMetrics(targetDatabase, restoreDuration, false)
+		os.Exit(1)
 	}
+
+	// Record successful restore
+	metrics.RecordRestoreEnd(targetDatabase, restoreDuration, true)
+	metricsStorage.UpdateRestoreMetrics(targetDatabase, restoreDuration, true)
 
 	log.WithField("target_database", targetDatabase).Info("Database restore completed successfully")
 }
