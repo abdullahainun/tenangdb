@@ -22,6 +22,7 @@ type Service struct {
 	uploader      *upload.Service
 	stats         *Statistics
 	uploadedFiles map[string]time.Time // Track uploaded files with timestamp
+	metricsStorage *metrics.MetricsStorage
 	mu            sync.RWMutex
 }
 
@@ -48,12 +49,20 @@ func NewService(cfg *config.Config, log *logger.Logger) (*Service, error) {
 		uploader = upload.NewService(&cfg.Upload, log)
 	}
 
+	// Initialize metrics storage
+	metricsPath := "/var/lib/tenangdb/metrics.json"
+	if cfg.Metrics.Enabled && cfg.Metrics.StoragePath != "" {
+		metricsPath = cfg.Metrics.StoragePath
+	}
+	metricsStorage := metrics.NewMetricsStorage(metricsPath)
+
 	return &Service{
 		config:        cfg,
 		logger:        log,
 		dbClient:      dbClient,
 		uploader:      uploader,
 		uploadedFiles: make(map[string]time.Time),
+		metricsStorage: metricsStorage,
 		stats: &Statistics{
 			TotalDatabases: len(cfg.Backup.Databases),
 		},
@@ -69,6 +78,10 @@ func (s *Service) Run(ctx context.Context) error {
 	metrics.SetTotalDatabases(s.stats.TotalDatabases)
 	metrics.RecordBackupStart("")
 
+	// Update metrics storage
+	s.metricsStorage.SetTotalDatabases(s.stats.TotalDatabases)
+	s.metricsStorage.SetBackupProcessActive(true)
+
 	s.logger.Info("Starting database backup process")
 	s.logger.WithField("total_databases", s.stats.TotalDatabases).Info("Backup statistics")
 
@@ -81,6 +94,7 @@ func (s *Service) Run(ctx context.Context) error {
 	// Process databases in batches
 	if err := s.processDatabasesBatch(ctx); err != nil {
 		metrics.SetBackupProcessStopped()
+		s.metricsStorage.SetBackupProcessActive(false)
 		return fmt.Errorf("batch processing failed: %w", err)
 	}
 
@@ -89,6 +103,7 @@ func (s *Service) Run(ctx context.Context) error {
 	s.mu.Unlock()
 
 	metrics.SetBackupProcessStopped()
+	s.metricsStorage.SetBackupProcessActive(false)
 	s.logFinalStatistics()
 	return nil
 }
@@ -155,6 +170,7 @@ func (s *Service) processDatabase(ctx context.Context, dbName string) {
 		log.WithError(err).Error("Database backup failed")
 		s.incrementFailedBackups()
 		metrics.RecordBackupEnd(dbName, backupDuration, false, 0)
+		s.metricsStorage.UpdateBackupMetrics(dbName, backupDuration, false, 0)
 		return
 	}
 
@@ -168,6 +184,7 @@ func (s *Service) processDatabase(ctx context.Context, dbName string) {
 	log.WithField("backup_file", backupPath).Info("Database backup completed successfully")
 	s.incrementSuccessfulBackups()
 	metrics.RecordBackupEnd(dbName, backupDuration, true, backupSize)
+	s.metricsStorage.UpdateBackupMetrics(dbName, backupDuration, true, backupSize)
 
 	// Upload to cloud if enabled
 	if s.uploader != nil {
@@ -176,10 +193,12 @@ func (s *Service) processDatabase(ctx context.Context, dbName string) {
 			log.WithError(err).Error("Cloud upload failed")
 			s.incrementFailedUploads()
 			metrics.RecordUploadEnd(dbName, "rclone", time.Since(uploadStartTime), false, 0)
+			s.metricsStorage.UpdateUploadMetrics(dbName, time.Since(uploadStartTime), false, 0)
 		} else {
 			log.Info("Cloud upload completed successfully")
 			s.incrementSuccessfulUploads()
 			metrics.RecordUploadEnd(dbName, "rclone", time.Since(uploadStartTime), true, backupSize)
+			s.metricsStorage.UpdateUploadMetrics(dbName, time.Since(uploadStartTime), true, backupSize)
 
 			// Mark backup as uploaded for potential cleanup
 			s.markFileAsUploaded(backupPath)
