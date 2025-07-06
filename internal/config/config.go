@@ -83,8 +83,9 @@ type CleanupConfig struct {
 }
 
 type MetricsConfig struct {
-	Enabled bool   `mapstructure:"enabled"`
-	Port    string `mapstructure:"port"`
+	Enabled     bool   `mapstructure:"enabled"`
+	Port        string `mapstructure:"port"`
+	StoragePath string `mapstructure:"storage_path"`
 }
 
 func LoadConfig(configPath string) (*Config, error) {
