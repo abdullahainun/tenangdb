@@ -1,0 +1,71 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool, specifically when used with LiteIDE
+*.out
+
+# Dependency directories (remove the comment below to include it)
+# vendor/
+
+# Go workspace file
+go.work
+
+# Build artifacts
+/tenangdb
+/db-backup-tool
+build/
+dist/
+
+# Configuration files with sensitive data
+config.local.yaml
+*.local.yaml
+.env
+.env.local
+
+# Log files
+*.log
+logs/
+/var/log/tenangdb/
+
+# Backup directories (for testing)
+backup/
+/opt/tenangdb/backup/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+
+# Rclone config files (may contain secrets)
+rclone.conf
+.rclone.conf
+
+# Test artifacts
+coverage.out
+coverage.html
+
+# Docker
+.dockerignore
+Dockerfile.local
