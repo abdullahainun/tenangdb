@@ -9,13 +9,14 @@ tenangdb [command] [options]
 ```
 
 ### Available Commands
-- `backup` - Run database backup
+- Default (no subcommand) - Run database backup
 - `restore` - Restore database from backup
 - `cleanup` - Clean up old backup files
+- `exporter` - Start Prometheus metrics exporter
 - `version` - Show version information
 - `help` - Show help information
 
-## 🔄 Backup Command
+## 🔄 Default Backup Command
 
 ### Basic Usage
 ```bash
@@ -40,13 +41,13 @@ tenangdb [command] [options]
 ### Examples
 ```bash
 # Backup specific databases
-./tenangdb backup --databases app_db,user_db --config config.yaml
+./tenangdb --databases app_db,user_db --config config.yaml
 
 # Debug mode with verbose output
-./tenangdb backup --log-level trace --config config.yaml
+./tenangdb --log-level trace --config config.yaml
 
 # Test configuration without running backup
-./tenangdb backup --dry-run --config config.yaml
+./tenangdb --dry-run --config config.yaml
 ```
 
 ## 🚀 Restore Command
@@ -135,7 +136,7 @@ rclone copy minio:backups/db-2025-07-05_10-30-15 /tmp/restore/
 ./tenangdb help
 
 # Command-specific help
-./tenangdb backup --help
+./tenangdb --help
 ./tenangdb restore --help
 ./tenangdb cleanup --help
 ```
@@ -180,7 +181,7 @@ These options work with all commands:
 ### Development Workflows
 ```bash
 # Quick backup for development
-./tenangdb backup --databases dev_db --log-level debug
+./tenangdb --databases dev_db --log-level debug
 
 # Restore from production backup
 ./tenangdb restore --backup-path /backup/prod-2025-07-05 --target-database dev_db_copy
@@ -200,10 +201,10 @@ curl -s localhost:8080/metrics | grep tenangdb_backup_status
 ### Debug Connection Issues
 ```bash
 # Test with maximum logging
-./tenangdb backup --log-level trace --dry-run
+./tenangdb --log-level trace --dry-run
 
 # Test specific database
-./tenangdb backup --databases test_db --log-level debug
+./tenangdb --databases test_db --log-level debug
 ```
 
 ### Verify Configuration

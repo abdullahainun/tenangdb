@@ -339,7 +339,7 @@ tenangdb backup --config /etc/tenangdb/config.yaml --dry-run --log-level debug
 ```bash
 # Show help
 tenangdb --help
-tenangdb backup --help
+tenangdb --help
 tenangdb cleanup --help
 tenangdb restore --help
 
