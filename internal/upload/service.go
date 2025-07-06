@@ -68,6 +68,11 @@ func (s *Service) uploadFile(ctx context.Context, filePath string) error {
 		"--checksum",
 	}
 
+	// Add config path if specified
+	if s.config.RcloneConfigPath != "" {
+		args = append(args, "--config", s.config.RcloneConfigPath)
+	}
+
 	cmd := exec.CommandContext(uploadCtx, s.config.RclonePath, args...)
 
 	// Execute command
@@ -96,6 +101,11 @@ func (s *Service) CleanupRemote(ctx context.Context, retentionDays int) error {
 		s.config.Destination,
 		"--min-age", fmt.Sprintf("%dd", retentionDays),
 		"--dry-run", // Remove this flag in production
+	}
+
+	// Add config path if specified
+	if s.config.RcloneConfigPath != "" {
+		args = append(args, "--config", s.config.RcloneConfigPath)
 	}
 
 	cmd := exec.CommandContext(cleanupCtx, s.config.RclonePath, args...)

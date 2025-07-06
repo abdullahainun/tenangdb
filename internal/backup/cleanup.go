@@ -75,7 +75,14 @@ func (c *CleanupService) verifyFileExistsInCloud(localPath, backupDir string) bo
 		rclonePath = "/usr/bin/rclone"
 	}
 
-	cmd := exec.Command(rclonePath, "lsf", remotePath)
+	args := []string{"lsf", remotePath}
+	
+	// Add config path if specified
+	if c.uploadConfig.RcloneConfigPath != "" {
+		args = append(args, "--config", c.uploadConfig.RcloneConfigPath)
+	}
+
+	cmd := exec.Command(rclonePath, args...)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		c.logger.WithError(err).Debugf("File %s not found in cloud or rclone error", remotePath)

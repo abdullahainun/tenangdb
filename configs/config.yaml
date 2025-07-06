@@ -42,6 +42,7 @@ backup:
 upload:
   enabled: false # Upload to remote storage is disabled
 #   rclone_path: /usr/bin/rclone  # Path to rclone binary (commented out)
+#   rclone_config_path: /etc/tenangdb/rclone.conf  # Path to rclone config file (commented out)
 #   destination: "idriveomni:sgp1-omni/databases/"  # Remote destination path (commented out)
 #   timeout: 300  # Upload timeout in seconds (commented out)
 #   retry_count: 3  # Number of upload retry attempts (commented out)

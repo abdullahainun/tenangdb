@@ -83,6 +83,7 @@ backup:
   
 upload:
   enabled: true
+  rclone_config_path: /etc/tenangdb/rclone.conf
   destination: "minio:bucket/backups/"
 ```
 
