@@ -1,0 +1,67 @@
+# GitHub Pages Configuration for TenangDB
+
+# Site settings
+title: "TenangDB - Backup yang Bikin Tenang"
+description: "A comprehensive MySQL backup solution that lets you sleep peacefully knowing your databases are safe, automatically backed up, uploaded to cloud storage, and ready for instant restore."
+url: "https://abdullahainun.github.io"
+baseurl: "/tenangdb"
+
+# Repository
+repository: "abdullahainun/tenangdb"
+
+# Author
+author:
+  name: "Abdullah Ainun Najib"
+  email: "your-email@example.com"
+  url: "https://github.com/abdullahainun"
+
+# Social
+github_username: abdullahainun
+
+# Build settings
+markdown: kramdown
+highlighter: rouge
+
+# GitHub Pages settings
+plugins:
+  - jekyll-feed
+  - jekyll-sitemap
+  - jekyll-seo-tag
+
+# Exclude files from processing
+exclude:
+  - README.md
+  - Gemfile
+  - Gemfile.lock
+  - node_modules
+  - vendor
+
+# Include files
+include:
+  - _pages
+
+# Collections
+collections:
+  docs:
+    output: true
+    permalink: /:collection/:name/
+
+# Defaults
+defaults:
+  - scope:
+      path: ""
+      type: "pages"
+    values:
+      layout: "default"
+  - scope:
+      path: ""
+      type: "docs"
+    values:
+      layout: "docs"
+
+# SEO
+google_analytics: # Add your GA tracking ID if needed
+google_site_verification: # Add your verification code if needed
+
+# Theme
+remote_theme: # Leave empty for custom theme
