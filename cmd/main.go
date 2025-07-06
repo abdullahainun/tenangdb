@@ -93,16 +93,29 @@ func run(cmd *cobra.Command, args []string) {
 	}
 
 	// Start backup process
+	done := make(chan error, 1)
 	go func() {
-		if err := backupService.Run(ctx); err != nil {
-			log.WithError(err).Error("Backup process failed")
-		}
+		done <- backupService.Run(ctx)
 	}()
 
-	// Wait for shutdown signal
-	<-sigChan
-	log.Info("Received shutdown signal, gracefully shutting down...")
-	cancel()
+	// Wait for backup completion or shutdown signal
+	select {
+	case err := <-done:
+		if err != nil {
+			log.WithError(err).Error("Backup process failed")
+			os.Exit(1)
+		}
+		log.Info("Backup process completed successfully")
+	case <-sigChan:
+		log.Info("Received shutdown signal, gracefully shutting down...")
+		cancel()
+		// Wait for backup to finish gracefully
+		select {
+		case <-done:
+		case <-time.After(30 * time.Second):
+			log.Warn("Backup process did not finish within 30 seconds, forcing exit")
+		}
+	}
 }
 
 func newCleanupCommand() *cobra.Command {
