@@ -1,161 +1,69 @@
 # TenangDB
 
-A robust MySQL backup tool with mydumper/mysqldump support, cloud uploads, and comprehensive management features.
+🛡️ **Backup yang Bikin Tenang** - A comprehensive MySQL backup solution that lets you sleep peacefully knowing your databases are safe, automatically backed up, uploaded to cloud storage, and ready for instant restore.
 
-🔗 **Repository:** https://github.com/abdullahainun/tenangdb
+*No more worries about database disasters. TenangDB has got you covered.*
 
-## Features
+## Why Choose TenangDB?
 
-- **Dual Backup Engine**: mydumper (parallel) + mysqldump (traditional)
-- **Backup Management**: Automated backup, restore, and cleanup
-- **Cloud Storage**: Upload to S3, Minio, or any rclone-supported storage
-- **Mydumper Integration**: Defaults-file support (~/.my.cnf, ~/.my_restore.cnf)
-- **Batch Processing**: Handle multiple databases efficiently
-- **Structured Logging**: JSON logs with detailed statistics
-- **Systemd Ready**: Service and timer integration
+✅ **Peace of Mind**: Automated daily backups with cloud redundancy  
+✅ **Disaster Recovery**: One-command restore from any backup point  
+✅ **Zero Maintenance**: Set it once, runs forever with intelligent cleanup  
+✅ **Enterprise Grade**: Battle-tested with parallel processing & monitoring  
 
-## Quick Start
+## 🚀 Quick Start
 
-### 1. Install Dependencies
 ```bash
-# Test all required dependencies
+# 1. Install dependencies
 make test-deps
 
-# Install missing dependencies (Ubuntu/Debian)
-sudo apt update && sudo apt install mydumper mysql-client
-curl https://rclone.org/install.sh | sudo bash
-```
-
-### 2. Build & Install
-```bash
-# Clone and build
+# 2. Build TenangDB
 git clone https://github.com/abdullahainun/tenangdb.git
-cd tenangdb
-make build
+cd tenangdb && make build
 
-# Install system-wide (optional)
-sudo make install
-```
-
-### 3. Configure
-```bash
-# Copy example config
+# 3. Configure
 cp configs/config.yaml /etc/tenangdb/config.yaml
+nano /etc/tenangdb/config.yaml  # Update your database credentials
 
-# Edit configuration
-nano /etc/tenangdb/config.yaml
-# Update database credentials, backup directories, etc.
+# 4. Run your first backup
+./tenangdb backup --config /etc/tenangdb/config.yaml
 ```
 
-### 4. Usage Examples
-```bash
-# Test configuration
-./tenangdb backup --config configs/config.yaml --dry-run
-
-# Run backup
-./tenangdb backup --config configs/config.yaml
-
-# Selective cleanup
-./tenangdb cleanup --databases myapp,logs --force
-
-# Restore database
-./tenangdb restore --backup-path /backup/myapp-2025-07-05_10-30-15 --target-database myapp_restored
-```
-
-📖 **For detailed installation guide, see [INSTALL.md](INSTALL.md)**
-
-## Configuration
-
-```yaml
-database:
-  mydumper:
-    enabled: true
-    defaults_file: ~/.my.cnf
-    threads: 4
-    compress_method: gzip
-    myloader:
-      enabled: true
-      defaults_file: ~/.my_restore.cnf
-
-backup:
-  directory: /backup
-  databases: [db1, db2]
-  
-upload:
-  enabled: true
-  rclone_config_path: /etc/tenangdb/rclone.conf
-  destination: "minio:bucket/backups/"
-```
-
-## Commands
+## 📋 Basic Commands
 
 ```bash
-# Backup all configured databases
+# Backup databases
 ./tenangdb backup --config config.yaml
 
-# Backup with specific log level
-./tenangdb backup --config config.yaml --log-level debug
+# Restore database
+./tenangdb restore --backup-path /backup/db-2025-07-05_10-30-15 --target-database restored_db
 
-# Restore from backup
-./tenangdb restore --backup-path /backup/db-2025-07-04_01-06-02 --target-database restored_db
-
-# Cleanup uploaded files
+# Cleanup old backups
 ./tenangdb cleanup --config config.yaml
-
-# Force cleanup anytime (bypass weekend-only)
-./tenangdb cleanup --force --config config.yaml
-
-# Cleanup specific databases only
-./tenangdb cleanup --databases app_db,logs_db --force
-
-# Preview cleanup (no deletion)
-./tenangdb cleanup --dry-run --force
-
-# Age-based cleanup with verification
-./tenangdb cleanup --force --config config.yaml  # Uses age_based_cleanup from config
 ```
 
-### Log Levels
-Available log levels: `panic`, `fatal`, `error`, `warn`, `info` (default), `debug`, `trace`
+## 📚 Documentation
 
-```bash
-# Silent mode (errors only)
-./tenangdb backup --log-level error
+- 📖 **[Installation Guide](INSTALL.md)** - Complete setup instructions
+- ⚙️ **[Configuration Guide](configs/README.md)** - Configuration options & examples
+- 📊 **[Monitoring Setup](grafana/README.md)** - Grafana dashboard import
+- 🔧 **[Commands Reference](docs/COMMANDS.md)** - All available commands & options
 
-# Verbose debugging
-./tenangdb backup --log-level trace
-```
+## 🎯 Key Features
 
-## Storage Integration
+- **🔄 Dual Backup Engine**: mydumper (parallel) + mysqldump (traditional)
+- **📤 Cloud Integration**: Auto-upload to S3, Minio, or any rclone-supported storage
+- **🚀 One-Click Restore**: Instant database recovery from any backup
+- **🧹 Smart Cleanup**: Age-based cleanup with cloud verification
+- **📊 Monitoring Ready**: Prometheus metrics + Grafana dashboard
+- **⚙️ Production Ready**: Systemd services, structured logging, security hardening
 
-### Minio Setup
-```bash
-# Configure rclone for Minio
-rclone config  # Add S3-compatible endpoint
+## 🤝 Support
 
-# Test connection
-rclone lsd minio:bucket-name
-```
+- 🐛 **Issues**: [GitHub Issues](https://github.com/abdullahainun/tenangdb/issues)
+- 📖 **Documentation**: Check the files in `/docs` folder
+- 💡 **Feature Requests**: Open an issue with enhancement label
 
-### Cloud Storage
-Supports any rclone backend: AWS S3, Google Cloud, Azure, Dropbox, etc.
+## 📄 License
 
-## Production Deployment
-
-```bash
-# Install as systemd service
-sudo cp scripts/*.service /etc/systemd/system/
-sudo systemctl enable tenangdb.timer
-sudo systemctl start tenangdb.timer
-```
-
-## Security
-
-- Uses dedicated backup users with minimal privileges
-- Supports defaults-file for credential management
-- No passwords in config files or logs
-- Systemd hardening enabled
-
-## License
-
-MIT License - See LICENSE file for details
+MIT License - See [LICENSE](LICENSE) file for details
