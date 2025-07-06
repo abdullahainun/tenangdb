@@ -15,28 +15,28 @@ import (
 type ExporterMetrics struct {
 	// Backup metrics
 	backupDuration    *prometheus.GaugeVec
-	backupSuccess     *prometheus.CounterVec
-	backupFailed      *prometheus.CounterVec
+	backupSuccess     *prometheus.GaugeVec  // Changed to Gauge to allow setting exact values
+	backupFailed      *prometheus.GaugeVec  // Changed to Gauge to allow setting exact values
 	backupSize        *prometheus.GaugeVec
 	backupTimestamp   *prometheus.GaugeVec
 	
 	// Upload metrics
 	uploadDuration    *prometheus.GaugeVec
-	uploadSuccess     *prometheus.CounterVec
-	uploadFailed      *prometheus.CounterVec
-	uploadBytes       *prometheus.CounterVec
+	uploadSuccess     *prometheus.GaugeVec  // Changed to Gauge to allow setting exact values
+	uploadFailed      *prometheus.GaugeVec  // Changed to Gauge to allow setting exact values
+	uploadBytes       *prometheus.GaugeVec  // Changed to Gauge to allow setting exact values
 	uploadTimestamp   *prometheus.GaugeVec
 	
 	// Restore metrics
 	restoreDuration   *prometheus.GaugeVec
-	restoreSuccess    *prometheus.CounterVec
-	restoreFailed     *prometheus.CounterVec
+	restoreSuccess    *prometheus.GaugeVec  // Changed to Gauge to allow setting exact values
+	restoreFailed     *prometheus.GaugeVec  // Changed to Gauge to allow setting exact values
 	restoreTimestamp  *prometheus.GaugeVec
 	
 	// Cleanup metrics
 	cleanupDuration   prometheus.Gauge
-	cleanupSuccess    prometheus.Counter
-	cleanupFailed     prometheus.Counter
+	cleanupSuccess    prometheus.Gauge      // Changed to Gauge to allow setting exact values
+	cleanupFailed     prometheus.Gauge      // Changed to Gauge to allow setting exact values
 	cleanupFiles      prometheus.Gauge
 	cleanupBytes      prometheus.Gauge
 	cleanupTimestamp  prometheus.Gauge
@@ -60,15 +60,15 @@ func NewExporterMetrics(storage *MetricsStorage) *ExporterMetrics {
 			},
 			[]string{"database"},
 		),
-		backupSuccess: prometheus.NewCounterVec(
-			prometheus.CounterOpts{
+		backupSuccess: prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
 				Name: "tenangdb_backup_success_total",
 				Help: "Total number of successful backups",
 			},
 			[]string{"database"},
 		),
-		backupFailed: prometheus.NewCounterVec(
-			prometheus.CounterOpts{
+		backupFailed: prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
 				Name: "tenangdb_backup_failed_total",
 				Help: "Total number of failed backups",
 			},
@@ -95,22 +95,22 @@ func NewExporterMetrics(storage *MetricsStorage) *ExporterMetrics {
 			},
 			[]string{"database"},
 		),
-		uploadSuccess: prometheus.NewCounterVec(
-			prometheus.CounterOpts{
+		uploadSuccess: prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
 				Name: "tenangdb_upload_success_total",
 				Help: "Total number of successful uploads",
 			},
 			[]string{"database"},
 		),
-		uploadFailed: prometheus.NewCounterVec(
-			prometheus.CounterOpts{
+		uploadFailed: prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
 				Name: "tenangdb_upload_failed_total",
 				Help: "Total number of failed uploads",
 			},
 			[]string{"database"},
 		),
-		uploadBytes: prometheus.NewCounterVec(
-			prometheus.CounterOpts{
+		uploadBytes: prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
 				Name: "tenangdb_upload_bytes_total",
 				Help: "Total bytes uploaded",
 			},
@@ -130,15 +130,15 @@ func NewExporterMetrics(storage *MetricsStorage) *ExporterMetrics {
 			},
 			[]string{"database"},
 		),
-		restoreSuccess: prometheus.NewCounterVec(
-			prometheus.CounterOpts{
+		restoreSuccess: prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
 				Name: "tenangdb_restore_success_total",
 				Help: "Total number of successful restores",
 			},
 			[]string{"database"},
 		),
-		restoreFailed: prometheus.NewCounterVec(
-			prometheus.CounterOpts{
+		restoreFailed: prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
 				Name: "tenangdb_restore_failed_total",
 				Help: "Total number of failed restores",
 			},
@@ -157,14 +157,14 @@ func NewExporterMetrics(storage *MetricsStorage) *ExporterMetrics {
 				Help: "Duration of the last cleanup operation in seconds",
 			},
 		),
-		cleanupSuccess: prometheus.NewCounter(
-			prometheus.CounterOpts{
+		cleanupSuccess: prometheus.NewGauge(
+			prometheus.GaugeOpts{
 				Name: "tenangdb_cleanup_success_total",
 				Help: "Total number of successful cleanup operations",
 			},
 		),
-		cleanupFailed: prometheus.NewCounter(
-			prometheus.CounterOpts{
+		cleanupFailed: prometheus.NewGauge(
+			prometheus.GaugeOpts{
 				Name: "tenangdb_cleanup_failed_total",
 				Help: "Total number of failed cleanup operations",
 			},
@@ -271,8 +271,8 @@ func (e *ExporterMetrics) UpdateMetrics() error {
 	// Update backup metrics
 	for _, backup := range data.Backups {
 		e.backupDuration.WithLabelValues(backup.Database).Set(backup.DurationSeconds)
-		e.backupSuccess.WithLabelValues(backup.Database).Add(float64(backup.SuccessCount))
-		e.backupFailed.WithLabelValues(backup.Database).Add(float64(backup.FailureCount))
+		e.backupSuccess.WithLabelValues(backup.Database).Set(float64(backup.SuccessCount))
+		e.backupFailed.WithLabelValues(backup.Database).Set(float64(backup.FailureCount))
 		e.backupSize.WithLabelValues(backup.Database).Set(float64(backup.SizeBytes))
 		if !backup.LastBackup.IsZero() {
 			e.backupTimestamp.WithLabelValues(backup.Database).Set(float64(backup.LastBackup.Unix()))
@@ -282,9 +282,9 @@ func (e *ExporterMetrics) UpdateMetrics() error {
 	// Update upload metrics
 	for _, upload := range data.Uploads {
 		e.uploadDuration.WithLabelValues(upload.Database).Set(upload.DurationSeconds)
-		e.uploadSuccess.WithLabelValues(upload.Database).Add(float64(upload.SuccessCount))
-		e.uploadFailed.WithLabelValues(upload.Database).Add(float64(upload.FailureCount))
-		e.uploadBytes.WithLabelValues(upload.Database).Add(float64(upload.BytesUploaded))
+		e.uploadSuccess.WithLabelValues(upload.Database).Set(float64(upload.SuccessCount))
+		e.uploadFailed.WithLabelValues(upload.Database).Set(float64(upload.FailureCount))
+		e.uploadBytes.WithLabelValues(upload.Database).Set(float64(upload.BytesUploaded))
 		if !upload.LastUpload.IsZero() {
 			e.uploadTimestamp.WithLabelValues(upload.Database).Set(float64(upload.LastUpload.Unix()))
 		}
@@ -293,8 +293,8 @@ func (e *ExporterMetrics) UpdateMetrics() error {
 	// Update restore metrics
 	for _, restore := range data.Restores {
 		e.restoreDuration.WithLabelValues(restore.Database).Set(restore.DurationSeconds)
-		e.restoreSuccess.WithLabelValues(restore.Database).Add(float64(restore.SuccessCount))
-		e.restoreFailed.WithLabelValues(restore.Database).Add(float64(restore.FailureCount))
+		e.restoreSuccess.WithLabelValues(restore.Database).Set(float64(restore.SuccessCount))
+		e.restoreFailed.WithLabelValues(restore.Database).Set(float64(restore.FailureCount))
 		if !restore.LastRestore.IsZero() {
 			e.restoreTimestamp.WithLabelValues(restore.Database).Set(float64(restore.LastRestore.Unix()))
 		}
@@ -302,8 +302,8 @@ func (e *ExporterMetrics) UpdateMetrics() error {
 	
 	// Update cleanup metrics
 	e.cleanupDuration.Set(data.Cleanup.DurationSeconds)
-	e.cleanupSuccess.Add(float64(data.Cleanup.SuccessCount))
-	e.cleanupFailed.Add(float64(data.Cleanup.FailureCount))
+	e.cleanupSuccess.Set(float64(data.Cleanup.SuccessCount))
+	e.cleanupFailed.Set(float64(data.Cleanup.FailureCount))
 	e.cleanupFiles.Set(float64(data.Cleanup.FilesRemoved))
 	e.cleanupBytes.Set(float64(data.Cleanup.BytesFreed))
 	if !data.Cleanup.LastCleanup.IsZero() {
