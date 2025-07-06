@@ -8,7 +8,7 @@ Type=oneshot
 User=root
 Group=root
 WorkingDirectory=/opt/tenangdb
-ExecStart=/opt/tenangdb/tenangdb --config /etc/tenangdb/config.yaml
+ExecStart=/opt/tenangdb/tenangdb backup --config /etc/tenangdb/config.yaml
 Environment=HOME=/root
 StandardOutput=journal
 StandardError=journal

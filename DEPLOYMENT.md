@@ -99,7 +99,7 @@ sudo systemctl start tenangdb.timer
 
 ```bash
 # Manual backup (exits after completion)
-tenangdb --config /etc/tenangdb/config.yaml
+tenangdb backup --config /etc/tenangdb/config.yaml
 
 # Cleanup operations  
 tenangdb cleanup --config /etc/tenangdb/config.yaml --force
@@ -219,7 +219,7 @@ tenangdb_last_process_timestamp
 
 ```bash
 # Test backup with metrics
-tenangdb --config /etc/tenangdb/config.yaml
+tenangdb backup --config /etc/tenangdb/config.yaml
 
 # Verify metrics file created
 cat /var/lib/tenangdb/metrics.json

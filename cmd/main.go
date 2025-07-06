@@ -32,6 +32,15 @@ func main() {
 
 	rootCmd.PersistentFlags().StringVar(&configFile, "config", "configs/config.yaml", "config file path")
 	rootCmd.PersistentFlags().StringVar(&logLevel, "log-level", "info", "log level (debug, info, warn, error)")
+	
+	// Add flags for backward compatibility with default command
+	var dryRun bool
+	var databases string
+	rootCmd.Flags().BoolVar(&dryRun, "dry-run", false, "show what would be backed up without actually running backup (deprecated: use 'tenangdb backup --dry-run')")
+	rootCmd.Flags().StringVar(&databases, "databases", "", "comma-separated list of databases to backup (deprecated: use 'tenangdb backup --databases')")
+
+	// Add backup subcommand (new explicit command)
+	rootCmd.AddCommand(newBackupCommand())
 
 	// Add cleanup subcommand
 	rootCmd.AddCommand(newCleanupCommand())
@@ -47,7 +56,30 @@ func main() {
 	}
 }
 
-func run(cmd *cobra.Command, args []string) {
+func newBackupCommand() *cobra.Command {
+	var configFile string
+	var logLevel string
+	var dryRun bool
+	var databases string
+
+	cmd := &cobra.Command{
+		Use:   "backup",
+		Short: "Run database backup",
+		Long:  `Backup databases to local directory with optional cloud upload.`,
+		Run: func(cmd *cobra.Command, args []string) {
+			runBackup(configFile, logLevel, dryRun, databases)
+		},
+	}
+
+	cmd.Flags().StringVar(&configFile, "config", "configs/config.yaml", "config file path")
+	cmd.Flags().StringVar(&logLevel, "log-level", "info", "log level (debug, info, warn, error)")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "show what would be backed up without actually running backup")
+	cmd.Flags().StringVar(&databases, "databases", "", "comma-separated list of databases to backup (overrides config)")
+
+	return cmd
+}
+
+func runBackup(configFile, logLevel string, dryRun bool, databases string) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -63,6 +95,17 @@ func run(cmd *cobra.Command, args []string) {
 		log.WithError(err).Fatal("Failed to load configuration")
 	}
 
+	// Override databases from command line if specified
+	if databases != "" {
+		selectedDatabases := strings.Split(databases, ",")
+		for i, db := range selectedDatabases {
+			selectedDatabases[i] = strings.TrimSpace(db)
+		}
+		cfg.Backup.Databases = selectedDatabases
+		log := logger.NewLogger(logLevel)
+		log.Infof("Using databases from command line: %v", selectedDatabases)
+	}
+
 	// Determine effective log level: CLI flag overrides config
 	effectiveLogLevel := logLevel
 	if logLevel == "info" && cfg.Logging.Level != "" {
@@ -76,6 +119,16 @@ func run(cmd *cobra.Command, args []string) {
 		// Fallback to stdout logger
 		log = logger.NewLogger(effectiveLogLevel)
 		log.WithError(err).Warn("Failed to initialize file logger, using stdout")
+	}
+
+	if dryRun {
+		log.Info("DRY RUN MODE: No actual backup will be performed")
+		log.WithField("databases", cfg.Backup.Databases).Info("Would backup these databases")
+		log.WithField("backup_directory", cfg.Backup.Directory).Info("Backup directory")
+		if cfg.Upload.Enabled {
+			log.WithField("upload_destination", cfg.Upload.Destination).Info("Would upload to")
+		}
+		return
 	}
 
 	// Initialize Prometheus metrics if enabled
@@ -119,6 +172,19 @@ func run(cmd *cobra.Command, args []string) {
 			log.Warn("Backup process did not finish within 30 seconds, forcing exit")
 		}
 	}
+}
+
+func run(cmd *cobra.Command, args []string) {
+	// Get flags from the command
+	dryRun, _ := cmd.Flags().GetBool("dry-run")
+	databases, _ := cmd.Flags().GetString("databases")
+	
+	// Show deprecation notice for backward compatibility
+	log := logger.NewLogger(logLevel)
+	log.Warn("DEPRECATED: Running tenangdb without 'backup' subcommand is deprecated. Use 'tenangdb backup' instead.")
+	
+	// Call the new backup function for backward compatibility
+	runBackup(configFile, logLevel, dryRun, databases)
 }
 
 func newCleanupCommand() *cobra.Command {
