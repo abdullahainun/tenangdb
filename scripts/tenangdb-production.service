@@ -5,11 +5,11 @@ Requires=mysql.service
 
 [Service]
 Type=oneshot
-User=root
-Group=root
+User=tenangdb
+Group=tenangdb
 WorkingDirectory=/opt/tenangdb
 ExecStart=/opt/tenangdb/tenangdb backup --config /etc/tenangdb/config.yaml
-Environment=HOME=/root
+Environment=HOME=/opt/tenangdb
 StandardOutput=journal
 StandardError=journal
 TimeoutStartSec=3600
@@ -20,7 +20,7 @@ TimeoutStopSec=300
 #PrivateTmp=true
 #ProtectSystem=strict
 #ProtectHome=true
-#ReadWritePaths=/backup /var/log /tmp
+#ReadWritePaths=/backup /var/log/tenangdb /tmp
 #ProtectKernelTunables=true
 #ProtectKernelModules=true
 #ProtectControlGroups=true

@@ -48,6 +48,7 @@ nano /etc/tenangdb/config.yaml  # Update your database credentials
 - ⚙️ **[Configuration Guide](configs/README.md)** - Configuration options & examples
 - 📊 **[Monitoring Setup](grafana/README.md)** - Grafana dashboard import
 - 🔧 **[Commands Reference](docs/COMMANDS.md)** - All available commands & options
+- 🔐 **[Security Guide](docs/SECURITY.md)** - Security best practices & hardening
 
 ## 🎯 Key Features
 

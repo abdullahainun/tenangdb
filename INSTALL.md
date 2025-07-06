@@ -231,9 +231,11 @@ sudo cp scripts/tenangdb-cleanup.timer /etc/systemd/system/
 
 ### **2. Create Service User**
 ```bash
-# Create dedicated user
-sudo useradd -r -s /bin/false tenangdb
-sudo chown -R tenangdb:tenangdb /opt/tenangdb /var/log/tenangdb
+# Create dedicated user (no login shell for security)
+sudo useradd -r -s /bin/false -d /opt/tenangdb tenangdb
+
+# Set proper ownership
+sudo chown -R tenangdb:tenangdb /opt/tenangdb /var/log/tenangdb /backup
 ```
 
 ### **3. Enable and Start Services**

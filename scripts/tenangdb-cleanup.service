@@ -4,11 +4,11 @@ After=network.target
 
 [Service]
 Type=oneshot
-User=root
-Group=root
+User=tenangdb
+Group=tenangdb
 WorkingDirectory=/opt/tenangdb
 ExecStart=/opt/tenangdb/tenangdb cleanup --config /etc/tenangdb/config.yaml
-Environment=HOME=/root
+Environment=HOME=/opt/tenangdb
 StandardOutput=journal
 StandardError=journal
 TimeoutStartSec=1800
@@ -19,7 +19,7 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/backup /var/log /tmp
+ReadWritePaths=/backup /var/log/tenangdb /tmp
 ProtectKernelTunables=true
 ProtectKernelModules=true
 ProtectControlGroups=true

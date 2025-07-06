@@ -10,6 +10,12 @@ LOG_DIR="/var/log/tenangdb"
 
 echo "Installing TenangDB..."
 
+# Create dedicated user
+if ! id -u tenangdb >/dev/null 2>&1; then
+    echo "Creating tenangdb user..."
+    sudo useradd -r -s /bin/false -d "$INSTALL_DIR" tenangdb
+fi
+
 # Create directories
 sudo mkdir -p "$INSTALL_DIR"
 sudo mkdir -p "$CONFIG_DIR"
@@ -29,9 +35,13 @@ sudo cp ./scripts/tenangdb-cleanup.service /etc/systemd/system/
 sudo cp ./scripts/tenangdb-cleanup.timer /etc/systemd/system/
 
 # Set permissions
-sudo chown -R root:root "$INSTALL_DIR"
-sudo chown -R root:root "$CONFIG_DIR"
-sudo chown -R root:root "$LOG_DIR"
+sudo chown -R tenangdb:tenangdb "$INSTALL_DIR"
+sudo chown -R tenangdb:tenangdb "$CONFIG_DIR"
+sudo chown -R tenangdb:tenangdb "$LOG_DIR"
+
+# Ensure tenangdb user can access backup directory
+sudo mkdir -p /backup
+sudo chown -R tenangdb:tenangdb /backup
 
 # Reload systemd
 sudo systemctl daemon-reload
