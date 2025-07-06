@@ -58,11 +58,12 @@ type MyloaderConfig struct {
 }
 
 type UploadConfig struct {
-	Enabled     bool   `mapstructure:"enabled"`
-	RclonePath  string `mapstructure:"rclone_path"`
-	Destination string `mapstructure:"destination"`
-	Timeout     int    `mapstructure:"timeout"`
-	RetryCount  int    `mapstructure:"retry_count"`
+	Enabled          bool   `mapstructure:"enabled"`
+	RclonePath       string `mapstructure:"rclone_path"`
+	RcloneConfigPath string `mapstructure:"rclone_config_path"`
+	Destination      string `mapstructure:"destination"`
+	Timeout          int    `mapstructure:"timeout"`
+	RetryCount       int    `mapstructure:"retry_count"`
 }
 
 type LoggingConfig struct {
@@ -142,6 +143,7 @@ func setDefaults() {
 
 	viper.SetDefault("upload.enabled", true)
 	viper.SetDefault("upload.rclone_path", "/usr/bin/rclone")
+	viper.SetDefault("upload.rclone_config_path", "~/.config/rclone/rclone.conf")
 	viper.SetDefault("upload.timeout", 300)
 	viper.SetDefault("upload.retry_count", 3)
 
