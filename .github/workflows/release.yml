@@ -1,0 +1,70 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      build_time: ${{ steps.version.outputs.build_time }}
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+      
+      - name: Get version info
+        id: version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/}
+          BUILD_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "build_time=$BUILD_TIME" >> $GITHUB_OUTPUT
+      
+      - name: Run tests
+        run: make test
+      
+      - name: Build for multiple platforms
+        run: |
+          LDFLAGS="-ldflags \"-X main.version=${{ steps.version.outputs.version }} -X main.buildTime=${{ steps.version.outputs.build_time }}\""
+          
+          # Linux AMD64
+          GOOS=linux GOARCH=amd64 go build $LDFLAGS -o tenangdb-linux-amd64 cmd/main.go
+          
+          # Linux ARM64
+          GOOS=linux GOARCH=arm64 go build $LDFLAGS -o tenangdb-linux-arm64 cmd/main.go
+          
+          # macOS AMD64
+          GOOS=darwin GOARCH=amd64 go build $LDFLAGS -o tenangdb-darwin-amd64 cmd/main.go
+          
+          # macOS ARM64
+          GOOS=darwin GOARCH=arm64 go build $LDFLAGS -o tenangdb-darwin-arm64 cmd/main.go
+          
+          # Windows AMD64
+          GOOS=windows GOARCH=amd64 go build $LDFLAGS -o tenangdb-windows-amd64.exe cmd/main.go
+      
+      - name: Create checksums
+        run: |
+          sha256sum tenangdb-* > checksums.txt
+      
+      - name: Create release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            tenangdb-linux-amd64
+            tenangdb-linux-arm64
+            tenangdb-darwin-amd64
+            tenangdb-darwin-arm64
+            tenangdb-windows-amd64.exe
+            checksums.txt
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
