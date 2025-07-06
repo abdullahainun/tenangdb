@@ -1,0 +1,29 @@
+[Unit]
+Description=TenangDB Backup Service
+After=network.target mysqld.service
+Requires=mysql.service
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+WorkingDirectory=/opt/tenangdb
+ExecStart=/opt/tenangdb/tenangdb backup --config /etc/tenangdb/config.yaml
+Environment=HOME=/root
+StandardOutput=journal
+StandardError=journal
+TimeoutStartSec=3600
+TimeoutStopSec=300
+
+# Security settings (uncomment for production hardening)
+#NoNewPrivileges=true
+#PrivateTmp=true
+#ProtectSystem=strict
+#ProtectHome=true
+#ReadWritePaths=/backup /var/log /tmp
+#ProtectKernelTunables=true
+#ProtectKernelModules=true
+#ProtectControlGroups=true
+
+[Install]
+WantedBy=multi-user.target

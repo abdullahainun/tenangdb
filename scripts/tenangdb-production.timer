@@ -1,0 +1,12 @@
+[Unit]
+Description=TenangDB Backup Timer (Production - Every 3 hours)
+Requires=tenangdb.service
+
+[Timer]
+# Production setting: backup every days at 00:00
+OnCalendar=daily
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target
