@@ -32,22 +32,24 @@ jobs:
       
       - name: Build for multiple platforms
         run: |
-          LDFLAGS="-ldflags \"-X main.version=${{ steps.version.outputs.version }} -X main.buildTime=${{ steps.version.outputs.build_time }}\""
+          VERSION=${{ steps.version.outputs.version }}
+          BUILD_TIME=${{ steps.version.outputs.build_time }}
+          LDFLAGS="-X main.version=${VERSION} -X main.buildTime=${BUILD_TIME}"
           
           # Linux AMD64
-          GOOS=linux GOARCH=amd64 go build $LDFLAGS -o tenangdb-linux-amd64 cmd/main.go
+          GOOS=linux GOARCH=amd64 go build -ldflags "${LDFLAGS}" -o tenangdb-linux-amd64 cmd/main.go
           
           # Linux ARM64
-          GOOS=linux GOARCH=arm64 go build $LDFLAGS -o tenangdb-linux-arm64 cmd/main.go
+          GOOS=linux GOARCH=arm64 go build -ldflags "${LDFLAGS}" -o tenangdb-linux-arm64 cmd/main.go
           
           # macOS AMD64
-          GOOS=darwin GOARCH=amd64 go build $LDFLAGS -o tenangdb-darwin-amd64 cmd/main.go
+          GOOS=darwin GOARCH=amd64 go build -ldflags "${LDFLAGS}" -o tenangdb-darwin-amd64 cmd/main.go
           
           # macOS ARM64
-          GOOS=darwin GOARCH=arm64 go build $LDFLAGS -o tenangdb-darwin-arm64 cmd/main.go
+          GOOS=darwin GOARCH=arm64 go build -ldflags "${LDFLAGS}" -o tenangdb-darwin-arm64 cmd/main.go
           
           # Windows AMD64
-          GOOS=windows GOARCH=amd64 go build $LDFLAGS -o tenangdb-windows-amd64.exe cmd/main.go
+          GOOS=windows GOARCH=amd64 go build -ldflags "${LDFLAGS}" -o tenangdb-windows-amd64.exe cmd/main.go
       
       - name: Create checksums
         run: |
