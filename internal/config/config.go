@@ -125,7 +125,7 @@ func setDefaults() {
 	viper.SetDefault("backup.retry_delay", "10s")
 
 	// Mydumper defaults
-	viper.SetDefault("database.mydumper.enabled", true)
+	viper.SetDefault("database.mydumper.enabled", false)
 	viper.SetDefault("database.mydumper.binary_path", "/usr/bin/mydumper")
 	viper.SetDefault("database.mydumper.threads", 4)
 	viper.SetDefault("database.mydumper.chunk_filesize", 100)
@@ -148,10 +148,10 @@ func setDefaults() {
 	viper.SetDefault("upload.retry_count", 3)
 
 	viper.SetDefault("logging.level", "info")
-	viper.SetDefault("logging.format", "json")
+	viper.SetDefault("logging.format", "text")
 	viper.SetDefault("logging.file_path", "/var/log/db-backup.log")
 
-	viper.SetDefault("cleanup.enabled", true)
+	viper.SetDefault("cleanup.enabled", false)
 	viper.SetDefault("cleanup.cleanup_uploaded_files", true)
 	viper.SetDefault("cleanup.remote_retention_days", 30)
 	viper.SetDefault("cleanup.weekend_only", true)
@@ -159,7 +159,7 @@ func setDefaults() {
 	viper.SetDefault("cleanup.max_age_days", 7)
 	viper.SetDefault("cleanup.verify_cloud_exists", true)
 
-	viper.SetDefault("metrics.enabled", true)
+	viper.SetDefault("metrics.enabled", false)
 	viper.SetDefault("metrics.port", "8080")
 }
 
