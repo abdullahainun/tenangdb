@@ -36,7 +36,7 @@ logs/
 
 # Backup directories (for testing)
 backup/
-/opt/tenangdb/backup/
+/var/backups/
 
 # IDE and editor files
 .vscode/

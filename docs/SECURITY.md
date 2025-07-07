@@ -35,6 +35,8 @@ FLUSH PRIVILEGES;
 
 ### 2. File System Security
 
+**Note:** The `install.sh` script creates and configures the necessary directories. The commands below are for verification or manual setup.
+
 **Directory Permissions:**
 ```bash
 # Secure configuration directory

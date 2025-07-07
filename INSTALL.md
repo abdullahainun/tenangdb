@@ -76,7 +76,7 @@ tenangdb --help
 ```bash
 sudo mkdir -p /etc/tenangdb
 sudo mkdir -p /var/log/tenangdb
-sudo mkdir -p /opt/tenangdb/backup
+sudo mkdir -p /var/backups
 ```
 
 ### **2. Copy Configuration Template**
@@ -93,14 +93,14 @@ Edit `/etc/tenangdb/config.yaml`:
 
 ```yaml
 database:
-  host: 192.168.1.100       # Your MySQL server IP
+  host: 127.0.0.1       # Your MySQL server IP (use 127.0.0.1 for local)
   port: 3306
   username: backup_user     # MySQL username
   password: "secure_password"
   timeout: 30
 
 backup:
-  directory: /opt/tenangdb/backup
+  directory: /var/backups/tenangdb # Local directory to store backup files
   databases:
     - your_database_1
     - your_database_2
@@ -108,7 +108,7 @@ backup:
 logging:
   level: info
   format: json
-  file_path: /var/log/tenangdb/tenangdb.log
+  file_path: /var/log/tenangdb/db-backup.log # Path to log file
 ```
 
 ### **4. Create MySQL Configuration Files**
@@ -230,10 +230,13 @@ sudo cp scripts/tenangdb-cleanup.timer /etc/systemd/system/
 ```
 
 ### **2. Create Service User**
+
+**Note:** The `install.sh` script automatically creates the `tenangdb` user and sets appropriate permissions. The commands below are for verification or manual setup if you are not using the `install.sh` script.
+
 ```bash
 # Create dedicated user
-sudo useradd -r -s /bin/false tenangdb
-sudo chown -R tenangdb:tenangdb /opt/tenangdb /var/log/tenangdb
+sudo useradd -r -s /bin/false -d /opt/tenangdb tenangdb
+sudo chown -R tenangdb:tenangdb /opt/tenangdb /var/log/tenangdb /var/backups/tenangdb
 ```
 
 ### **3. Enable and Start Services**
@@ -259,7 +262,7 @@ sudo systemctl status tenangdb-cleanup.timer
 ### **View Logs**
 ```bash
 # Application logs
-tail -f /var/log/tenangdb/tenangdb.log
+tail -f /var/log/tenangdb/db-backup.log
 
 # Systemd logs
 journalctl -u tenangdb -f

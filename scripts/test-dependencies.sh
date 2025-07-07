@@ -106,7 +106,7 @@ fi
 
 # Test directories
 echo "Testing directories..."
-BACKUP_DIR="/opt/tenangdb/backup"
+BACKUP_DIR="/var/backups"
 LOG_DIR="/var/log/tenangdb"
 
 if [ -d "$BACKUP_DIR" ]; then

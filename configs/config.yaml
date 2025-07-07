@@ -1,6 +1,6 @@
 # Database connection configuration
 database:
-  host: 192.168.43.117 # MySQL server IP address
+  host: 127.0.0.1 # MySQL server IP address
   port: 3306 # MySQL server port
   username: username # Database username for connection
   password: "password" # Database password (quoted to preserve special characters)
@@ -10,7 +10,7 @@ database:
   mydumper:
     enabled: true # Enable mydumper for database backup
     binary_path: /usr/bin/mydumper # Path to mydumper binary
-    defaults_file: ~/.my.cnf # MySQL configuration file for mydumper
+    defaults_file: /etc/tenangdb/my_backup.cnf # MySQL configuration file for mydumper
     threads: 4 # Number of parallel threads for backup
     chunk_filesize: 100 # Size of each chunk file in MB
     compress_method: gzip # Compression method for backup files
@@ -24,7 +24,7 @@ database:
     myloader:
       enabled: true # Enable myloader for database restore
       binary_path: /usr/bin/myloader # Path to myloader binary
-      defaults_file: ~/.my_restore.cnf # MySQL configuration file for myloader
+      defaults_file: /etc/tenangdb/my_restore.cnf # MySQL configuration file for myloader
       threads: 4 # Number of parallel threads for restore
 
 # Backup configuration settings
@@ -51,7 +51,7 @@ upload:
 logging:
   level: info # Log level (debug, info, warn, error)
   format: json # Log format (json or text)
-  file_path: ~/tenangdb/logs/db-backup.log # Path to log file
+  file_path: /var/log/tenangdb/db-backup.log # Path to log file
 
 # Metrics configuration for monitoring
 metrics:
