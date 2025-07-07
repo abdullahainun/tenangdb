@@ -25,8 +25,8 @@ var (
 func main() {
 	var rootCmd = &cobra.Command{
 		Use:   "tenangdb",
-		Short: "A robust database backup tool with batch processing and cloud upload",
-		Long:  `A Go-based database backup tool that supports batch processing, cloud uploads via rclone, and graceful error handling.`,
+		Short: "A secure and automated MySQL backup solution for peace of mind.",
+		Long:  `TenangDB is a Go-based MySQL backup tool designed for peace of mind. It offers automated, secure backups with cloud integration, instant restore capabilities, and intelligent cleanup, all built with a 'Secure by Design' approach.`,
 		Run:   run,
 	}
 
