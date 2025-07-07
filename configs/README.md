@@ -8,26 +8,26 @@ Complete configuration options for TenangDB.
 database:
   mydumper:
     enabled: true
-    defaults_file: ~/.my.cnf
+    defaults_file: /etc/tenangdb/.my.cnf
     threads: 4
     compress_method: gzip
     myloader:
       enabled: true
-      defaults_file: ~/.my_restore.cnf
+      defaults_file: /etc/tenangdb/.my_restore.cnf
 
 backup:
-  directory: /backup
+  directory: /var/backups/tenangdb
   databases: [db1, db2]
   
 upload:
   enabled: true
   rclone_config_path: /etc/tenangdb/rclone.conf
-  destination: "minio:bucket/backups/"
+  destination: "minio:/bucketbackups/"
 
 logging:
   level: info
   format: json
-  file_path: /var/log/tenangdb/tenangdb.log
+  file_path: /var/log/tenangdb.log
 ```
 
 ## 🔧 Database Configuration
@@ -121,7 +121,7 @@ metrics:
 logging:
   level: info                    # panic, fatal, error, warn, info, debug, trace
   format: json                   # json, text
-  file_path: /var/log/tenangdb/tenangdb.log
+  file_path: /var/log/tenangdb/db-backup.log
   max_size: 100                  # MB
   max_backups: 3
   max_age: 28                    # days
@@ -135,11 +135,11 @@ logging:
 # Use defaults-file instead of plain text passwords
 database:
   mydumper:
-    defaults_file: ~/.my.cnf
+    defaults_file: /etc/tenangdb/.my.cnf
     
-# Example ~/.my.cnf
+# Example /etc/tenangdb/.my.cnf
 [client]
-host=192.168.1.100
+host=127.0.0.1
 port=3306
 user=backup_user
 password=secure_password
@@ -184,5 +184,5 @@ sudo chown tenangdb:tenangdb /etc/tenangdb/config.yaml
 **Database connection issues:**
 ```bash
 # Test MySQL connection
-mysql -h192.168.1.100 -ubackup_user -p
+mysql -h127.0.0.1 -ubackup_user -p
 ```
