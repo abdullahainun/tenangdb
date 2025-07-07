@@ -1,75 +1,14 @@
-# Database connection configuration
 database:
-  host: 127.0.0.1 # MySQL server IP address
-  port: 3306 # MySQL server port
-  username: username # Database username for connection
-  password: "password" # Database password (quoted to preserve special characters)
-  timeout: 30 # Connection timeout in seconds
+  host: 127.0.0.1
+  port: 3306
+  username: username
+  password: password
+  timeout: 30
 
-  # mydumper configuration for database backup
-  mydumper:
-    enabled: true # Enable mydumper for database backup
-    binary_path: /usr/bin/mydumper # Path to mydumper binary
-    defaults_file: /etc/tenangdb/my_backup.cnf # MySQL configuration file for mydumper
-    threads: 4 # Number of parallel threads for backup
-    chunk_filesize: 100 # Size of each chunk file in MB
-    compress_method: gzip # Compression method for backup files
-    build_empty_files: false # Don't create empty files for empty tables
-    use_defer: true # Use defer to optimize backup process
-    single_table: false # Backup multiple tables (not single table mode)
-    no_schemas: false # Include schema information in backup
-    no_data: false # Include data in backup (not schema-only)
-
-    # myloader configuration for database restore
-    myloader:
-      enabled: true # Enable myloader for database restore
-      binary_path: /usr/bin/myloader # Path to myloader binary
-      defaults_file: /etc/tenangdb/my_restore.cnf # MySQL configuration file for myloader
-      threads: 4 # Number of parallel threads for restore
-
-# Backup configuration settings
 backup:
-  directory: ~/tenangdb/backup # Local directory to store backup files
+  directory: backups
   databases:
-    - pastefy # List of databases to backup
-  batch_size: 10 # Number of tables to process in each batch
-  concurrency: 3 # Number of concurrent backup operations
-  timeout: 30m # Maximum time allowed for backup operation
-  retry_count: 3 # Number of retry attempts on backup failure
-  retry_delay: 10s # Delay between retry attempts
+    - pastefy
 
-# Upload configuration for remote storage
 upload:
-  enabled: false # Upload to remote storage is disabled
-#   rclone_path: /usr/bin/rclone  # Path to rclone binary (commented out)
-#   rclone_config_path: /etc/tenangdb/rclone.conf  # Path to rclone config file (commented out)
-#   destination: "idriveomni:sgp1-omni/databases/"  # Remote destination path (commented out)
-#   timeout: 300  # Upload timeout in seconds (commented out)
-#   retry_count: 3  # Number of upload retry attempts (commented out)
-
-# Logging configuration
-logging:
-  level: info # Log level (debug, info, warn, error)
-  format: json # Log format (json or text)
-  file_path: /var/log/tenangdb/db-backup.log # Path to log file
-
-# Metrics configuration for monitoring
-metrics:
-  enabled: true # Enable metrics collection
-  port: "8080" # Port for metrics endpoint
-
-# Cleanup configuration for managing backup files
-cleanup:
-  enabled: true # Enable cleanup functionality
-  # Local files are cleaned up after successful upload (not time-based)
-  # Only files uploaded more than 1 hour ago are eligible for cleanup (safety buffer)
-  cleanup_uploaded_files: true # Clean up files after successful upload
-  # Remote cleanup still uses retention days
-  remote_retention_days: 3 # Keep remote backups for 3 days
-  # Weekend-only cleanup schedule
-  weekend_only: false # Run cleanup on any day (not weekend-only)
-  # Age-based cleanup configuration
-  age_based_cleanup: true # Enable age-based cleanup
-  max_age_days: 7 # Maximum age of backup files in days
-  verify_cloud_exists: true # Verify file exists in cloud before local deletion
-  # databases: ["sys", "mysql"]  # Specific databases to cleanup (commented out)
+  enabled: false
