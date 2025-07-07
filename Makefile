@@ -30,7 +30,7 @@ deps:
 # Install the application
 install: build
 	sudo cp ${BINARY_NAME} /usr/local/bin/
-	sudo mkdir -p /etc/tenangdb /var/log/tenangdb /opt/tenangdb/backup
+	sudo mkdir -p /etc/tenangdb /var/log/tenangdb /var/backups
 	sudo cp configs/config.yaml /etc/tenangdb/config.yaml.example
 	sudo ./scripts/install.sh
 

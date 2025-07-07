@@ -4,16 +4,30 @@ set -e
 
 # Configuration
 SERVICE_NAME="tenangdb"
+USER="tenangdb"
+GROUP="tenangdb"
 INSTALL_DIR="/opt/tenangdb"
 CONFIG_DIR="/etc/tenangdb"
 LOG_DIR="/var/log/tenangdb"
+BACKUP_DIR="/var/backups/tenangdb"
 
 echo "Installing TenangDB..."
 
+# Create user and group
+echo "Creating user and group '$USER'..."
+if ! getent group "$GROUP" >/dev/null; then
+    sudo groupadd -r "$GROUP"
+fi
+if ! id "$USER" >/dev/null 2>&1; then
+    sudo useradd -r -g "$GROUP" -s /bin/false -d "$INSTALL_DIR" "$USER"
+fi
+
 # Create directories
+echo "Creating directories..."
 sudo mkdir -p "$INSTALL_DIR"
 sudo mkdir -p "$CONFIG_DIR"
 sudo mkdir -p "$LOG_DIR"
+sudo mkdir -p "$BACKUP_DIR"
 
 # Copy binary
 sudo cp ./tenangdb "$INSTALL_DIR/"
@@ -29,9 +43,13 @@ sudo cp ./scripts/tenangdb-cleanup.service /etc/systemd/system/
 sudo cp ./scripts/tenangdb-cleanup.timer /etc/systemd/system/
 
 # Set permissions
-sudo chown -R root:root "$INSTALL_DIR"
-sudo chown -R root:root "$CONFIG_DIR"
-sudo chown -R root:root "$LOG_DIR"
+echo "Setting permissions..."
+sudo chown root:root "$INSTALL_DIR/tenangdb"
+sudo chown -R root:"$GROUP" "$CONFIG_DIR"
+sudo chown -R "$USER":"$GROUP" "$LOG_DIR"
+sudo chown -R "$USER":"$GROUP" "$BACKUP_DIR"
+sudo chmod 750 "$CONFIG_DIR"
+sudo chmod 640 "$CONFIG_DIR/config.yaml"
 
 # Reload systemd
 sudo systemctl daemon-reload

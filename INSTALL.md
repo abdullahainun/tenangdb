@@ -76,7 +76,7 @@ tenangdb --help
 ```bash
 sudo mkdir -p /etc/tenangdb
 sudo mkdir -p /var/log/tenangdb
-sudo mkdir -p /opt/tenangdb/backup
+sudo mkdir -p /var/backups
 ```
 
 ### **2. Copy Configuration Template**
@@ -100,7 +100,7 @@ database:
   timeout: 30
 
 backup:
-  directory: /opt/tenangdb/backup
+  directory: /var/backups
   databases:
     - your_database_1
     - your_database_2
