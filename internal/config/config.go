@@ -67,9 +67,10 @@ type UploadConfig struct {
 }
 
 type LoggingConfig struct {
-	Level    string `mapstructure:"level"`
-	Format   string `mapstructure:"format"`
-	FilePath string `mapstructure:"file_path"`
+	Level      string `mapstructure:"level"`
+	Format     string `mapstructure:"format"`
+	FileFormat string `mapstructure:"file_format"`
+	FilePath   string `mapstructure:"file_path"`
 }
 
 type CleanupConfig struct {
@@ -148,7 +149,8 @@ func setDefaults() {
 	viper.SetDefault("upload.retry_count", 3)
 
 	viper.SetDefault("logging.level", "info")
-	viper.SetDefault("logging.format", "text")
+	viper.SetDefault("logging.format", "clean")
+	viper.SetDefault("logging.file_format", "text")
 	viper.SetDefault("logging.file_path", "log/tenangdb.log")
 
 	viper.SetDefault("cleanup.enabled", false)
