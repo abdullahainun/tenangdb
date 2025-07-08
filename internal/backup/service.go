@@ -23,7 +23,6 @@ type Service struct {
 	stats          *Statistics
 	uploadedFiles  map[string]time.Time // Track uploaded files with timestamp
 	metricsStorage *metrics.MetricsStorage
-	backupTracker  *BackupTracker
 	mu             sync.RWMutex
 }
 
@@ -57,11 +56,6 @@ func NewService(cfg *config.Config, log *logger.Logger) (*Service, error) {
 	}
 	metricsStorage := metrics.NewMetricsStorage(metricsPath)
 
-	// Initialize backup tracker
-	backupTracker, err := NewBackupTracker(cfg.Backup.Directory)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create backup tracker: %w", err)
-	}
 
 	return &Service{
 		config:         cfg,
@@ -70,7 +64,6 @@ func NewService(cfg *config.Config, log *logger.Logger) (*Service, error) {
 		uploader:       uploader,
 		uploadedFiles:  make(map[string]time.Time),
 		metricsStorage: metricsStorage,
-		backupTracker:  backupTracker,
 		stats: &Statistics{
 			TotalDatabases: len(cfg.Backup.Databases),
 		},
