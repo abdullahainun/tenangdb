@@ -140,8 +140,7 @@ func (c *Client) createMydumperBackup(ctx context.Context, dbName, backupDir, ti
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 
-	// Log the command being executed for debugging
-	fmt.Printf("DEBUG: Executing command: %s %s\n", c.config.Mydumper.BinaryPath, strings.Join(args, " "))
+	// Command will be executed silently
 
 	if err := cmd.Run(); err != nil {
 		// Remove failed backup directory
@@ -191,12 +190,34 @@ func (c *Client) createMysqldumpBackup(ctx context.Context, dbName, backupDir, t
 	defer outFile.Close()
 
 	cmd.Stdout = outFile
-	cmd.Stderr = os.Stderr
+	
+	// Capture stderr to filter out warnings but keep errors
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
 
 	if err := cmd.Run(); err != nil {
 		// Remove failed backup file
 		os.Remove(backupPath)
+		// Show actual errors
+		stderrStr := stderr.String()
+		if stderrStr != "" {
+			return "", fmt.Errorf("mysqldump failed: %w\nOutput: %s", err, stderrStr)
+		}
 		return "", fmt.Errorf("mysqldump failed: %w", err)
+	}
+	
+	// Log warnings only in debug mode (if needed)
+	stderrStr := stderr.String()
+	if stderrStr != "" {
+		// Filter out common warnings that are not actual errors
+		lines := strings.Split(stderrStr, "\n")
+		for _, line := range lines {
+			line = strings.TrimSpace(line)
+			if line != "" && !isCommonWarning(line) {
+				// Log non-warning messages as they might be important
+				fmt.Printf("mysqldump notice: %s\n", line)
+			}
+		}
 	}
 
 	// Verify backup file was created and has content
@@ -316,9 +337,10 @@ func (c *Client) restoreWithMyloader(ctx context.Context, backupDir, dbName stri
 
 	cmd := exec.CommandContext(ctx, c.config.Mydumper.Myloader.BinaryPath, args...)
 
-	// Capture stderr for better error reporting
+	// Capture stderr but don't display it unless there's an error
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
+	cmd.Stdout = nil // Suppress stdout
 
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("myloader failed: %w, stderr: %s", err, stderr.String())
@@ -351,9 +373,10 @@ func (c *Client) restoreWithMysql(ctx context.Context, backupPath, dbName string
 
 	cmd.Stdin = backupFile
 
-	// Capture stderr for better error reporting
+	// Capture stderr but don't display it unless there's an error
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
+	cmd.Stdout = nil // Suppress stdout
 
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("mysql restore failed: %w, stderr: %s", err, stderr.String())
@@ -367,4 +390,21 @@ func (c *Client) Close() error {
 		return c.db.Close()
 	}
 	return nil
+}
+
+// isCommonWarning checks if a stderr line is a common warning that can be safely ignored
+func isCommonWarning(line string) bool {
+	commonWarnings := []string{
+		"Using a password on the command line interface can be insecure",
+		"Warning] Using a password on the command line interface can be insecure",
+		"[Warning] Using a password on the command line interface can be insecure",
+		"mysqldump: [Warning] Using a password on the command line interface can be insecure",
+	}
+	
+	for _, warning := range commonWarnings {
+		if strings.Contains(line, warning) {
+			return true
+		}
+	}
+	return false
 }
