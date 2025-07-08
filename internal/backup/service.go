@@ -181,7 +181,7 @@ func (s *Service) processDatabase(ctx context.Context, dbName string) {
 		backupSize = 0
 	}
 
-	log.WithField("backup_file", backupPath).Info("Database backup completed successfully")
+	log.WithField("backup_file", backupPath).Info("✅ Database backup completed successfully")
 	s.incrementSuccessfulBackups()
 	metrics.RecordBackupEnd(dbName, backupDuration, true, backupSize)
 	s.metricsStorage.UpdateBackupMetrics(dbName, backupDuration, true, backupSize)
@@ -195,7 +195,7 @@ func (s *Service) processDatabase(ctx context.Context, dbName string) {
 			metrics.RecordUploadEnd(dbName, "rclone", time.Since(uploadStartTime), false, 0)
 			s.metricsStorage.UpdateUploadMetrics(dbName, time.Since(uploadStartTime), false, 0)
 		} else {
-			log.Info("Cloud upload completed successfully")
+			log.Info("📤 Cloud upload completed successfully")
 			s.incrementSuccessfulUploads()
 			metrics.RecordUploadEnd(dbName, "rclone", time.Since(uploadStartTime), true, backupSize)
 			s.metricsStorage.UpdateUploadMetrics(dbName, time.Since(uploadStartTime), true, backupSize)
@@ -310,7 +310,7 @@ func (s *Service) logFinalStatistics() {
 		"duration":           duration.String(),
 		"start_time":         s.stats.StartTime.Format(time.RFC3339),
 		"end_time":           s.stats.EndTime.Format(time.RFC3339),
-	}).Info("Backup process completed")
+	}).Info("🗂️ " + fmt.Sprintf("%d databases backed up in %v", s.stats.SuccessfulBackups, duration.Round(time.Millisecond*100)))
 }
 
 func (s *Service) GetStatistics() Statistics {

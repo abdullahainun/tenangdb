@@ -25,8 +25,8 @@ var (
 func main() {
 	var rootCmd = &cobra.Command{
 		Use:   "tenangdb",
-		Short: "A secure and automated MySQL backup solution for peace of mind.",
-		Long:  `TenangDB is a Go-based MySQL backup tool designed for peace of mind. It offers automated, secure backups with cloud integration, instant restore capabilities, and intelligent cleanup, all built with a 'Secure by Design' approach.`,
+		Short: "Secure automated MySQL backup with cloud integration",
+		Long:  `Secure automated MySQL backup with cloud integration and intelligent cleanup.`,
 		Run:   run,
 	}
 
@@ -113,8 +113,8 @@ func runBackup(configFile, logLevel string, dryRun bool, databases string) {
 		effectiveLogLevel = cfg.Logging.Level
 	}
 
-	// Initialize file logger with effective log level
-	log, err := logger.NewFileLogger(effectiveLogLevel, cfg.Logging.FilePath)
+	// Initialize file logger with separate formats for stdout and file
+	log, err := logger.NewFileLoggerWithSeparateFormats(effectiveLogLevel, cfg.Logging.FilePath, cfg.Logging.Format, cfg.Logging.FileFormat)
 	if err != nil {
 		// Fallback to stdout logger
 		log = logger.NewLogger(effectiveLogLevel)
@@ -161,7 +161,7 @@ func runBackup(configFile, logLevel string, dryRun bool, databases string) {
 			log.WithError(err).Error("Backup process failed")
 			os.Exit(1)
 		}
-		log.Info("Backup process completed successfully")
+		log.Info("✅ Backup process completed successfully")
 	case <-sigChan:
 		log.Info("Received shutdown signal, gracefully shutting down...")
 		cancel()
@@ -230,8 +230,8 @@ func runCleanup(configFile, logLevel string, dryRun bool, force bool, databases 
 		effectiveLogLevel = cfg.Logging.Level
 	}
 
-	// Initialize file logger with effective log level
-	log, err := logger.NewFileLogger(effectiveLogLevel, cfg.Logging.FilePath)
+	// Initialize file logger with separate formats for stdout and file
+	log, err := logger.NewFileLoggerWithSeparateFormats(effectiveLogLevel, cfg.Logging.FilePath, cfg.Logging.Format, cfg.Logging.FileFormat)
 	if err != nil {
 		// Fallback to stdout logger
 		log = logger.NewLogger(effectiveLogLevel)
@@ -478,8 +478,8 @@ func runRestore(configFile, logLevel, backupPath, targetDatabase string) {
 		effectiveLogLevel = cfg.Logging.Level
 	}
 
-	// Initialize file logger with effective log level
-	log, err := logger.NewFileLogger(effectiveLogLevel, cfg.Logging.FilePath)
+	// Initialize file logger with separate formats for stdout and file
+	log, err := logger.NewFileLoggerWithSeparateFormats(effectiveLogLevel, cfg.Logging.FilePath, cfg.Logging.Format, cfg.Logging.FileFormat)
 	if err != nil {
 		// Fallback to stdout logger
 		log = logger.NewLogger(effectiveLogLevel)
@@ -570,8 +570,8 @@ func runExporter(configFile, logLevel, port, metricsFile string) {
 		effectiveLogLevel = cfg.Logging.Level
 	}
 
-	// Initialize file logger with effective log level
-	log, err := logger.NewFileLogger(effectiveLogLevel, cfg.Logging.FilePath)
+	// Initialize file logger with separate formats for stdout and file
+	log, err := logger.NewFileLoggerWithSeparateFormats(effectiveLogLevel, cfg.Logging.FilePath, cfg.Logging.Format, cfg.Logging.FileFormat)
 	if err != nil {
 		// Fallback to stdout logger
 		log = logger.NewLogger(effectiveLogLevel)
