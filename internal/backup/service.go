@@ -16,15 +16,15 @@ import (
 )
 
 type Service struct {
-	config        *config.Config
-	logger        *logger.Logger
-	dbClient      *database.Client
-	uploader      *upload.Service
-	stats         *Statistics
-	uploadedFiles map[string]time.Time // Track uploaded files with timestamp
+	config         *config.Config
+	logger         *logger.Logger
+	dbClient       *database.Client
+	uploader       *upload.Service
+	stats          *Statistics
+	uploadedFiles  map[string]time.Time // Track uploaded files with timestamp
 	metricsStorage *metrics.MetricsStorage
-	backupTracker *BackupTracker
-	mu            sync.RWMutex
+	backupTracker  *BackupTracker
+	mu             sync.RWMutex
 }
 
 type Statistics struct {
@@ -64,13 +64,13 @@ func NewService(cfg *config.Config, log *logger.Logger) (*Service, error) {
 	}
 
 	return &Service{
-		config:        cfg,
-		logger:        log,
-		dbClient:      dbClient,
-		uploader:      uploader,
-		uploadedFiles: make(map[string]time.Time),
+		config:         cfg,
+		logger:         log,
+		dbClient:       dbClient,
+		uploader:       uploader,
+		uploadedFiles:  make(map[string]time.Time),
 		metricsStorage: metricsStorage,
-		backupTracker: backupTracker,
+		backupTracker:  backupTracker,
 		stats: &Statistics{
 			TotalDatabases: len(cfg.Backup.Databases),
 		},
@@ -168,19 +168,6 @@ func (s *Service) processDatabase(ctx context.Context, dbName string) {
 	log := s.logger.WithDatabase(dbName)
 	log.Debug("🔄 Starting database backup")
 
-	// Check backup frequency and get user confirmation if needed
-	canProceed, err := s.CheckAndConfirmBackup(dbName)
-	if err != nil {
-		log.Error("❌ " + dbName + " backup failed: " + err.Error())
-		s.incrementFailedBackups()
-		return
-	}
-	
-	if !canProceed {
-		log.Info("⏭️ " + dbName + " backup skipped")
-		return
-	}
-
 	backupStartTime := time.Now()
 
 	// Create backup with retry logic
@@ -203,16 +190,11 @@ func (s *Service) processDatabase(ctx context.Context, dbName string) {
 	}
 
 	log.Info("✅ " + dbName + " backup completed")
-	
+
 	// Show backup location to user
 	relativeBackupPath := s.getRelativeBackupPath(backupPath)
 	s.logger.Info("📁 Backup saved: " + relativeBackupPath)
-	
-	// Update backup tracking time
-	if err := s.backupTracker.UpdateBackupTime(dbName, backupStartTime); err != nil {
-		log.WithError(err).Warn("Failed to update backup tracking time")
-	}
-	
+
 	s.incrementSuccessfulBackups()
 	metrics.RecordBackupEnd(dbName, backupDuration, true, backupSize)
 	s.metricsStorage.UpdateBackupMetrics(dbName, backupDuration, true, backupSize)
@@ -485,55 +467,17 @@ func (s *Service) getBackupSize(backupPath string) (int64, error) {
 func (s *Service) getRelativeBackupPath(backupPath string) string {
 	// Get the backup directory from config
 	backupDir := s.config.Backup.Directory
-	
+
 	// Try to make the path relative to the backup directory
 	if relPath, err := filepath.Rel(backupDir, backupPath); err == nil {
 		return filepath.Join(filepath.Base(backupDir), relPath)
 	}
-	
+
 	// If relative path conversion fails, return just the path relative to current directory
 	if relPath, err := filepath.Rel(".", backupPath); err == nil {
 		return relPath
 	}
-	
+
 	// Fallback to absolute path
 	return backupPath
-}
-
-// CheckAndConfirmBackup checks backup frequency and asks for confirmation if needed
-func (s *Service) CheckAndConfirmBackup(dbName string) (bool, error) {
-	// Skip check if disabled in config
-	if !s.config.Backup.CheckLastBackupTime {
-		return true, nil
-	}
-	
-	// Skip confirmation if configured to do so
-	if s.config.Backup.SkipConfirmation {
-		return true, nil
-	}
-	
-	// Check backup frequency
-	canProceed, message := s.backupTracker.CheckBackupFrequency(dbName, s.config.Backup.MinBackupInterval)
-	
-	if canProceed {
-		return true, nil
-	}
-	
-	// Ask for user confirmation
-	result, err := AskUserConfirmation(message)
-	if err != nil {
-		return false, fmt.Errorf("failed to get user confirmation: %w", err)
-	}
-	
-	if result.Confirmed {
-		if result.Force {
-			s.logger.WithDatabase(dbName).Info("🔄 Backup forced by user")
-		} else {
-			s.logger.WithDatabase(dbName).Info("✅ Backup confirmed by user")
-		}
-		return true, nil
-	}
-	
-	s.logger.WithDatabase(dbName).Info("❌ Backup cancelled by user")
-	return false, nil
 }
