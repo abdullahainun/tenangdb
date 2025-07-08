@@ -117,8 +117,8 @@ func setDefaults() {
 	viper.SetDefault("database.port", 3306)
 	viper.SetDefault("database.timeout", 30)
 
-	viper.SetDefault("backup.directory", "/tmp/db-backups")
-	viper.SetDefault("backup.batch_size", 10)
+	viper.SetDefault("backup.directory", "backups")
+	viper.SetDefault("backup.batch_size", 5)
 	viper.SetDefault("backup.concurrency", 3)
 	viper.SetDefault("backup.timeout", "30m")
 	viper.SetDefault("backup.retry_count", 3)
@@ -137,11 +137,11 @@ func setDefaults() {
 	viper.SetDefault("database.mydumper.no_data", false)
 
 	// Myloader defaults
-	viper.SetDefault("database.mydumper.myloader.enabled", true)
+	viper.SetDefault("database.mydumper.myloader.enabled", false)
 	viper.SetDefault("database.mydumper.myloader.binary_path", "/usr/bin/myloader")
 	viper.SetDefault("database.mydumper.myloader.threads", 4)
 
-	viper.SetDefault("upload.enabled", true)
+	viper.SetDefault("upload.enabled", false)
 	viper.SetDefault("upload.rclone_path", "/usr/bin/rclone")
 	viper.SetDefault("upload.rclone_config_path", "~/.config/rclone/rclone.conf")
 	viper.SetDefault("upload.timeout", 300)
@@ -149,7 +149,7 @@ func setDefaults() {
 
 	viper.SetDefault("logging.level", "info")
 	viper.SetDefault("logging.format", "text")
-	viper.SetDefault("logging.file_path", "/var/log/db-backup.log")
+	viper.SetDefault("logging.file_path", "log/tenangdb.log")
 
 	viper.SetDefault("cleanup.enabled", false)
 	viper.SetDefault("cleanup.cleanup_uploaded_files", true)
