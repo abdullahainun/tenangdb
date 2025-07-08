@@ -161,7 +161,7 @@ func runBackup(configFile, logLevel string, dryRun bool, databases string) {
 			log.WithError(err).Error("Backup process failed")
 			os.Exit(1)
 		}
-		log.Info("✅ Backup process completed successfully")
+		log.Info("✅ All backup process completed successfully")
 	case <-sigChan:
 		log.Info("Received shutdown signal, gracefully shutting down...")
 		cancel()
@@ -181,7 +181,7 @@ func run(cmd *cobra.Command, args []string) {
 	
 	// Show deprecation notice for backward compatibility
 	log := logger.NewLogger(logLevel)
-	log.Warn("DEPRECATED: Running tenangdb without 'backup' subcommand is deprecated. Use 'tenangdb backup' instead.")
+	log.Debug("DEPRECATED: Running tenangdb without 'backup' subcommand is deprecated. Use 'tenangdb backup' instead.")
 	
 	// Call the new backup function for backward compatibility
 	runBackup(configFile, logLevel, dryRun, databases)
