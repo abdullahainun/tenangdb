@@ -61,13 +61,14 @@ func newBackupCommand() *cobra.Command {
 	var logLevel string
 	var dryRun bool
 	var databases string
+	var force bool
 
 	cmd := &cobra.Command{
 		Use:   "backup",
 		Short: "Run database backup",
 		Long:  `Backup databases to local directory with optional cloud upload.`,
 		Run: func(cmd *cobra.Command, args []string) {
-			runBackup(configFile, logLevel, dryRun, databases)
+			runBackup(configFile, logLevel, dryRun, databases, force)
 		},
 	}
 
@@ -75,11 +76,12 @@ func newBackupCommand() *cobra.Command {
 	cmd.Flags().StringVar(&logLevel, "log-level", "info", "log level (debug, info, warn, error)")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "show what would be backed up without actually running backup")
 	cmd.Flags().StringVar(&databases, "databases", "", "comma-separated list of databases to backup (overrides config)")
+	cmd.Flags().BoolVar(&force, "force", false, "skip backup frequency confirmation prompts")
 
 	return cmd
 }
 
-func runBackup(configFile, logLevel string, dryRun bool, databases string) {
+func runBackup(configFile, logLevel string, dryRun bool, databases string, force bool) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -104,6 +106,11 @@ func runBackup(configFile, logLevel string, dryRun bool, databases string) {
 		cfg.Backup.Databases = selectedDatabases
 		log := logger.NewLogger(logLevel)
 		log.Infof("Using databases from command line: %v", selectedDatabases)
+	}
+	
+	// Override skip confirmation if force flag is used
+	if force {
+		cfg.Backup.SkipConfirmation = true
 	}
 
 	// Determine effective log level: CLI flag overrides config
@@ -184,7 +191,7 @@ func run(cmd *cobra.Command, args []string) {
 	log.Debug("DEPRECATED: Running tenangdb without 'backup' subcommand is deprecated. Use 'tenangdb backup' instead.")
 	
 	// Call the new backup function for backward compatibility
-	runBackup(configFile, logLevel, dryRun, databases)
+	runBackup(configFile, logLevel, dryRun, databases, false)
 }
 
 func newCleanupCommand() *cobra.Command {
