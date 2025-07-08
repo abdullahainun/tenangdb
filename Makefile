@@ -7,11 +7,11 @@ LDFLAGS=-ldflags "-X main.version=${VERSION} -X main.buildTime=${BUILD_TIME}"
 
 # Build the application
 build:
-	go build ${LDFLAGS} -o ${BINARY_NAME} cmd/main.go
+	go build ${LDFLAGS} -o ${BINARY_NAME} ./cmd
 
 # Build for production (with optimizations)
 build-prod:
-	CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo ${LDFLAGS} -o ${BINARY_NAME} cmd/main.go
+	CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo ${LDFLAGS} -o ${BINARY_NAME} ./cmd
 
 # Clean build artifacts
 clean:
