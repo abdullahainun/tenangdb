@@ -182,6 +182,11 @@ func (s *Service) processDatabase(ctx context.Context, dbName string) {
 	}
 
 	log.Info("✅ " + dbName + " backup completed")
+	
+	// Show backup location to user
+	relativeBackupPath := s.getRelativeBackupPath(backupPath)
+	s.logger.Info("📁 Backup saved: " + relativeBackupPath)
+	
 	s.incrementSuccessfulBackups()
 	metrics.RecordBackupEnd(dbName, backupDuration, true, backupSize)
 	s.metricsStorage.UpdateBackupMetrics(dbName, backupDuration, true, backupSize)
@@ -448,4 +453,23 @@ func (s *Service) getBackupSize(backupPath string) (int64, error) {
 		// For mysqldump files, return file size
 		return info.Size(), nil
 	}
+}
+
+// getRelativeBackupPath converts absolute backup path to relative path from backup directory
+func (s *Service) getRelativeBackupPath(backupPath string) string {
+	// Get the backup directory from config
+	backupDir := s.config.Backup.Directory
+	
+	// Try to make the path relative to the backup directory
+	if relPath, err := filepath.Rel(backupDir, backupPath); err == nil {
+		return filepath.Join(filepath.Base(backupDir), relPath)
+	}
+	
+	// If relative path conversion fails, return just the path relative to current directory
+	if relPath, err := filepath.Rel(".", backupPath); err == nil {
+		return relPath
+	}
+	
+	// Fallback to absolute path
+	return backupPath
 }
