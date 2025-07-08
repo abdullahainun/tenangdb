@@ -82,8 +82,8 @@ func (s *Service) Run(ctx context.Context) error {
 	s.metricsStorage.SetTotalDatabases(s.stats.TotalDatabases)
 	s.metricsStorage.SetBackupProcessActive(true)
 
-	s.logger.Info("Starting database backup process")
-	s.logger.WithField("total_databases", s.stats.TotalDatabases).Info("Backup statistics")
+	s.logger.Debug("🚀 Starting database backup process")
+	s.logger.WithField("total_databases", s.stats.TotalDatabases).Debug("📊 Backup statistics")
 
 	// Create backup directory if it doesn't exist
 	if err := s.createBackupDirectory(); err != nil {
@@ -120,7 +120,7 @@ func (s *Service) processDatabasesBatch(ctx context.Context) error {
 		}
 
 		batch := databases[i:end]
-		s.logger.WithField("batch", fmt.Sprintf("%d-%d", i+1, end)).Info("Processing batch")
+		s.logger.WithField("batch", fmt.Sprintf("%d-%d", i+1, end)).Debug("⚙️ Processing batch")
 
 		if err := s.processBatch(ctx, batch, concurrency); err != nil {
 			s.logger.WithError(err).Error("Batch processing failed")
@@ -158,7 +158,7 @@ func (s *Service) processBatch(ctx context.Context, databases []string, concurre
 
 func (s *Service) processDatabase(ctx context.Context, dbName string) {
 	log := s.logger.WithDatabase(dbName)
-	log.Info("Starting database backup")
+	log.Debug("🔄 Starting database backup")
 
 	backupStartTime := time.Now()
 
@@ -167,7 +167,7 @@ func (s *Service) processDatabase(ctx context.Context, dbName string) {
 	backupDuration := time.Since(backupStartTime)
 
 	if err != nil {
-		log.WithError(err).Error("Database backup failed")
+		log.Error("❌ " + dbName + " backup failed: " + err.Error())
 		s.incrementFailedBackups()
 		metrics.RecordBackupEnd(dbName, backupDuration, false, 0)
 		s.metricsStorage.UpdateBackupMetrics(dbName, backupDuration, false, 0)
@@ -181,7 +181,7 @@ func (s *Service) processDatabase(ctx context.Context, dbName string) {
 		backupSize = 0
 	}
 
-	log.WithField("backup_file", backupPath).Info("✅ Database backup completed successfully")
+	log.Info("✅ " + dbName + " backup completed")
 	s.incrementSuccessfulBackups()
 	metrics.RecordBackupEnd(dbName, backupDuration, true, backupSize)
 	s.metricsStorage.UpdateBackupMetrics(dbName, backupDuration, true, backupSize)
@@ -190,12 +190,12 @@ func (s *Service) processDatabase(ctx context.Context, dbName string) {
 	if s.uploader != nil {
 		uploadStartTime := time.Now()
 		if err := s.uploadBackup(ctx, backupPath); err != nil {
-			log.WithError(err).Error("Cloud upload failed")
+			log.Error("❌ " + dbName + " upload failed: " + err.Error())
 			s.incrementFailedUploads()
 			metrics.RecordUploadEnd(dbName, "rclone", time.Since(uploadStartTime), false, 0)
 			s.metricsStorage.UpdateUploadMetrics(dbName, time.Since(uploadStartTime), false, 0)
 		} else {
-			log.Info("📤 Cloud upload completed successfully")
+			log.Info("✅ " + dbName + " upload completed")
 			s.incrementSuccessfulUploads()
 			metrics.RecordUploadEnd(dbName, "rclone", time.Since(uploadStartTime), true, backupSize)
 			s.metricsStorage.UpdateUploadMetrics(dbName, time.Since(uploadStartTime), true, backupSize)
