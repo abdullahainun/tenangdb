@@ -3,7 +3,7 @@ VERSION=$(shell git describe --tags --abbrev=0 2>/dev/null || echo "v0.1.0")
 BUILD_TIME=$(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 LDFLAGS=-ldflags "-X main.version=${VERSION} -X main.buildTime=${BUILD_TIME}"
 
-.PHONY: build clean test install uninstall deps
+.PHONY: build clean test install uninstall deps install-deps check-deps
 
 # Build the application
 build:
@@ -63,6 +63,16 @@ security:
 test-deps:
 	./scripts/test-dependencies.sh
 
+# Install dependencies automatically
+install-deps:
+	@echo "Installing TenangDB dependencies..."
+	./scripts/install-dependencies.sh
+
+# Check dependencies without installing
+check-deps:
+	@echo "Checking TenangDB dependencies..."
+	./scripts/install-dependencies.sh --check-only
+
 # Build Docker image
 docker-build:
 	docker build -t ${BINARY_NAME}:${VERSION} .
@@ -82,4 +92,6 @@ help:
 	@echo "  lint       - Lint code"
 	@echo "  security   - Check for security issues"
 	@echo "  test-deps  - Test required dependencies"
+	@echo "  install-deps - Install dependencies automatically"
+	@echo "  check-deps - Check dependencies without installing"
 	@echo "  docker-build - Build Docker image"
