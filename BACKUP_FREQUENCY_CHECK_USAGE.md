@@ -23,21 +23,21 @@ backup:
 ./tenangdb backup --config config.yaml
 ```
 
-If the last backup is too recent (less than `min_backup_interval`), a confirmation prompt will appear:
+Jika backup terakhir masih baru (kurang dari `min_backup_interval`), akan muncul konfirmasi:
 ```
-⚠️  last backup was 10 minutes ago, are you sure you want to run backup again?
-Continue backup? (y/n/force): 
+⚠️  backup terakhir 10 menit yang lalu, kamu yakin mau jalanin backup lagi?
+Lanjutkan backup? (y/n/force): 
 ```
 
-### 2. Force Backup (skip confirmation)
+### 2. Force Backup (skip konfirmasi)
 ```bash
 ./tenangdb backup --config config.yaml --force
 ```
 
-### 3. Confirmation Options
-- `y` or `yes` - Continue backup
-- `n` or `no` - Cancel backup
-- `force` or `f` - Force backup without confirmation
+### 3. Opsi Konfirmasi
+- `y` atau `yes` atau `ya` - Lanjutkan backup
+- `n` atau `no` atau `tidak` - Batalkan backup
+- `force` atau `f` - Paksa backup tanpa konfirmasi
 
 ## Konfigurasi Interval
 
@@ -84,7 +84,7 @@ backup:
 
 ## Log Messages
 
-- `✅ Backup confirmed by user` - User approved backup
-- `🔄 Backup forced by user` - User forced backup
-- `❌ Backup cancelled by user` - User cancelled backup
-- `⏭️ dbname backup skipped` - Backup was skipped
+- `✅ Backup dikonfirmasi oleh user` - User approve backup
+- `🔄 Backup dipaksa oleh user` - User force backup
+- `❌ Backup dibatalkan oleh user` - User cancel backup
+- `⏭️ dbname backup skipped` - Backup dilewati
