@@ -26,13 +26,16 @@ type DatabaseConfig struct {
 }
 
 type BackupConfig struct {
-	Directory   string        `mapstructure:"directory"`
-	Databases   []string      `mapstructure:"databases"`
-	BatchSize   int           `mapstructure:"batch_size"`
-	Concurrency int           `mapstructure:"concurrency"`
-	Timeout     time.Duration `mapstructure:"timeout"`
-	RetryCount  int           `mapstructure:"retry_count"`
-	RetryDelay  time.Duration `mapstructure:"retry_delay"`
+	Directory             string        `mapstructure:"directory"`
+	Databases             []string      `mapstructure:"databases"`
+	BatchSize             int           `mapstructure:"batch_size"`
+	Concurrency           int           `mapstructure:"concurrency"`
+	Timeout               time.Duration `mapstructure:"timeout"`
+	RetryCount            int           `mapstructure:"retry_count"`
+	RetryDelay            time.Duration `mapstructure:"retry_delay"`
+	CheckLastBackupTime   bool          `mapstructure:"check_last_backup_time"`
+	MinBackupInterval     time.Duration `mapstructure:"min_backup_interval"`
+	SkipConfirmation      bool          `mapstructure:"skip_confirmation"`
 }
 
 type MydumperConfig struct {
@@ -124,6 +127,9 @@ func setDefaults() {
 	viper.SetDefault("backup.timeout", "30m")
 	viper.SetDefault("backup.retry_count", 3)
 	viper.SetDefault("backup.retry_delay", "10s")
+	viper.SetDefault("backup.check_last_backup_time", true)
+	viper.SetDefault("backup.min_backup_interval", "1h")
+	viper.SetDefault("backup.skip_confirmation", false)
 
 	// Mydumper defaults
 	viper.SetDefault("database.mydumper.enabled", false)

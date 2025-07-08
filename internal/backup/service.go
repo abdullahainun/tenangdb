@@ -23,6 +23,7 @@ type Service struct {
 	stats         *Statistics
 	uploadedFiles map[string]time.Time // Track uploaded files with timestamp
 	metricsStorage *metrics.MetricsStorage
+	backupTracker *BackupTracker
 	mu            sync.RWMutex
 }
 
@@ -56,6 +57,12 @@ func NewService(cfg *config.Config, log *logger.Logger) (*Service, error) {
 	}
 	metricsStorage := metrics.NewMetricsStorage(metricsPath)
 
+	// Initialize backup tracker
+	backupTracker, err := NewBackupTracker(cfg.Backup.Directory)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create backup tracker: %w", err)
+	}
+
 	return &Service{
 		config:        cfg,
 		logger:        log,
@@ -63,6 +70,7 @@ func NewService(cfg *config.Config, log *logger.Logger) (*Service, error) {
 		uploader:      uploader,
 		uploadedFiles: make(map[string]time.Time),
 		metricsStorage: metricsStorage,
+		backupTracker: backupTracker,
 		stats: &Statistics{
 			TotalDatabases: len(cfg.Backup.Databases),
 		},
@@ -160,6 +168,19 @@ func (s *Service) processDatabase(ctx context.Context, dbName string) {
 	log := s.logger.WithDatabase(dbName)
 	log.Debug("🔄 Starting database backup")
 
+	// Check backup frequency and get user confirmation if needed
+	canProceed, err := s.CheckAndConfirmBackup(dbName)
+	if err != nil {
+		log.Error("❌ " + dbName + " backup failed: " + err.Error())
+		s.incrementFailedBackups()
+		return
+	}
+	
+	if !canProceed {
+		log.Info("⏭️ " + dbName + " backup skipped")
+		return
+	}
+
 	backupStartTime := time.Now()
 
 	// Create backup with retry logic
@@ -186,6 +207,11 @@ func (s *Service) processDatabase(ctx context.Context, dbName string) {
 	// Show backup location to user
 	relativeBackupPath := s.getRelativeBackupPath(backupPath)
 	s.logger.Info("📁 Backup saved: " + relativeBackupPath)
+	
+	// Update backup tracking time
+	if err := s.backupTracker.UpdateBackupTime(dbName, backupStartTime); err != nil {
+		log.WithError(err).Warn("Failed to update backup tracking time")
+	}
 	
 	s.incrementSuccessfulBackups()
 	metrics.RecordBackupEnd(dbName, backupDuration, true, backupSize)
