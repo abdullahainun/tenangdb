@@ -499,3 +499,41 @@ func (s *Service) getRelativeBackupPath(backupPath string) string {
 	// Fallback to absolute path
 	return backupPath
 }
+
+// CheckAndConfirmBackup checks backup frequency and asks for confirmation if needed
+func (s *Service) CheckAndConfirmBackup(dbName string) (bool, error) {
+	// Skip check if disabled in config
+	if !s.config.Backup.CheckLastBackupTime {
+		return true, nil
+	}
+	
+	// Skip confirmation if configured to do so
+	if s.config.Backup.SkipConfirmation {
+		return true, nil
+	}
+	
+	// Check backup frequency
+	canProceed, message := s.backupTracker.CheckBackupFrequency(dbName, s.config.Backup.MinBackupInterval)
+	
+	if canProceed {
+		return true, nil
+	}
+	
+	// Ask for user confirmation
+	result, err := AskUserConfirmation(message)
+	if err != nil {
+		return false, fmt.Errorf("failed to get user confirmation: %w", err)
+	}
+	
+	if result.Confirmed {
+		if result.Force {
+			s.logger.WithDatabase(dbName).Info("🔄 Backup forced by user")
+		} else {
+			s.logger.WithDatabase(dbName).Info("✅ Backup confirmed by user")
+		}
+		return true, nil
+	}
+	
+	s.logger.WithDatabase(dbName).Info("❌ Backup cancelled by user")
+	return false, nil
+}
