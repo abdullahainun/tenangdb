@@ -161,14 +161,15 @@ func (c *Client) createMysqldumpBackup(ctx context.Context, dbName, backupDir, t
 	fileName := fmt.Sprintf("%s-%s.sql", dbName, timestamp)
 	backupPath := filepath.Join(backupDir, fileName)
 
-	// Build mysqldump command
+	// Build mysqldump command with maximum compatibility
 	args := []string{
 		"--single-transaction",
-		"--routines",
-		"--triggers",
-		"--events",
-		"--flush-logs",
-		"--source-data=2",
+		"--skip-lock-tables",
+		"--complete-insert",
+		"--extended-insert",
+		"--hex-blob",
+		"--add-drop-table",
+		"--disable-keys",
 		fmt.Sprintf("--host=%s", c.config.Host),
 		fmt.Sprintf("--port=%d", c.config.Port),
 		fmt.Sprintf("--user=%s", c.config.Username),
@@ -178,6 +179,7 @@ func (c *Client) createMysqldumpBackup(ctx context.Context, dbName, backupDir, t
 		args = append(args, fmt.Sprintf("--password=%s", c.config.Password))
 	}
 
+	// Add database name
 	args = append(args, dbName)
 
 	cmd := exec.CommandContext(ctx, "mysqldump", args...)
