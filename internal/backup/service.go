@@ -94,8 +94,15 @@ func (s *Service) Run(ctx context.Context) error {
 		}
 	}
 
-	s.logger.Debug("🚀 Starting database backup process")
-	s.logger.WithField("total_databases", s.stats.TotalDatabases).Debug("📊 Backup statistics")
+	s.logger.WithFields(map[string]interface{}{
+		"total_databases": s.stats.TotalDatabases,
+		"backup_directory": s.config.Backup.Directory,
+		"host": s.config.Database.Host,
+		"port": s.config.Database.Port,
+		"batch_size": s.config.Backup.BatchSize,
+		"concurrency": s.config.Backup.Concurrency,
+		"databases": s.config.Backup.Databases,
+	}).Info("🚀 Starting database backup process")
 
 	// Create backup directory if it doesn't exist
 	if err := s.createBackupDirectory(); err != nil {
@@ -184,7 +191,11 @@ func (s *Service) processBatch(ctx context.Context, databases []string, concurre
 
 func (s *Service) processDatabase(ctx context.Context, dbName string) {
 	log := s.logger.WithDatabase(dbName)
-	log.Debug("🔄 Starting database backup")
+	log.WithFields(map[string]interface{}{
+		"database": dbName,
+		"host":     s.config.Database.Host,
+		"port":     s.config.Database.Port,
+	}).Info("🔄 Starting database backup")
 
 	backupStartTime := time.Now()
 
@@ -193,7 +204,11 @@ func (s *Service) processDatabase(ctx context.Context, dbName string) {
 	backupDuration := time.Since(backupStartTime)
 
 	if err != nil {
-		log.Error("❌ " + dbName + " backup failed: " + err.Error())
+		log.WithFields(map[string]interface{}{
+			"database": dbName,
+			"duration": backupDuration.Round(time.Millisecond),
+			"error":    err.Error(),
+		}).Error("❌ " + dbName + " backup failed")
 		s.incrementFailedBackups()
 		if s.config.Metrics.Enabled {
 			metrics.RecordBackupEnd(dbName, backupDuration, false, 0)
@@ -213,11 +228,21 @@ func (s *Service) processDatabase(ctx context.Context, dbName string) {
 		backupSize = 0
 	}
 
-	log.Info("✅ " + dbName + " backup completed")
+	// Format backup size
+	backupSizeStr := "unknown"
+	if backupSize > 0 {
+		backupSizeStr = formatFileSize(backupSize)
+	}
 
-	// Show backup location to user
-	relativeBackupPath := s.getRelativeBackupPath(backupPath)
-	s.logger.Info("📁 Backup saved: " + relativeBackupPath)
+	log.WithFields(map[string]interface{}{
+		"database":  dbName,
+		"duration":  backupDuration.Round(time.Millisecond),
+		"size":      backupSizeStr,
+		"size_bytes": backupSize,
+	}).Info("✅ " + dbName + " backup completed")
+
+	// Show backup location to user with full path
+	s.logger.WithField("path", backupPath).Info("📁 Backup saved: " + backupPath)
 
 	s.incrementSuccessfulBackups()
 	if s.config.Metrics.Enabled {
@@ -365,6 +390,8 @@ func (s *Service) logFinalStatistics() {
 		"duration":           duration.String(),
 		"start_time":         s.stats.StartTime.Format(time.RFC3339),
 		"end_time":           s.stats.EndTime.Format(time.RFC3339),
+		"backup_directory":   s.config.Backup.Directory,
+		"success_rate":       fmt.Sprintf("%.1f%%", float64(s.stats.SuccessfulBackups)/float64(s.stats.TotalDatabases)*100),
 	}).Info("🗂️ " + fmt.Sprintf("%d databases backed up in %v", s.stats.SuccessfulBackups, duration.Round(time.Millisecond*100)))
 }
 
@@ -505,21 +532,17 @@ func (s *Service) getBackupSize(backupPath string) (int64, error) {
 	}
 }
 
-// getRelativeBackupPath converts absolute backup path to relative path from backup directory
-func (s *Service) getRelativeBackupPath(backupPath string) string {
-	// Get the backup directory from config
-	backupDir := s.config.Backup.Directory
 
-	// Try to make the path relative to the backup directory
-	if relPath, err := filepath.Rel(backupDir, backupPath); err == nil {
-		return filepath.Join(filepath.Base(backupDir), relPath)
+// formatFileSize formats file size in human readable format
+func formatFileSize(bytes int64) string {
+	const unit = 1024
+	if bytes < unit {
+		return fmt.Sprintf("%d B", bytes)
 	}
-
-	// If relative path conversion fails, return just the path relative to current directory
-	if relPath, err := filepath.Rel(".", backupPath); err == nil {
-		return relPath
+	div, exp := int64(unit), 0
+	for n := bytes / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
 	}
-
-	// Fallback to absolute path
-	return backupPath
+	return fmt.Sprintf("%.1f %cB", float64(bytes)/float64(div), "KMGTPE"[exp])
 }
