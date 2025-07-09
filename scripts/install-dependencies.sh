@@ -352,10 +352,19 @@ install_go() {
     if [[ "$OS_TYPE" == "ubuntu" ]]; then
         # Ubuntu-specific installation
         if [[ "$OS_VERSION" == "18.04" ]]; then
-            # For Ubuntu 18.04, use snap or manual installation
+            # For Ubuntu 18.04, Go 1.10 is too old, need 1.23+
+            print_status "WARNING" "Ubuntu 18.04 has Go 1.10 which is too old for TenangDB (requires Go 1.23+)"
+            print_status "INFO" "Removing old Go version and installing newer version..."
+            
+            # Remove old Go version
+            sudo apt-get remove -y golang-go || true
+            
+            # Install newer Go version
             if command -v snap >/dev/null 2>&1; then
+                print_status "INFO" "Installing Go via snap..."
                 sudo snap install go --classic
             else
+                print_status "INFO" "Installing Go manually..."
                 install_go_manually
             fi
         else
@@ -414,6 +423,20 @@ install_go() {
     if command -v go >/dev/null 2>&1; then
         local version=$(go version 2>/dev/null || echo "unknown")
         print_status "SUCCESS" "Go installed: $version"
+        
+        # Check if Go version is compatible with TenangDB (requires 1.23+)
+        local go_version=$(go version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+' | head -1)
+        if [[ "$go_version" ]]; then
+            # Convert version to comparable format (e.g., 1.23 -> 123)
+            local version_num=$(echo "$go_version" | sed 's/\.//g')
+            if [[ "$version_num" -lt 123 ]]; then
+                print_status "WARNING" "Go version $go_version is too old for TenangDB (requires 1.23+)"
+                print_status "INFO" "Installing newer Go version..."
+                install_go_manually
+            else
+                print_status "SUCCESS" "Go version $go_version is compatible with TenangDB"
+            fi
+        fi
     else
         print_status "WARNING" "Go installation verification failed"
         print_status "INFO" "You may need to restart your shell or run: source /etc/profile"

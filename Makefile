@@ -3,15 +3,21 @@ VERSION=$(shell git describe --tags --abbrev=0 2>/dev/null || echo "v0.1.0")
 BUILD_TIME=$(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 LDFLAGS=-ldflags "-X main.version=${VERSION} -X main.buildTime=${BUILD_TIME}"
 
-.PHONY: build clean test install uninstall deps install-deps check-deps
+.PHONY: build clean test install uninstall deps install-deps check-deps setup-ubuntu-18.04
 
 # Build the application
 build:
-	go build ${LDFLAGS} -o ${BINARY_NAME} ./cmd
+	@echo "🔍 Checking Go version compatibility..."
+	@go version
+	@echo "📦 Building TenangDB with Go modules..."
+	GO111MODULE=on go build ${LDFLAGS} -o ${BINARY_NAME} ./cmd
 
 # Build for production (with optimizations)
 build-prod:
-	CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo ${LDFLAGS} -o ${BINARY_NAME} ./cmd
+	@echo "🔍 Checking Go version compatibility..."
+	@go version
+	@echo "📦 Building TenangDB for production with Go modules..."
+	GO111MODULE=on CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo ${LDFLAGS} -o ${BINARY_NAME} ./cmd
 
 # Clean build artifacts
 clean:
@@ -24,8 +30,11 @@ test:
 
 # Install dependencies
 deps:
-	go mod tidy
-	go mod download
+	@echo "🔍 Checking Go version compatibility..."
+	@go version
+	@echo "📦 Installing Go dependencies..."
+	GO111MODULE=on go mod tidy
+	GO111MODULE=on go mod download
 
 # Install the application
 install: build
@@ -73,6 +82,11 @@ check-deps:
 	@echo "Checking TenangDB dependencies..."
 	./scripts/install-dependencies.sh --check-only
 
+# Setup for Ubuntu 18.04 (handles Go version issues)
+setup-ubuntu-18.04:
+	@echo "Setting up TenangDB for Ubuntu 18.04..."
+	./scripts/setup-ubuntu-18.04.sh
+
 # Build Docker image
 docker-build:
 	docker build -t ${BINARY_NAME}:${VERSION} .
@@ -94,4 +108,5 @@ help:
 	@echo "  test-deps  - Test required dependencies"
 	@echo "  install-deps - Install dependencies automatically"
 	@echo "  check-deps - Check dependencies without installing"
+	@echo "  setup-ubuntu-18.04 - Setup for Ubuntu 18.04 (fixes Go version)"
 	@echo "  docker-build - Build Docker image"
