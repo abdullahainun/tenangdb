@@ -15,7 +15,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        ubuntu-version: ['20.04', '22.04', 'latest']
+        ubuntu-version: ['22.04', 'latest']
     
     steps:
     - name: Checkout code
@@ -68,7 +68,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        macos-version: ['12', '13', 'latest']
+        macos-version: ['13', 'latest']
     
     steps:
     - name: Checkout code
@@ -93,11 +93,11 @@ jobs:
 
   test-go-compatibility:
     name: Test Go ${{ matrix.go-version }} Compatibility
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     strategy:
       fail-fast: false
       matrix:
-        go-version: ['1.22', '1.23', '1.24']
+        go-version: ['1.23', '1.24']
     
     steps:
     - name: Checkout code

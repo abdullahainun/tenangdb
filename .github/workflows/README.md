@@ -22,9 +22,9 @@ TenangDB uses GitHub Actions for automated testing, building, and releasing acro
 **Purpose:** Validates dependency installation across platforms
 
 **What it does:**
-- Tests Ubuntu 18.04, 20.04, 22.04, latest
+- Tests Ubuntu 22.04, latest
 - Tests Debian 10, 11, 12 (containerized)
-- Tests macOS 12, 13, latest
+- Tests macOS 13, latest
 - Validates Go compatibility (1.22-1.24)
 
 ### **Nightly Builds** (`nightly.yml`)
@@ -92,9 +92,9 @@ git push origin v1.1.0
 ## 📊 **Supported Platforms**
 
 **Operating Systems:**
-- Ubuntu 18.04, 20.04, 22.04, latest
+- Ubuntu 22.04, latest
 - Debian 10, 11, 12
-- macOS 12, 13, latest (10.15+)
+- macOS 13, latest (10.15+)
 
 **Go Versions:**
 - Primary: 1.23, 1.24

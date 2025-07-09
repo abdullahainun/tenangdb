@@ -13,18 +13,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-18.04, ubuntu-20.04, ubuntu-22.04, ubuntu-latest, macos-12, macos-13, macos-latest]
+        os: [ubuntu-22.04, ubuntu-latest, macos-13, macos-latest]
         go-version: ['1.23', '1.24']
         include:
           # Test additional Go versions on Ubuntu LTS
-          - os: ubuntu-20.04
+          - os: ubuntu-22.04
             go-version: '1.22'
           - os: ubuntu-latest
-            go-version: '1.24'
-        exclude:
-          # Ubuntu 18.04 has limited Go support
-          - os: ubuntu-18.04
-            go-version: '1.24'
+            go-version: '1.22'
     
     steps:
     - name: Checkout code
