@@ -71,10 +71,12 @@ jobs:
     strategy:
       matrix:
         goos: [linux, darwin, windows]
-        goarch: [amd64, arm64]
-        exclude:
-          # Windows ARM64 support is limited
-          - goos: windows
+        goarch: [amd64]
+        include:
+          # Add ARM64 for Linux and macOS only
+          - goos: linux
+            goarch: arm64
+          - goos: darwin
             goarch: arm64
     
     steps:
@@ -127,14 +129,9 @@ jobs:
         go build -ldflags "${LDFLAGS}" -o "$BINARY_NAME" ./cmd
     
     - name: Test binary
-      if: matrix.goos != 'windows'
+      if: matrix.goos == 'linux' && matrix.goarch == 'amd64'
       run: |
-        if [ "${{ matrix.goos }}" = "windows" ]; then
-          BINARY_NAME="tenangdb-${{ matrix.goos }}-${{ matrix.goarch }}.exe"
-        else
-          BINARY_NAME="tenangdb-${{ matrix.goos }}-${{ matrix.goarch }}"
-        fi
-        
+        BINARY_NAME="tenangdb-${{ matrix.goos }}-${{ matrix.goarch }}"
         chmod +x "$BINARY_NAME"
         ./"$BINARY_NAME" version
     
@@ -142,8 +139,9 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: tenangdb-${{ matrix.goos }}-${{ matrix.goarch }}
-        path: tenangdb-*
+        path: tenangdb-${{ matrix.goos }}-${{ matrix.goarch }}*
         retention-days: 7
+        if-no-files-found: error
 
 
   security-scan:
@@ -160,9 +158,9 @@ jobs:
         go-version: '1.23'
     
     - name: Run Gosec Security Scanner
-      uses: securecodewarrior/github-action-gosec@master
-      with:
-        args: './...'
+      run: |
+        go install github.com/securecodewarrior/gosec/v2/cmd/gosec@latest
+        gosec ./...
     
     - name: Run govulncheck
       run: |
