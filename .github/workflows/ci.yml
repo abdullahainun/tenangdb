@@ -159,15 +159,24 @@ jobs:
     
     - name: Run basic security checks
       run: |
-        echo "Running basic security checks..."
-        # Check for common security issues
-        grep -r "password\|secret\|key" --include="*.go" . || echo "No hardcoded secrets found"
+        echo "🔍 Running basic security checks..."
+        
+        # Check for hardcoded secrets
+        if grep -r "password\|secret\|key" --include="*.go" . > /dev/null 2>&1; then
+          echo "⚠️  Found potential hardcoded secrets - please review"
+          grep -r "password\|secret\|key" --include="*.go" . | head -5
+        else
+          echo "✅ No hardcoded secrets found"
+        fi
+        
         echo "✅ Basic security checks completed"
     
     - name: Run govulncheck
       run: |
+        echo "🔍 Running vulnerability scan..."
         go install golang.org/x/vuln/cmd/govulncheck@latest
         govulncheck ./...
+        echo "✅ Vulnerability scan completed"
 
   lint:
     name: Lint
@@ -257,35 +266,17 @@ jobs:
       run: |
         mkdir -p test-backups
         
-        # Debug: check if config file exists and show content
-        echo "=== Checking config file ==="
-        ls -la configs/
-        echo "=== Config file content ==="
-        cat configs/test-config.yaml
+        # Verify config file exists
+        if [ ! -f configs/test-config.yaml ]; then
+          echo "❌ Config file not found"
+          exit 1
+        fi
         
-        # Debug: check binary
-        echo "=== Binary info ==="
-        ls -la tenangdb
-        ./tenangdb --help
+        # Run integration test
+        echo "🧪 Running integration test..."
+        ./tenangdb backup --config configs/test-config.yaml --dry-run
         
-        # Debug: Test config file validity
-        echo "=== Testing config file validity ==="
-        python3 -c "import yaml; print('YAML is valid:', yaml.safe_load(open('configs/test-config.yaml')))" || echo "YAML validation failed"
-        
-        # Debug: Test absolute path
-        echo "=== Testing with absolute path ==="
-        pwd
-        ls -la $(pwd)/configs/test-config.yaml
-        
-        # Debug: Test config loading with verbose output
-        echo "=== Running with verbose logging ==="
-        ./tenangdb backup --config configs/test-config.yaml --dry-run --log-level debug || echo "Command failed with exit code $?"
-        
-        # Alternative: Try with absolute path
-        echo "=== Trying with absolute path ==="
-        ./tenangdb backup --config "$(pwd)/configs/test-config.yaml" --dry-run --log-level debug || echo "Absolute path also failed"
-        
-        echo "Integration test completed successfully"
+        echo "✅ Integration test completed successfully"
 
   status-check:
     name: Status Check
