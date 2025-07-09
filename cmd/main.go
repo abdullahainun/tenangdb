@@ -296,12 +296,15 @@ func runCleanup(configFile, logLevel string, dryRun bool, force bool, databases 
 		log.Info("No database filter specified, cleaning up all databases")
 	}
 
-	// Initialize metrics storage
-	metricsPath := "/var/lib/tenangdb/metrics.json"
-	if cfg.Metrics.Enabled && cfg.Metrics.StoragePath != "" {
-		metricsPath = cfg.Metrics.StoragePath
+	// Initialize metrics storage only if metrics are enabled
+	var metricsStorage *metrics.MetricsStorage
+	if cfg.Metrics.Enabled {
+		metricsPath := "/var/lib/tenangdb/metrics.json"
+		if cfg.Metrics.StoragePath != "" {
+			metricsPath = cfg.Metrics.StoragePath
+		}
+		metricsStorage = metrics.NewMetricsStorage(metricsPath)
 	}
-	metricsStorage := metrics.NewMetricsStorage(metricsPath)
 
 	// Initialize backup service to access uploaded files tracking
 	backupService, err := backup.NewService(cfg, log)
@@ -330,8 +333,10 @@ func runCleanup(configFile, logLevel string, dryRun bool, force bool, databases 
 	if err := backupService.CleanupUploadedFiles(ctx); err != nil {
 		log.WithError(err).Error("Cleanup process failed")
 		cleanupDuration := time.Since(cleanupStartTime)
-		if err := metricsStorage.UpdateCleanupMetrics(cleanupDuration, false, totalFilesRemoved, totalBytesFreed); err != nil {
-			log.WithError(err).Warn("Failed to update cleanup metrics")
+		if cfg.Metrics.Enabled && metricsStorage != nil {
+			if err := metricsStorage.UpdateCleanupMetrics(cleanupDuration, false, totalFilesRemoved, totalBytesFreed); err != nil {
+				log.WithError(err).Warn("Failed to update cleanup metrics")
+			}
 		}
 		os.Exit(1)
 	}
@@ -342,8 +347,10 @@ func runCleanup(configFile, logLevel string, dryRun bool, force bool, databases 
 		if err := cleanupService.CleanupAgeBasedFiles(ctx, cfg.Backup.Directory, selectedDatabases); err != nil {
 			log.WithError(err).Error("Age-based cleanup failed")
 			cleanupDuration := time.Since(cleanupStartTime)
-			if err := metricsStorage.UpdateCleanupMetrics(cleanupDuration, false, totalFilesRemoved, totalBytesFreed); err != nil {
-				log.WithError(err).Warn("Failed to update cleanup metrics")
+			if cfg.Metrics.Enabled && metricsStorage != nil {
+				if err := metricsStorage.UpdateCleanupMetrics(cleanupDuration, false, totalFilesRemoved, totalBytesFreed); err != nil {
+					log.WithError(err).Warn("Failed to update cleanup metrics")
+				}
 			}
 			os.Exit(1)
 		}
@@ -351,8 +358,10 @@ func runCleanup(configFile, logLevel string, dryRun bool, force bool, databases 
 
 	// Record successful cleanup
 	cleanupDuration := time.Since(cleanupStartTime)
-	if err := metricsStorage.UpdateCleanupMetrics(cleanupDuration, true, totalFilesRemoved, totalBytesFreed); err != nil {
-		log.WithError(err).Warn("Failed to update cleanup metrics")
+	if cfg.Metrics.Enabled && metricsStorage != nil {
+		if err := metricsStorage.UpdateCleanupMetrics(cleanupDuration, true, totalFilesRemoved, totalBytesFreed); err != nil {
+			log.WithError(err).Warn("Failed to update cleanup metrics")
+		}
 	}
 
 	if force {
@@ -530,18 +539,23 @@ func runRestore(configFile, logLevel, backupPath, targetDatabase string) {
 	}
 	defer dbClient.Close()
 
-	// Initialize metrics storage
-	metricsPath := "/var/lib/tenangdb/metrics.json"
-	if cfg.Metrics.Enabled && cfg.Metrics.StoragePath != "" {
-		metricsPath = cfg.Metrics.StoragePath
+	// Initialize metrics storage only if metrics are enabled
+	var metricsStorage *metrics.MetricsStorage
+	if cfg.Metrics.Enabled {
+		metricsPath := "/var/lib/tenangdb/metrics.json"
+		if cfg.Metrics.StoragePath != "" {
+			metricsPath = cfg.Metrics.StoragePath
+		}
+		metricsStorage = metrics.NewMetricsStorage(metricsPath)
 	}
-	metricsStorage := metrics.NewMetricsStorage(metricsPath)
 
 	log.WithField("backup_path", backupPath).WithField("target_database", targetDatabase).Info("Starting database restore")
 
 	// Record restore start
 	restoreStartTime := time.Now()
-	metrics.RecordRestoreStart(targetDatabase)
+	if cfg.Metrics.Enabled {
+		metrics.RecordRestoreStart(targetDatabase)
+	}
 
 	// Perform restore
 	err = dbClient.RestoreBackup(ctx, backupPath, targetDatabase)
@@ -549,17 +563,25 @@ func runRestore(configFile, logLevel, backupPath, targetDatabase string) {
 
 	if err != nil {
 		log.WithError(err).Error("Database restore failed")
-		metrics.RecordRestoreEnd(targetDatabase, restoreDuration, false)
-		if err := metricsStorage.UpdateRestoreMetrics(targetDatabase, restoreDuration, false); err != nil {
-			log.WithError(err).Warn("Failed to update restore metrics")
+		if cfg.Metrics.Enabled {
+			metrics.RecordRestoreEnd(targetDatabase, restoreDuration, false)
+			if metricsStorage != nil {
+				if err := metricsStorage.UpdateRestoreMetrics(targetDatabase, restoreDuration, false); err != nil {
+					log.WithError(err).Warn("Failed to update restore metrics")
+				}
+			}
 		}
 		os.Exit(1)
 	}
 
 	// Record successful restore
-	metrics.RecordRestoreEnd(targetDatabase, restoreDuration, true)
-	if err := metricsStorage.UpdateRestoreMetrics(targetDatabase, restoreDuration, true); err != nil {
-		log.WithError(err).Warn("Failed to update restore metrics")
+	if cfg.Metrics.Enabled {
+		metrics.RecordRestoreEnd(targetDatabase, restoreDuration, true)
+		if metricsStorage != nil {
+			if err := metricsStorage.UpdateRestoreMetrics(targetDatabase, restoreDuration, true); err != nil {
+				log.WithError(err).Warn("Failed to update restore metrics")
+			}
+		}
 	}
 
 	log.WithField("target_database", targetDatabase).Info("Database restore completed successfully")
