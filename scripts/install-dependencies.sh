@@ -389,11 +389,25 @@ install_go() {
                 print_status "WARNING" "Go not available in default repos, installing manually..."
                 install_go_manually
             else
-                # Check if version is too old
-                local go_version=$(go version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+' | head -1)
-                if [[ "$go_version" < "1.19" ]]; then
-                    print_status "WARNING" "Go version too old ($go_version), installing newer version manually..."
-                    install_go_manually
+                # Check if version is too old using the same logic as above
+                local go_version=$(go version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1)
+                if [[ "$go_version" ]]; then
+                    local major=$(echo "$go_version" | cut -d. -f1)
+                    local minor=$(echo "$go_version" | cut -d. -f2)
+                    local patch=$(echo "$go_version" | cut -d. -f3)
+                    
+                    if [[ -z "$patch" ]]; then
+                        patch=0
+                    fi
+                    
+                    local version_num=$(printf "%d%02d%02d" "$major" "$minor" "$patch")
+                    local required_version=12300  # 1.23.0
+                    
+                    if [[ "$version_num" -lt "$required_version" ]]; then
+                        print_status "WARNING" "Go version $go_version is too old for TenangDB (requires 1.23+)"
+                        print_status "INFO" "Installing newer Go version manually..."
+                        install_go_manually
+                    fi
                 fi
             fi
             
@@ -425,14 +439,35 @@ install_go() {
         print_status "SUCCESS" "Go installed: $version"
         
         # Check if Go version is compatible with TenangDB (requires 1.23+)
-        local go_version=$(go version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+' | head -1)
+        local go_version=$(go version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1)
         if [[ "$go_version" ]]; then
-            # Convert version to comparable format (e.g., 1.23 -> 123)
-            local version_num=$(echo "$go_version" | sed 's/\.//g')
-            if [[ "$version_num" -lt 123 ]]; then
+            # Convert version to comparable format (e.g., 1.23.1 -> 12301, 1.10.4 -> 11004)
+            local major=$(echo "$go_version" | cut -d. -f1)
+            local minor=$(echo "$go_version" | cut -d. -f2)
+            local patch=$(echo "$go_version" | cut -d. -f3)
+            
+            # Default patch to 0 if not present
+            if [[ -z "$patch" ]]; then
+                patch=0
+            fi
+            
+            # Create comparable version number (MMNNPP format)
+            local version_num=$(printf "%d%02d%02d" "$major" "$minor" "$patch")
+            local required_version=12300  # 1.23.0
+            
+            if [[ "$version_num" -lt "$required_version" ]]; then
                 print_status "WARNING" "Go version $go_version is too old for TenangDB (requires 1.23+)"
+                print_status "INFO" "Current version: $go_version (numeric: $version_num)"
+                print_status "INFO" "Required version: 1.23+ (numeric: $required_version)"
                 print_status "INFO" "Installing newer Go version..."
-                install_go_manually
+                
+                # Force upgrade Go
+                if [[ "$OS_TYPE" == "ubuntu" && "$OS_VERSION" == "18.04" ]]; then
+                    # For Ubuntu 18.04, use the upgrade process
+                    upgrade_go_ubuntu_18_04
+                else
+                    install_go_manually
+                fi
             else
                 print_status "SUCCESS" "Go version $go_version is compatible with TenangDB"
             fi
@@ -464,6 +499,40 @@ install_go_manually() {
         print_status "ERROR" "Failed to download Go"
         return 1
     fi
+}
+
+# Function to upgrade Go on Ubuntu 18.04
+upgrade_go_ubuntu_18_04() {
+    print_status "INFO" "Upgrading Go for Ubuntu 18.04..."
+    
+    # Remove old Go version
+    print_status "INFO" "Removing old Go version..."
+    sudo apt-get remove -y golang-go golang-1.10 golang-1.10-go || true
+    
+    # Remove any existing Go installation
+    sudo rm -rf /usr/local/go
+    
+    # Clean up PATH entries
+    sudo sed -i '/\/usr\/local\/go\/bin/d' /etc/profile
+    
+    # Install new Go version
+    if command -v snap >/dev/null 2>&1; then
+        print_status "INFO" "Installing Go 1.23 via snap..."
+        sudo snap install go --classic
+    else
+        print_status "INFO" "Installing Go 1.23 manually..."
+        install_go_manually
+    fi
+    
+    # Update PATH for current session
+    export PATH=$PATH:/usr/local/go/bin
+    
+    # Add to user's bashrc
+    if ! grep -q '/usr/local/go/bin' ~/.bashrc; then
+        echo 'export PATH=$PATH:/usr/local/go/bin' >> ~/.bashrc
+    fi
+    
+    print_status "SUCCESS" "Go upgrade completed"
 }
 
 # Function to create required directories
