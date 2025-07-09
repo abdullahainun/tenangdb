@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # TenangDB Auto Dependency Installer
-# Support Ubuntu 18.04+ (Bionic, Focal, Jammy, Noble) and Debian 10+ (Buster, Bullseye, Bookworm)
+# Support Ubuntu 18.04+ (Bionic, Focal, Jammy, Noble), Debian 10+ (Buster, Bullseye, Bookworm), and macOS 10.15+
 # This script automatically installs all required dependencies for TenangDB
 
 set -e
@@ -17,6 +17,7 @@ NC='\033[0m' # No Color
 SCRIPT_VERSION="1.0.0"
 SUPPORTED_UBUNTU_VERSIONS=("18.04" "20.04" "22.04" "24.04")
 SUPPORTED_DEBIAN_VERSIONS=("10" "11" "12")
+SUPPORTED_MACOS_VERSIONS=("10.15" "11.0" "12.0" "13.0" "14.0" "15.0" "15.1" "15.2" "15.3" "15.4" "15.5" "15.6")
 
 # Function to print colored output
 print_status() {
@@ -51,10 +52,40 @@ check_root() {
     fi
 }
 
-# Function to check OS version (Ubuntu/Debian)
+# Function to check OS version (Ubuntu/Debian/macOS)
 check_os_version() {
+    # Check if running on macOS
+    if [[ "$(uname)" == "Darwin" ]]; then
+        OS_TYPE="macos"
+        OS_VERSION=$(sw_vers -productVersion)
+        OS_BUILD=$(sw_vers -buildVersion)
+        print_status "INFO" "Detected macOS $OS_VERSION (Build: $OS_BUILD)"
+        
+        # Check if version is supported
+        local version_supported=false
+        local major_version=$(echo "$OS_VERSION" | cut -d'.' -f1)
+        local minor_version=$(echo "$OS_VERSION" | cut -d'.' -f2)
+        local current_version="$major_version.$minor_version"
+        
+        for supported_version in "${SUPPORTED_MACOS_VERSIONS[@]}"; do
+            if [[ "$current_version" == "$supported_version"* ]] || [[ "$OS_VERSION" == "$supported_version"* ]]; then
+                version_supported=true
+                break
+            fi
+        done
+        
+        if [[ "$version_supported" == false ]]; then
+            print_status "WARNING" "macOS $OS_VERSION is not officially tested."
+            print_status "WARNING" "Supported versions: ${SUPPORTED_MACOS_VERSIONS[*]}"
+            print_status "WARNING" "Continuing anyway, but some dependencies might fail..."
+        fi
+        
+        return 0
+    fi
+    
+    # Check Linux distributions
     if [[ ! -f /etc/os-release ]]; then
-        print_status "ERROR" "Cannot determine OS version. This script is designed for Ubuntu/Debian."
+        print_status "ERROR" "Cannot determine OS version. This script is designed for Ubuntu/Debian/macOS."
         exit 1
     fi
     
@@ -101,41 +132,120 @@ check_os_version() {
         fi
         
     else
-        print_status "ERROR" "This script is designed for Ubuntu/Debian. Detected: $ID"
+        print_status "ERROR" "This script is designed for Ubuntu/Debian/macOS. Detected: $ID"
         print_status "INFO" "You may need to manually install dependencies for your OS."
         exit 1
     fi
 }
 
+# Function to check and install Homebrew on macOS
+check_and_install_homebrew() {
+    if [[ "$OS_TYPE" != "macos" ]]; then
+        return 0
+    fi
+    
+    print_status "INFO" "Checking for Homebrew..."
+    
+    if command -v brew >/dev/null 2>&1; then
+        print_status "SUCCESS" "Homebrew is already installed"
+        # Update Homebrew
+        print_status "INFO" "Updating Homebrew..."
+        brew update
+        print_status "SUCCESS" "Homebrew updated"
+        return 0
+    fi
+    
+    print_status "INFO" "Homebrew not found. Installing Homebrew..."
+    
+    # Install Homebrew
+    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+    
+    # Add Homebrew to PATH for different shell profiles
+    if [[ -f "/opt/homebrew/bin/brew" ]]; then
+        # Apple Silicon Mac
+        HOMEBREW_PREFIX="/opt/homebrew"
+    elif [[ -f "/usr/local/bin/brew" ]]; then
+        # Intel Mac
+        HOMEBREW_PREFIX="/usr/local"
+    else
+        print_status "ERROR" "Homebrew installation failed"
+        return 1
+    fi
+    
+    # Add to current session
+    export PATH="$HOMEBREW_PREFIX/bin:$PATH"
+    
+    # Add to shell profiles
+    local shell_profiles=("$HOME/.zshrc" "$HOME/.bash_profile" "$HOME/.bashrc")
+    for profile in "${shell_profiles[@]}"; do
+        if [[ -f "$profile" ]] && ! grep -q "homebrew" "$profile"; then
+            echo "# Add Homebrew to PATH" >> "$profile"
+            echo "export PATH=\"$HOMEBREW_PREFIX/bin:\$PATH\"" >> "$profile"
+        fi
+    done
+    
+    # Verify installation
+    if command -v brew >/dev/null 2>&1; then
+        print_status "SUCCESS" "Homebrew installed successfully"
+    else
+        print_status "ERROR" "Homebrew installation verification failed"
+        return 1
+    fi
+}
+
 # Function to update package lists
 update_package_lists() {
-    print_status "INFO" "Updating package lists..."
-    sudo apt-get update -qq
-    print_status "SUCCESS" "Package lists updated"
+    if [[ "$OS_TYPE" == "macos" ]]; then
+        check_and_install_homebrew
+    else
+        print_status "INFO" "Updating package lists..."
+        sudo apt-get update -qq
+        print_status "SUCCESS" "Package lists updated"
+    fi
 }
 
 # Function to install basic dependencies
 install_basic_deps() {
     print_status "INFO" "Installing basic dependencies..."
     
-    local basic_packages=(
-        "curl"
-        "wget"
-        "software-properties-common"
-        "apt-transport-https"
-        "ca-certificates"
-        "gnupg"
-        "lsb-release"
-    )
-    
-    for package in "${basic_packages[@]}"; do
-        if ! dpkg -l "$package" &> /dev/null; then
-            print_status "INFO" "Installing $package..."
-            sudo apt-get install -y "$package"
-        else
-            print_status "INFO" "$package is already installed"
-        fi
-    done
+    if [[ "$OS_TYPE" == "macos" ]]; then
+        # macOS basic dependencies
+        local basic_packages=(
+            "curl"
+            "wget"
+            "gnupg"
+        )
+        
+        for package in "${basic_packages[@]}"; do
+            if ! brew list "$package" &> /dev/null; then
+                print_status "INFO" "Installing $package..."
+                brew install "$package"
+            else
+                print_status "INFO" "$package is already installed"
+            fi
+        done
+        
+    else
+        # Linux basic dependencies
+        local basic_packages=(
+            "curl"
+            "wget"
+            "software-properties-common"
+            "apt-transport-https"
+            "ca-certificates"
+            "gnupg"
+            "lsb-release"
+        )
+        
+        for package in "${basic_packages[@]}"; do
+            if ! dpkg -l "$package" &> /dev/null; then
+                print_status "INFO" "Installing $package..."
+                sudo apt-get install -y "$package"
+            else
+                print_status "INFO" "$package is already installed"
+            fi
+        done
+    fi
     
     print_status "SUCCESS" "Basic dependencies installed"
 }
@@ -152,7 +262,14 @@ install_mydumper() {
     
     print_status "INFO" "Installing mydumper/myloader..."
     
-    if [[ "$OS_TYPE" == "ubuntu" ]]; then
+    if [[ "$OS_TYPE" == "macos" ]]; then
+        # macOS installation using Homebrew
+        if ! brew install mydumper; then
+            print_status "ERROR" "Failed to install mydumper via Homebrew"
+            return 1
+        fi
+        
+    elif [[ "$OS_TYPE" == "ubuntu" ]]; then
         # Ubuntu-specific installation
         if [[ "$OS_VERSION" == "18.04" ]]; then
             print_status "INFO" "Using special installation method for Ubuntu 18.04..."
@@ -283,20 +400,49 @@ install_mysql_client() {
     
     print_status "INFO" "Installing MySQL client..."
     
-    # Different package names for different Ubuntu versions
-    local mysql_packages=("mysql-client" "mysql-client-core-8.0" "mysql-client-8.0")
-    local installed=false
-    
-    for package in "${mysql_packages[@]}"; do
-        if sudo apt-get install -y "$package" 2>/dev/null; then
-            installed=true
-            break
+    if [[ "$OS_TYPE" == "macos" ]]; then
+        # macOS installation using Homebrew
+        if ! brew install mysql-client; then
+            print_status "ERROR" "Failed to install MySQL client via Homebrew"
+            return 1
         fi
-    done
-    
-    if [[ "$installed" == false ]]; then
-        print_status "ERROR" "Failed to install MySQL client"
-        return 1
+        
+        # Add mysql client to PATH
+        local mysql_path="/opt/homebrew/opt/mysql-client/bin"
+        if [[ ! -d "$mysql_path" ]]; then
+            mysql_path="/usr/local/opt/mysql-client/bin"
+        fi
+        
+        if [[ -d "$mysql_path" ]]; then
+            export PATH="$mysql_path:$PATH"
+            
+            # Add to shell profiles
+            local shell_profiles=("$HOME/.zshrc" "$HOME/.bash_profile" "$HOME/.bashrc")
+            for profile in "${shell_profiles[@]}"; do
+                if [[ -f "$profile" ]] && ! grep -q "mysql-client" "$profile"; then
+                    echo "# Add MySQL client to PATH" >> "$profile"
+                    echo "export PATH=\"$mysql_path:\$PATH\"" >> "$profile"
+                fi
+            done
+        fi
+        
+    else
+        # Linux installation
+        # Different package names for different Ubuntu versions
+        local mysql_packages=("mysql-client" "mysql-client-core-8.0" "mysql-client-8.0")
+        local installed=false
+        
+        for package in "${mysql_packages[@]}"; do
+            if sudo apt-get install -y "$package" 2>/dev/null; then
+                installed=true
+                break
+            fi
+        done
+        
+        if [[ "$installed" == false ]]; then
+            print_status "ERROR" "Failed to install MySQL client"
+            return 1
+        fi
     fi
     
     # Verify installation
@@ -321,18 +467,27 @@ install_rclone() {
     
     print_status "INFO" "Installing rclone..."
     
-    # Use official rclone installer
-    if curl -fsSL https://rclone.org/install.sh | sudo bash; then
-        # Verify installation
-        if command -v rclone >/dev/null 2>&1; then
-            local version=$(rclone version 2>/dev/null | head -n1 || echo "unknown")
-            print_status "SUCCESS" "rclone installed: $version"
-        else
-            print_status "ERROR" "rclone installation verification failed"
+    if [[ "$OS_TYPE" == "macos" ]]; then
+        # macOS installation using Homebrew
+        if ! brew install rclone; then
+            print_status "ERROR" "Failed to install rclone via Homebrew"
             return 1
         fi
+        
     else
-        print_status "ERROR" "Failed to install rclone"
+        # Linux installation - use official rclone installer
+        if ! curl -fsSL https://rclone.org/install.sh | sudo bash; then
+            print_status "ERROR" "Failed to install rclone"
+            return 1
+        fi
+    fi
+    
+    # Verify installation
+    if command -v rclone >/dev/null 2>&1; then
+        local version=$(rclone version 2>/dev/null | head -n1 || echo "unknown")
+        print_status "SUCCESS" "rclone installed: $version"
+    else
+        print_status "ERROR" "rclone installation verification failed"
         return 1
     fi
 }
@@ -349,7 +504,14 @@ install_go() {
     
     print_status "INFO" "Installing Go..."
     
-    if [[ "$OS_TYPE" == "ubuntu" ]]; then
+    if [[ "$OS_TYPE" == "macos" ]]; then
+        # macOS installation using Homebrew
+        if ! brew install go; then
+            print_status "ERROR" "Failed to install Go via Homebrew"
+            return 1
+        fi
+        
+    elif [[ "$OS_TYPE" == "ubuntu" ]]; then
         # Ubuntu-specific installation
         if [[ "$OS_VERSION" == "18.04" ]]; then
             # For Ubuntu 18.04, Go 1.10 is too old, need 1.23+
@@ -608,21 +770,46 @@ check_and_upgrade_go() {
 create_directories() {
     print_status "INFO" "Creating required directories..."
     
-    local directories=(
-        "/var/backups"
-        "/var/log/tenangdb"
-        "/etc/tenangdb"
-    )
-    
-    for dir in "${directories[@]}"; do
-        if [[ ! -d "$dir" ]]; then
-            print_status "INFO" "Creating directory: $dir"
-            sudo mkdir -p "$dir"
-            sudo chown $USER:$USER "$dir" 2>/dev/null || true
-        else
-            print_status "INFO" "Directory already exists: $dir"
-        fi
-    done
+    if [[ "$OS_TYPE" == "macos" ]]; then
+        # macOS directories
+        local directories=(
+            "$HOME/Library/Application Support/TenangDB"
+            "$HOME/Library/Logs/TenangDB"
+            "/usr/local/etc/tenangdb"
+        )
+        
+        for dir in "${directories[@]}"; do
+            if [[ ! -d "$dir" ]]; then
+                print_status "INFO" "Creating directory: $dir"
+                if [[ "$dir" == "/usr/local/etc/tenangdb" ]]; then
+                    sudo mkdir -p "$dir"
+                    sudo chown $USER:staff "$dir" 2>/dev/null || true
+                else
+                    mkdir -p "$dir"
+                fi
+            else
+                print_status "INFO" "Directory already exists: $dir"
+            fi
+        done
+        
+    else
+        # Linux directories
+        local directories=(
+            "/var/backups"
+            "/var/log/tenangdb"
+            "/etc/tenangdb"
+        )
+        
+        for dir in "${directories[@]}"; do
+            if [[ ! -d "$dir" ]]; then
+                print_status "INFO" "Creating directory: $dir"
+                sudo mkdir -p "$dir"
+                sudo chown $USER:$USER "$dir" 2>/dev/null || true
+            else
+                print_status "INFO" "Directory already exists: $dir"
+            fi
+        done
+    fi
     
     print_status "SUCCESS" "Required directories created"
 }
@@ -684,7 +871,7 @@ final_verification() {
 # Function to show usage
 show_usage() {
     echo "TenangDB Dependency Installer v$SCRIPT_VERSION"
-    echo "Automatically installs dependencies for Ubuntu and Debian systems"
+    echo "Automatically installs dependencies for Ubuntu, Debian, and macOS systems"
     echo "Usage: $0 [OPTIONS]"
     echo ""
     echo "Options:"
@@ -696,6 +883,7 @@ show_usage() {
     echo ""
     echo "Supported Ubuntu versions: ${SUPPORTED_UBUNTU_VERSIONS[*]}"
     echo "Supported Debian versions: ${SUPPORTED_DEBIAN_VERSIONS[*]}"
+    echo "Supported macOS versions: ${SUPPORTED_MACOS_VERSIONS[*]}"
 }
 
 # Parse command line arguments
