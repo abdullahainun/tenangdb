@@ -99,25 +99,6 @@ jobs:
         message: ${{ env.PLATFORM_SUPPORT }}
         color: ${{ env.PLATFORM_COLOR }}
     
-    - name: Dependency status check
-      run: |
-        if ./scripts/install-dependencies.sh --check-only; then
-          echo "DEPS_STATUS=supported" >> $GITHUB_ENV
-          echo "DEPS_COLOR=green" >> $GITHUB_ENV
-        else
-          echo "DEPS_STATUS=issues" >> $GITHUB_ENV
-          echo "DEPS_COLOR=red" >> $GITHUB_ENV
-        fi
-    
-    - name: Generate dependency badge
-      uses: schneegans/dynamic-badges-action@v1.7.0
-      with:
-        auth: ${{ secrets.GITHUB_TOKEN }}
-        gistID: # You need to create a gist and put the ID here
-        filename: tenangdb-dependencies.json
-        label: dependencies
-        message: ${{ env.DEPS_STATUS }}
-        color: ${{ env.DEPS_COLOR }}
     
     - name: Go version check
       run: |

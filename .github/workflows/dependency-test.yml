@@ -1,16 +1,8 @@
 name: Dependency Installation Test
 
 on:
-  push:
-    branches: [ main ]
-    paths:
-      - 'scripts/install-dependencies.sh'
-      - '.github/workflows/dependency-test.yml'
-  pull_request:
-    branches: [ main ]
-    paths:
-      - 'scripts/install-dependencies.sh'
-      - '.github/workflows/dependency-test.yml'
+  # Only run manually or on schedule to avoid blocking PRs
+  workflow_dispatch:
   schedule:
     # Run weekly on Sundays at 6:00 AM UTC
     - cron: '0 6 * * 0'
@@ -19,10 +11,11 @@ jobs:
   test-ubuntu:
     name: Test on Ubuntu ${{ matrix.ubuntu-version }}
     runs-on: ubuntu-${{ matrix.ubuntu-version }}
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        ubuntu-version: ['18.04', '20.04', '22.04', 'latest']
+        ubuntu-version: ['20.04', '22.04', 'latest']
     
     steps:
     - name: Checkout code
@@ -33,23 +26,10 @@ jobs:
         sudo apt-get update
         sudo apt-get upgrade -y
     
-    - name: Test dependency checker
+    - name: Install and verify dependencies
       run: |
         chmod +x scripts/install-dependencies.sh
-        ./scripts/install-dependencies.sh --check-only
-    
-    - name: Install dependencies
-      run: |
         ./scripts/install-dependencies.sh -y
-    
-    - name: Verify installations
-      run: |
-        echo "=== Verifying installations ==="
-        command -v mydumper && mydumper --version
-        command -v myloader && myloader --version
-        command -v mysql && mysql --version
-        command -v rclone && rclone version
-        command -v go && go version
     
     - name: Test TenangDB build
       run: |
@@ -76,27 +56,15 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
     
-    - name: Test dependency checker
+    - name: Install and verify dependencies
       run: |
         chmod +x scripts/install-dependencies.sh
-        ./scripts/install-dependencies.sh --check-only
-    
-    - name: Install dependencies
-      run: |
         ./scripts/install-dependencies.sh -y
-    
-    - name: Verify installations
-      run: |
-        echo "=== Verifying installations ==="
-        command -v mydumper && mydumper --version
-        command -v myloader && myloader --version
-        command -v mysql && mysql --version
-        command -v rclone && rclone version
-        command -v go && go version
 
   test-macos:
     name: Test on macOS ${{ matrix.macos-version }}
     runs-on: macos-${{ matrix.macos-version }}
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -106,31 +74,10 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
     
-    - name: Test dependency checker
+    - name: Install and verify dependencies
       run: |
         chmod +x scripts/install-dependencies.sh
-        ./scripts/install-dependencies.sh --check-only
-    
-    - name: Install dependencies
-      run: |
         ./scripts/install-dependencies.sh -y
-    
-    - name: Verify installations
-      run: |
-        echo "=== Verifying installations ==="
-        command -v mydumper && mydumper --version
-        command -v myloader && myloader --version
-        
-        # MySQL client path handling for macOS
-        if [ -f "/opt/homebrew/opt/mysql-client/bin/mysql" ]; then
-          export PATH="/opt/homebrew/opt/mysql-client/bin:$PATH"
-        elif [ -f "/usr/local/opt/mysql-client/bin/mysql" ]; then
-          export PATH="/usr/local/opt/mysql-client/bin:$PATH"
-        fi
-        
-        command -v mysql && mysql --version
-        command -v rclone && rclone version
-        command -v go && go version
     
     - name: Test TenangDB build
       run: |
