@@ -266,9 +266,17 @@ jobs:
       run: |
         mkdir -p test-backups
         
-        # Verify config file exists
+        # Verify config file exists and is valid
         if [ ! -f configs/test-config.yaml ]; then
           echo "❌ Config file not found"
+          exit 1
+        fi
+        
+        # Quick YAML validation
+        if ! python3 -c "import yaml; yaml.safe_load(open('configs/test-config.yaml'))" 2>/dev/null; then
+          echo "❌ Invalid YAML config file"
+          echo "Config content:"
+          cat configs/test-config.yaml
           exit 1
         fi
         
