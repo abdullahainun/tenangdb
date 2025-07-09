@@ -199,13 +199,13 @@ func setDefaults() {
 		if isRunningAsRoot() {
 			viper.SetDefault("backup.directory", "/usr/local/var/tenangdb/backups")
 		} else {
-			viper.SetDefault("backup.directory", "~/Library/Application Support/TenangDB/backups")
+			viper.SetDefault("backup.directory", expandHomeDir("~/Library/Application Support/TenangDB/backups"))
 		}
 	} else {
 		if isRunningAsRoot() {
 			viper.SetDefault("backup.directory", "/var/backups/tenangdb")
 		} else {
-			viper.SetDefault("backup.directory", "~/.local/share/tenangdb/backups")
+			viper.SetDefault("backup.directory", expandHomeDir("~/.local/share/tenangdb/backups"))
 		}
 	}
 	viper.SetDefault("backup.batch_size", 5)
@@ -223,24 +223,24 @@ func setDefaults() {
 		viper.SetDefault("database.mydumper.binary_path", "/usr/local/bin/mydumper")
 		viper.SetDefault("database.mydumper.myloader.binary_path", "/usr/local/bin/myloader")
 		viper.SetDefault("upload.rclone_path", "/usr/local/bin/rclone")
-		viper.SetDefault("upload.rclone_config_path", "~/.config/rclone/rclone.conf")
+		viper.SetDefault("upload.rclone_config_path", expandHomeDir("~/.config/rclone/rclone.conf"))
 		
 		if isRunningAsRoot() {
 			viper.SetDefault("logging.file_path", "/usr/local/var/log/tenangdb/tenangdb.log")
 		} else {
-			viper.SetDefault("logging.file_path", "~/Library/Logs/TenangDB/tenangdb.log")
+			viper.SetDefault("logging.file_path", expandHomeDir("~/Library/Logs/TenangDB/tenangdb.log"))
 		}
 	} else {
 		// Linux/Unix defaults
 		viper.SetDefault("database.mydumper.binary_path", "/usr/bin/mydumper")
 		viper.SetDefault("database.mydumper.myloader.binary_path", "/usr/bin/myloader")
 		viper.SetDefault("upload.rclone_path", "/usr/bin/rclone")
-		viper.SetDefault("upload.rclone_config_path", "~/.config/rclone/rclone.conf")
+		viper.SetDefault("upload.rclone_config_path", expandHomeDir("~/.config/rclone/rclone.conf"))
 		
 		if isRunningAsRoot() {
 			viper.SetDefault("logging.file_path", "/var/log/tenangdb/tenangdb.log")
 		} else {
-			viper.SetDefault("logging.file_path", "~/.local/share/tenangdb/logs/tenangdb.log")
+			viper.SetDefault("logging.file_path", expandHomeDir("~/.local/share/tenangdb/logs/tenangdb.log"))
 		}
 	}
 
@@ -283,13 +283,13 @@ func setDefaults() {
 		if isRunningAsRoot() {
 			viper.SetDefault("metrics.storage_path", "/usr/local/var/tenangdb/metrics.json")
 		} else {
-			viper.SetDefault("metrics.storage_path", "~/Library/Application Support/TenangDB/metrics.json")
+			viper.SetDefault("metrics.storage_path", expandHomeDir("~/Library/Application Support/TenangDB/metrics.json"))
 		}
 	} else {
 		if isRunningAsRoot() {
 			viper.SetDefault("metrics.storage_path", "/var/lib/tenangdb/metrics.json")
 		} else {
-			viper.SetDefault("metrics.storage_path", "~/.local/share/tenangdb/metrics.json")
+			viper.SetDefault("metrics.storage_path", expandHomeDir("~/.local/share/tenangdb/metrics.json"))
 		}
 	}
 }
