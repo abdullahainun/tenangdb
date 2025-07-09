@@ -194,7 +194,20 @@ func setDefaults() {
 	viper.SetDefault("database.port", 3306)
 	viper.SetDefault("database.timeout", 30)
 
-	viper.SetDefault("backup.directory", "backups")
+	// Platform-specific backup directories
+	if runtime.GOOS == "darwin" {
+		if isRunningAsRoot() {
+			viper.SetDefault("backup.directory", "/usr/local/var/tenangdb/backups")
+		} else {
+			viper.SetDefault("backup.directory", "~/Library/Application Support/TenangDB/backups")
+		}
+	} else {
+		if isRunningAsRoot() {
+			viper.SetDefault("backup.directory", "/var/backups/tenangdb")
+		} else {
+			viper.SetDefault("backup.directory", "~/.local/share/tenangdb/backups")
+		}
+	}
 	viper.SetDefault("backup.batch_size", 5)
 	viper.SetDefault("backup.concurrency", 3)
 	viper.SetDefault("backup.timeout", "30m")
@@ -204,21 +217,31 @@ func setDefaults() {
 	viper.SetDefault("backup.min_backup_interval", "1h")
 	viper.SetDefault("backup.skip_confirmation", false)
 
-	// Platform-specific binary paths
+	// Platform-specific binary paths and directories
 	if runtime.GOOS == "darwin" {
 		// macOS defaults (Homebrew)
 		viper.SetDefault("database.mydumper.binary_path", "/usr/local/bin/mydumper")
 		viper.SetDefault("database.mydumper.myloader.binary_path", "/usr/local/bin/myloader")
 		viper.SetDefault("upload.rclone_path", "/usr/local/bin/rclone")
 		viper.SetDefault("upload.rclone_config_path", "~/.config/rclone/rclone.conf")
-		viper.SetDefault("logging.file_path", "~/Library/Logs/TenangDB/tenangdb.log")
+		
+		if isRunningAsRoot() {
+			viper.SetDefault("logging.file_path", "/usr/local/var/log/tenangdb/tenangdb.log")
+		} else {
+			viper.SetDefault("logging.file_path", "~/Library/Logs/TenangDB/tenangdb.log")
+		}
 	} else {
 		// Linux/Unix defaults
 		viper.SetDefault("database.mydumper.binary_path", "/usr/bin/mydumper")
 		viper.SetDefault("database.mydumper.myloader.binary_path", "/usr/bin/myloader")
 		viper.SetDefault("upload.rclone_path", "/usr/bin/rclone")
 		viper.SetDefault("upload.rclone_config_path", "~/.config/rclone/rclone.conf")
-		viper.SetDefault("logging.file_path", "/var/log/tenangdb/tenangdb.log")
+		
+		if isRunningAsRoot() {
+			viper.SetDefault("logging.file_path", "/var/log/tenangdb/tenangdb.log")
+		} else {
+			viper.SetDefault("logging.file_path", "~/.local/share/tenangdb/logs/tenangdb.log")
+		}
 	}
 
 	// Mydumper defaults
@@ -254,6 +277,21 @@ func setDefaults() {
 
 	viper.SetDefault("metrics.enabled", false)
 	viper.SetDefault("metrics.port", "8080")
+	
+	// Platform-specific metrics storage paths
+	if runtime.GOOS == "darwin" {
+		if isRunningAsRoot() {
+			viper.SetDefault("metrics.storage_path", "/usr/local/var/tenangdb/metrics.json")
+		} else {
+			viper.SetDefault("metrics.storage_path", "~/Library/Application Support/TenangDB/metrics.json")
+		}
+	} else {
+		if isRunningAsRoot() {
+			viper.SetDefault("metrics.storage_path", "/var/lib/tenangdb/metrics.json")
+		} else {
+			viper.SetDefault("metrics.storage_path", "~/.local/share/tenangdb/metrics.json")
+		}
+	}
 }
 
 // GetConfigPaths returns the config paths for the current platform (for CLI help)
@@ -264,6 +302,11 @@ func GetConfigPaths() []string {
 // GetActiveConfigPath returns the path of the config file that would be used
 func GetActiveConfigPath() (string, error) {
 	return findConfigFile()
+}
+
+// isRunningAsRoot checks if the current process is running with root privileges
+func isRunningAsRoot() bool {
+	return os.Geteuid() == 0
 }
 
 func validateConfig(config *Config) error {

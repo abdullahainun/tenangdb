@@ -303,9 +303,9 @@ func runCleanup(configFile, logLevel string, dryRun bool, force bool, databases 
 	// Initialize metrics storage only if metrics are enabled
 	var metricsStorage *metrics.MetricsStorage
 	if cfg.Metrics.Enabled {
-		metricsPath := "/var/lib/tenangdb/metrics.json"
-		if cfg.Metrics.StoragePath != "" {
-			metricsPath = cfg.Metrics.StoragePath
+		metricsPath := cfg.Metrics.StoragePath
+		if metricsPath == "" {
+			metricsPath = "/var/lib/tenangdb/metrics.json" // fallback
 		}
 		metricsStorage = metrics.NewMetricsStorage(metricsPath)
 	}
@@ -546,9 +546,9 @@ func runRestore(configFile, logLevel, backupPath, targetDatabase string) {
 	// Initialize metrics storage only if metrics are enabled
 	var metricsStorage *metrics.MetricsStorage
 	if cfg.Metrics.Enabled {
-		metricsPath := "/var/lib/tenangdb/metrics.json"
-		if cfg.Metrics.StoragePath != "" {
-			metricsPath = cfg.Metrics.StoragePath
+		metricsPath := cfg.Metrics.StoragePath
+		if metricsPath == "" {
+			metricsPath = "/var/lib/tenangdb/metrics.json" // fallback
 		}
 		metricsStorage = metrics.NewMetricsStorage(metricsPath)
 	}
@@ -609,7 +609,7 @@ func newExporterCommand() *cobra.Command {
 	cmd.Flags().StringVar(&configFile, "config", "", "config file path (auto-discovery if not specified)")
 	cmd.Flags().StringVar(&logLevel, "log-level", "info", "log level (debug, info, warn, error)")
 	cmd.Flags().StringVar(&port, "port", "9090", "HTTP server port for metrics")
-	cmd.Flags().StringVar(&metricsFile, "metrics-file", "/var/lib/tenangdb/metrics.json", "path to metrics storage file")
+	cmd.Flags().StringVar(&metricsFile, "metrics-file", "", "path to metrics storage file (auto-discovery if not specified)")
 
 	return cmd
 }
@@ -643,6 +643,14 @@ func runExporter(configFile, logLevel, port, metricsFile string) {
 		// Fallback to stdout logger
 		log = logger.NewLogger(effectiveLogLevel)
 		log.WithError(err).Warn("Failed to initialize file logger, using stdout")
+	}
+
+	// Use config-based metrics file path if not specified
+	if metricsFile == "" {
+		metricsFile = cfg.Metrics.StoragePath
+		if metricsFile == "" {
+			metricsFile = "/var/lib/tenangdb/metrics.json" // fallback
+		}
 	}
 
 	log.WithField("port", port).WithField("metrics_file", metricsFile).Info("Starting tenangdb metrics exporter")
@@ -755,12 +763,22 @@ func showConfigInfo() {
 		fmt.Printf("macOS Notes:\n")
 		fmt.Printf("  - System config: /usr/local/etc/tenangdb/config.yaml (Homebrew)\n")
 		fmt.Printf("  - User config: ~/Library/Application Support/TenangDB/config.yaml\n")
-		fmt.Printf("  - Logs: ~/Library/Logs/TenangDB/\n")
+		fmt.Printf("  - User logs: ~/Library/Logs/TenangDB/\n")
+		fmt.Printf("  - User backups: ~/Library/Application Support/TenangDB/backups/\n")
+		fmt.Printf("  - User metrics: ~/Library/Application Support/TenangDB/metrics.json\n")
+		fmt.Printf("  - System logs: /usr/local/var/log/tenangdb/\n")
+		fmt.Printf("  - System backups: /usr/local/var/tenangdb/backups/\n")
+		fmt.Printf("  - System metrics: /usr/local/var/tenangdb/metrics.json\n")
 	} else {
 		fmt.Printf("Linux Notes:\n")
 		fmt.Printf("  - System config: /etc/tenangdb/config.yaml\n")
 		fmt.Printf("  - User config: ~/.config/tenangdb/config.yaml\n")
-		fmt.Printf("  - Logs: /var/log/tenangdb/\n")
+		fmt.Printf("  - User logs: ~/.local/share/tenangdb/logs/\n")
+		fmt.Printf("  - User backups: ~/.local/share/tenangdb/backups/\n")
+		fmt.Printf("  - User metrics: ~/.local/share/tenangdb/metrics.json\n")
+		fmt.Printf("  - System logs: /var/log/tenangdb/\n")
+		fmt.Printf("  - System backups: /var/backups/tenangdb/\n")
+		fmt.Printf("  - System metrics: /var/lib/tenangdb/metrics.json\n")
 	}
 }
 
