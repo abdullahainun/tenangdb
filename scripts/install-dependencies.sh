@@ -17,7 +17,7 @@ NC='\033[0m' # No Color
 SCRIPT_VERSION="1.0.0"
 SUPPORTED_UBUNTU_VERSIONS=("18.04" "20.04" "22.04" "24.04")
 SUPPORTED_DEBIAN_VERSIONS=("10" "11" "12")
-SUPPORTED_MACOS_VERSIONS=("10.15" "11.0" "12.0" "13.0" "14.0" "15.0" "15.1" "15.2" "15.3" "15.4" "15.5" "15.6")
+SUPPORTED_MACOS_VERSIONS=("10.15" "11.0" "12.0" "13.0" "13.1" "13.2" "13.3" "13.4" "13.5" "13.6" "13.7" "14.0" "14.1" "14.2" "14.3" "14.4" "14.5" "14.6" "15.0" "15.1" "15.2" "15.3" "15.4" "15.5" "15.6")
 
 # Function to print colored output
 print_status() {
@@ -45,6 +45,12 @@ print_status() {
 
 # Function to check if running as root
 check_root() {
+    # Skip root check in GitHub Actions or CI environments
+    if [[ -n "$GITHUB_ACTIONS" || -n "$CI" ]]; then
+        print_status "INFO" "Running in CI environment, skipping root check"
+        return 0
+    fi
+    
     if [[ $EUID -eq 0 ]]; then
         print_status "ERROR" "This script should not be run as root. Please run as regular user."
         print_status "INFO" "The script will use sudo when needed."
@@ -264,9 +270,13 @@ install_mydumper() {
     
     if [[ "$OS_TYPE" == "macos" ]]; then
         # macOS installation using Homebrew
-        if ! brew install mydumper; then
-            print_status "ERROR" "Failed to install mydumper via Homebrew"
-            return 1
+        print_status "INFO" "Installing mydumper via Homebrew..."
+        if ! brew install mydumper 2>/dev/null; then
+            print_status "WARNING" "Failed to install mydumper via Homebrew, trying with tap..."
+            if ! brew tap mydumper/homebrew-mydumper && brew install mydumper; then
+                print_status "ERROR" "Failed to install mydumper via Homebrew"
+                return 1
+            fi
         fi
         
     elif [[ "$OS_TYPE" == "ubuntu" ]]; then
@@ -274,9 +284,13 @@ install_mydumper() {
         if [[ "$OS_VERSION" == "18.04" ]]; then
             print_status "INFO" "Using special installation method for Ubuntu 18.04..."
             
-            # Try to install from default repos first
+            # Enable universe repository first
+            sudo add-apt-repository universe -y
+            sudo apt-get update -qq
+            
+            # Try to install from repos with universe enabled
             if ! sudo apt-get install -y mydumper; then
-                print_status "WARNING" "Package mydumper not available in default repos for Ubuntu 18.04"
+                print_status "WARNING" "Package mydumper not available in repos for Ubuntu 18.04"
                 print_status "INFO" "Attempting to download from GitHub releases..."
                 
                 # Download mydumper binary for Ubuntu 18.04
@@ -294,11 +308,14 @@ install_mydumper() {
             fi
         else
             # For newer Ubuntu versions
+            # Enable universe repository first
+            sudo add-apt-repository universe -y
+            sudo apt-get update -qq
+            
             if ! sudo apt-get install -y mydumper; then
-                print_status "WARNING" "mydumper not available in default repos, trying universe repository..."
-                sudo add-apt-repository universe -y
-                sudo apt-get update -qq
-                sudo apt-get install -y mydumper
+                print_status "WARNING" "mydumper not available even with universe repository"
+                print_status "INFO" "Attempting to install build dependencies and compile from source..."
+                install_mydumper_from_source
             fi
         fi
         
@@ -402,9 +419,13 @@ install_mysql_client() {
     
     if [[ "$OS_TYPE" == "macos" ]]; then
         # macOS installation using Homebrew
-        if ! brew install mysql-client; then
-            print_status "ERROR" "Failed to install MySQL client via Homebrew"
-            return 1
+        print_status "INFO" "Installing MySQL client via Homebrew..."
+        if ! brew install mysql-client 2>/dev/null; then
+            print_status "WARNING" "Failed to install mysql-client, trying mysql..."
+            if ! brew install mysql; then
+                print_status "ERROR" "Failed to install MySQL client via Homebrew"
+                return 1
+            fi
         fi
         
         # Add mysql client to PATH
@@ -469,7 +490,8 @@ install_rclone() {
     
     if [[ "$OS_TYPE" == "macos" ]]; then
         # macOS installation using Homebrew
-        if ! brew install rclone; then
+        print_status "INFO" "Installing rclone via Homebrew..."
+        if ! brew install rclone 2>/dev/null; then
             print_status "ERROR" "Failed to install rclone via Homebrew"
             return 1
         fi
@@ -506,7 +528,8 @@ install_go() {
     
     if [[ "$OS_TYPE" == "macos" ]]; then
         # macOS installation using Homebrew
-        if ! brew install go; then
+        print_status "INFO" "Installing Go via Homebrew..."
+        if ! brew install go 2>/dev/null; then
             print_status "ERROR" "Failed to install Go via Homebrew"
             return 1
         fi
