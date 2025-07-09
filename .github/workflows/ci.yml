@@ -13,13 +13,17 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [ubuntu-18.04, ubuntu-20.04, ubuntu-22.04, ubuntu-latest, macos-12, macos-13, macos-latest]
         go-version: ['1.23', '1.24']
         include:
-          # Test additional Go versions on Linux
-          - os: ubuntu-latest
+          # Test additional Go versions on Ubuntu LTS
+          - os: ubuntu-20.04
             go-version: '1.22'
           - os: ubuntu-latest
+            go-version: '1.25'
+        exclude:
+          # Ubuntu 18.04 has limited Go support
+          - os: ubuntu-18.04
             go-version: '1.25'
     
     steps:
@@ -151,9 +155,19 @@ jobs:
     needs: test-matrix
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-18.04, ubuntu-20.04, ubuntu-22.04, ubuntu-latest, macos-12, macos-13, macos-latest]
         include:
+          - os: ubuntu-18.04
+            deps_script: scripts/install-dependencies.sh
+          - os: ubuntu-20.04
+            deps_script: scripts/install-dependencies.sh
+          - os: ubuntu-22.04
+            deps_script: scripts/install-dependencies.sh
           - os: ubuntu-latest
+            deps_script: scripts/install-dependencies.sh
+          - os: macos-12
+            deps_script: scripts/install-dependencies.sh
+          - os: macos-13
             deps_script: scripts/install-dependencies.sh
           - os: macos-latest
             deps_script: scripts/install-dependencies.sh
