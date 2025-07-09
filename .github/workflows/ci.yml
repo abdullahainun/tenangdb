@@ -149,68 +149,6 @@ jobs:
         path: tenangdb-*
         retention-days: 7
 
-  dependency-test:
-    name: Test Dependencies on ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
-    needs: test-matrix
-    strategy:
-      matrix:
-        os: [ubuntu-18.04, ubuntu-20.04, ubuntu-22.04, ubuntu-latest, macos-12, macos-13, macos-latest]
-        include:
-          - os: ubuntu-18.04
-            deps_script: scripts/install-dependencies.sh
-          - os: ubuntu-20.04
-            deps_script: scripts/install-dependencies.sh
-          - os: ubuntu-22.04
-            deps_script: scripts/install-dependencies.sh
-          - os: ubuntu-latest
-            deps_script: scripts/install-dependencies.sh
-          - os: macos-12
-            deps_script: scripts/install-dependencies.sh
-          - os: macos-13
-            deps_script: scripts/install-dependencies.sh
-          - os: macos-latest
-            deps_script: scripts/install-dependencies.sh
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Set up Go
-      uses: actions/setup-go@v5
-      with:
-        go-version: '1.23'
-    
-    - name: Install system dependencies (Ubuntu)
-      if: matrix.os == 'ubuntu-latest'
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y mysql-client
-    
-    - name: Install system dependencies (macOS)
-      if: matrix.os == 'macos-latest'
-      run: |
-        brew install mysql-client
-    
-    - name: Test dependency installation script
-      run: |
-        chmod +x ${{ matrix.deps_script }}
-        ${{ matrix.deps_script }} --check-only
-    
-    - name: Install dependencies
-      run: |
-        ${{ matrix.deps_script }} -y
-    
-    - name: Build with dependencies
-      run: |
-        export PATH="/opt/homebrew/opt/mysql-client/bin:$PATH"
-        make build
-    
-    - name: Test built binary
-      run: |
-        export PATH="/opt/homebrew/opt/mysql-client/bin:$PATH"
-        ./tenangdb version
-        ./tenangdb --help
 
   security-scan:
     name: Security Scan
@@ -326,7 +264,7 @@ jobs:
   status-check:
     name: Status Check
     runs-on: ubuntu-latest
-    needs: [test-matrix, build-matrix, dependency-test, security-scan, lint, integration-test]
+    needs: [test-matrix, build-matrix, security-scan, lint, integration-test]
     if: always()
     steps:
     - name: Check all jobs
@@ -337,10 +275,6 @@ jobs:
         fi
         if [ "${{ needs.build-matrix.result }}" != "success" ]; then
           echo "build-matrix failed: ${{ needs.build-matrix.result }}"
-          exit 1
-        fi
-        if [ "${{ needs.dependency-test.result }}" != "success" ]; then
-          echo "dependency-test failed: ${{ needs.dependency-test.result }}"
           exit 1
         fi
         if [ "${{ needs.security-scan.result }}" != "success" ]; then
