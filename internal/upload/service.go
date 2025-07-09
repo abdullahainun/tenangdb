@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/abdullahainun/tenangdb/internal/config"
@@ -23,6 +24,36 @@ func NewService(config *config.UploadConfig, logger *logger.Logger) *Service {
 	}
 }
 
+// extractBackupInfo extracts database name and date from backup file path
+// Expected path format: {baseDir}/{database}/{YYYY-MM}/{filename}
+func extractBackupInfo(filePath string) (database, date string) {
+	// Split the path into parts
+	parts := strings.Split(filepath.Clean(filePath), string(filepath.Separator))
+	
+	// Find the backup directory structure
+	// Look for the pattern: {database}/{YYYY-MM}/{filename}
+	for i := len(parts) - 3; i >= 0; i-- {
+		if len(parts) > i+2 {
+			// Check if the pattern matches database/YYYY-MM/filename
+			datePattern := parts[i+1]
+			if len(datePattern) == 7 && datePattern[4] == '-' {
+				// Looks like YYYY-MM format
+				database = parts[i]
+				date = datePattern
+				return
+			}
+		}
+	}
+	
+	// Fallback: extract database from filename if pattern not found
+	filename := filepath.Base(filePath)
+	if dashIndex := strings.Index(filename, "-"); dashIndex > 0 {
+		database = filename[:dashIndex]
+	}
+	
+	return
+}
+
 func (s *Service) Upload(ctx context.Context, filePath string) error {
 	if !s.config.Enabled {
 		return nil
@@ -31,7 +62,7 @@ func (s *Service) Upload(ctx context.Context, filePath string) error {
 	fileName := filepath.Base(filePath)
 	log := s.logger.WithField("backup_file", fileName)
 
-	log.Info("Starting cloud upload")
+	log.Info("☁️  Uploading " + fileName + " to cloud")
 
 	// Upload with retry logic
 	var lastErr error
@@ -42,7 +73,7 @@ func (s *Service) Upload(ctx context.Context, filePath string) error {
 		}
 
 		if err := s.uploadFile(ctx, filePath); err == nil {
-			log.Info("Upload completed successfully")
+			log.Info("☁️  Upload completed successfully")
 			return nil
 		} else {
 			lastErr = err
@@ -58,11 +89,23 @@ func (s *Service) uploadFile(ctx context.Context, filePath string) error {
 	uploadCtx, cancel := context.WithTimeout(ctx, time.Duration(s.config.Timeout)*time.Second)
 	defer cancel()
 
+	// Extract database and date from backup path
+	database, date := extractBackupInfo(filePath)
+	
+	// Construct organized destination path
+	destination := s.config.Destination
+	if database != "" {
+		destination = strings.TrimSuffix(destination, "/") + "/" + database
+		if date != "" {
+			destination = destination + "/" + date
+		}
+	}
+
 	// Build rclone command
 	args := []string{
 		"copy",
 		filePath,
-		s.config.Destination,
+		destination,
 		"--progress",
 		"--stats", "10s",
 		"--checksum",
