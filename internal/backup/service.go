@@ -532,24 +532,6 @@ func (s *Service) getBackupSize(backupPath string) (int64, error) {
 	}
 }
 
-// getRelativeBackupPath converts absolute backup path to relative path from backup directory
-func (s *Service) getRelativeBackupPath(backupPath string) string {
-	// Get the backup directory from config
-	backupDir := s.config.Backup.Directory
-
-	// Try to make the path relative to the backup directory
-	if relPath, err := filepath.Rel(backupDir, backupPath); err == nil {
-		return filepath.Join(filepath.Base(backupDir), relPath)
-	}
-
-	// If relative path conversion fails, return just the path relative to current directory
-	if relPath, err := filepath.Rel(".", backupPath); err == nil {
-		return relPath
-	}
-
-	// Fallback to absolute path
-	return backupPath
-}
 
 // formatFileSize formats file size in human readable format
 func formatFileSize(bytes int64) string {
