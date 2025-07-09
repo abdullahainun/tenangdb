@@ -519,20 +519,89 @@ upgrade_go_ubuntu_18_04() {
     if command -v snap >/dev/null 2>&1; then
         print_status "INFO" "Installing Go 1.23 via snap..."
         sudo snap install go --classic
+        
+        # Update PATH for snap Go
+        export PATH=/snap/bin:$PATH
+        
+        # Add to user's bashrc
+        if ! grep -q '/snap/bin' ~/.bashrc; then
+            echo 'export PATH=/snap/bin:$PATH' >> ~/.bashrc
+        fi
     else
         print_status "INFO" "Installing Go 1.23 manually..."
         install_go_manually
-    fi
-    
-    # Update PATH for current session
-    export PATH=$PATH:/usr/local/go/bin
-    
-    # Add to user's bashrc
-    if ! grep -q '/usr/local/go/bin' ~/.bashrc; then
-        echo 'export PATH=$PATH:/usr/local/go/bin' >> ~/.bashrc
+        
+        # Update PATH for manual Go
+        export PATH=$PATH:/usr/local/go/bin
+        
+        # Add to user's bashrc
+        if ! grep -q '/usr/local/go/bin' ~/.bashrc; then
+            echo 'export PATH=$PATH:/usr/local/go/bin' >> ~/.bashrc
+        fi
     fi
     
     print_status "SUCCESS" "Go upgrade completed"
+}
+
+# Function to check and upgrade Go version if needed
+check_and_upgrade_go() {
+    print_status "INFO" "Checking Go version compatibility..."
+    
+    if ! command -v go >/dev/null 2>&1; then
+        print_status "WARNING" "Go is not installed"
+        return 1
+    fi
+    
+    local version=$(go version 2>/dev/null || echo "unknown")
+    print_status "INFO" "Current Go version: $version"
+    
+    # Check if Go version is compatible with TenangDB (requires 1.23+)
+    local go_version=$(go version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1)
+    if [[ "$go_version" ]]; then
+        # Convert version to comparable format
+        local major=$(echo "$go_version" | cut -d. -f1)
+        local minor=$(echo "$go_version" | cut -d. -f2)
+        local patch=$(echo "$go_version" | cut -d. -f3)
+        
+        # Default patch to 0 if not present
+        if [[ -z "$patch" ]]; then
+            patch=0
+        fi
+        
+        # Create comparable version number (MMNNPP format)
+        local version_num=$(printf "%d%02d%02d" "$major" "$minor" "$patch")
+        local required_version=12300  # 1.23.0
+        
+        if [[ "$version_num" -lt "$required_version" ]]; then
+            print_status "WARNING" "Go version $go_version is too old for TenangDB (requires 1.23+)"
+            print_status "INFO" "Current version: $go_version (numeric: $version_num)"
+            print_status "INFO" "Required version: 1.23+ (numeric: $required_version)"
+            print_status "INFO" "Upgrading Go version..."
+            
+            # Force upgrade Go
+            if [[ "$OS_TYPE" == "ubuntu" && "$OS_VERSION" == "18.04" ]]; then
+                upgrade_go_ubuntu_18_04
+            else
+                install_go_manually
+            fi
+            
+            # Verify upgrade
+            if command -v go >/dev/null 2>&1; then
+                local new_version=$(go version 2>/dev/null || echo "unknown")
+                print_status "SUCCESS" "Go upgraded to: $new_version"
+            else
+                print_status "ERROR" "Go upgrade failed"
+                return 1
+            fi
+        else
+            print_status "SUCCESS" "Go version $go_version is compatible with TenangDB"
+        fi
+    else
+        print_status "ERROR" "Cannot determine Go version"
+        return 1
+    fi
+    
+    return 0
 }
 
 # Function to create required directories
@@ -674,6 +743,29 @@ main() {
     check_os_version
     
     if [[ "$CHECK_ONLY" == true ]]; then
+        # In check-only mode, also check Go version compatibility
+        if command -v go >/dev/null 2>&1; then
+            print_status "INFO" "Checking Go version compatibility..."
+            local go_version=$(go version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1)
+            if [[ "$go_version" ]]; then
+                local major=$(echo "$go_version" | cut -d. -f1)
+                local minor=$(echo "$go_version" | cut -d. -f2)
+                local patch=$(echo "$go_version" | cut -d. -f3)
+                
+                if [[ -z "$patch" ]]; then
+                    patch=0
+                fi
+                
+                local version_num=$(printf "%d%02d%02d" "$major" "$minor" "$patch")
+                local required_version=12300  # 1.23.0
+                
+                if [[ "$version_num" -lt "$required_version" ]]; then
+                    print_status "WARNING" "Go version $go_version is too old for TenangDB (requires 1.23+)"
+                    print_status "INFO" "Run 'make install-deps' to upgrade Go version"
+                fi
+            fi
+        fi
+        
         final_verification
         exit $?
     fi
@@ -702,7 +794,13 @@ main() {
     fi
     
     if [[ "$SKIP_GO" == false ]]; then
-        install_go
+        # First try to install Go if not present
+        if ! command -v go >/dev/null 2>&1; then
+            install_go
+        fi
+        
+        # Then check and upgrade Go version if needed
+        check_and_upgrade_go
     fi
     
     create_directories
