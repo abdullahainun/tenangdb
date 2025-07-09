@@ -235,20 +235,20 @@ jobs:
       run: |
         mkdir -p configs
         cat > configs/test-config.yaml << 'EOF'
-          database:
-            host: "127.0.0.1"
-            port: 3306
-            user: "root"
-            password: "testpass"
-          backup:
-            directory: "./test-backups"
-            databases:
-              - "testdb"
-            skip_confirmation: true
-          logging:
-            level: "info"
-          upload:
-            enabled: false
+        database:
+          host: "127.0.0.1"
+          port: 3306
+          user: "root"
+          password: "testpass"
+        backup:
+          directory: "./test-backups"
+          databases:
+            - "testdb"
+          skip_confirmation: true
+        logging:
+          level: "info"
+        upload:
+          enabled: false
         EOF
     
     - name: Run integration test
