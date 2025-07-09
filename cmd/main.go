@@ -2,8 +2,10 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/signal"
+	"runtime"
 	"strings"
 	"syscall"
 	"time"
@@ -20,6 +22,8 @@ import (
 var (
 	configFile string
 	logLevel   string
+	version    string // Set via ldflags during build
+	buildTime  string // Set via ldflags during build
 )
 
 func main() {
@@ -32,6 +36,10 @@ func main() {
 
 	rootCmd.PersistentFlags().StringVar(&configFile, "config", "configs/config.yaml", "config file path")
 	rootCmd.PersistentFlags().StringVar(&logLevel, "log-level", "info", "log level (debug, info, warn, error)")
+	
+	// Add version flag
+	var showVersionFlag bool
+	rootCmd.Flags().BoolVar(&showVersionFlag, "version", false, "show version information")
 	
 	// Add flags for backward compatibility with default command
 	var dryRun bool
@@ -50,6 +58,9 @@ func main() {
 
 	// Add exporter subcommand
 	rootCmd.AddCommand(newExporterCommand())
+
+	// Add version command
+	rootCmd.AddCommand(newVersionCommand())
 
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
@@ -182,6 +193,13 @@ func runBackup(configFile, logLevel string, dryRun bool, databases string, force
 }
 
 func run(cmd *cobra.Command, args []string) {
+	// Check if version flag is set
+	showVersionFlag, _ := cmd.Flags().GetBool("version")
+	if showVersionFlag {
+		showVersion()
+		return
+	}
+	
 	// Get flags from the command
 	dryRun, _ := cmd.Flags().GetBool("dry-run")
 	databases, _ := cmd.Flags().GetString("databases")
@@ -616,4 +634,33 @@ func runExporter(configFile, logLevel, port, metricsFile string) {
 
 func startMetricsExporter(ctx context.Context, port, metricsFile string, log *logger.Logger) error {
 	return metrics.StartMetricsExporter(ctx, port, metricsFile, log)
+}
+
+func newVersionCommand() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "version",
+		Short: "Show version information",
+		Long:  `Display the version and build information for TenangDB.`,
+		Run: func(cmd *cobra.Command, args []string) {
+			showVersion()
+		},
+	}
+
+	return cmd
+}
+
+func showVersion() {
+	// Set default values if not provided via ldflags
+	if version == "" {
+		version = "unknown"
+	}
+	if buildTime == "" {
+		buildTime = "unknown"
+	}
+
+	// Format version output
+	fmt.Printf("TenangDB version %s\n", version)
+	fmt.Printf("Build time: %s\n", buildTime)
+	fmt.Printf("Go version: %s\n", runtime.Version())
+	fmt.Printf("Platform: %s/%s\n", runtime.GOOS, runtime.GOARCH)
 }
