@@ -182,7 +182,7 @@ func (c *Client) createMysqldumpBackup(ctx context.Context, dbName, backupDir, t
 	// Add database name
 	args = append(args, dbName)
 
-	cmd := exec.CommandContext(ctx, "mysqldump", args...)
+	cmd := exec.CommandContext(ctx, c.config.MysqldumpPath, args...)
 
 	// Create output file
 	outFile, err := os.Create(backupPath)
@@ -364,7 +364,7 @@ func (c *Client) restoreWithMysql(ctx context.Context, backupPath, dbName string
 		args = append(args, fmt.Sprintf("--password=%s", c.config.Password))
 	}
 
-	cmd := exec.CommandContext(ctx, "mysql", args...)
+	cmd := exec.CommandContext(ctx, c.config.MysqlPath, args...)
 
 	// Open backup file
 	backupFile, err := os.Open(backupPath)
