@@ -3,6 +3,7 @@ package upload
 import (
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -59,6 +60,20 @@ func (s *Service) Upload(ctx context.Context, filePath string) error {
 		return nil
 	}
 
+	// Check if this is a directory or file
+	info, err := os.Stat(filePath)
+	if err != nil {
+		return fmt.Errorf("failed to stat backup path: %w", err)
+	}
+
+	if info.IsDir() {
+		return s.uploadDirectory(ctx, filePath)
+	} else {
+		return s.uploadFile(ctx, filePath)
+	}
+}
+
+func (s *Service) uploadFile(ctx context.Context, filePath string) error {
 	fileName := filepath.Base(filePath)
 	log := s.logger.WithField("backup_file", fileName)
 
@@ -72,7 +87,7 @@ func (s *Service) Upload(ctx context.Context, filePath string) error {
 			time.Sleep(time.Second * 10)
 		}
 
-		if err := s.uploadFile(ctx, filePath); err == nil {
+		if err := s.uploadSingleFile(ctx, filePath); err == nil {
 			log.Info("☁️  Upload completed successfully")
 			return nil
 		} else {
@@ -84,7 +99,33 @@ func (s *Service) Upload(ctx context.Context, filePath string) error {
 	return fmt.Errorf("upload failed after %d attempts: %w", s.config.RetryCount, lastErr)
 }
 
-func (s *Service) uploadFile(ctx context.Context, filePath string) error {
+func (s *Service) uploadDirectory(ctx context.Context, dirPath string) error {
+	dirName := filepath.Base(dirPath)
+	log := s.logger.WithField("backup_directory", dirName)
+
+	log.Info("☁️  Uploading " + dirName + " directory to cloud")
+
+	// Upload with retry logic
+	var lastErr error
+	for attempt := 1; attempt <= s.config.RetryCount; attempt++ {
+		if attempt > 1 {
+			log.WithField("attempt", attempt).Info("Retrying upload")
+			time.Sleep(time.Second * 10)
+		}
+
+		if err := s.uploadDirectoryStructure(ctx, dirPath); err == nil {
+			log.Info("☁️  Upload completed successfully")
+			return nil
+		} else {
+			lastErr = err
+			log.WithError(err).WithField("attempt", attempt).Warn("Upload attempt failed")
+		}
+	}
+
+	return fmt.Errorf("upload failed after %d attempts: %w", s.config.RetryCount, lastErr)
+}
+
+func (s *Service) uploadSingleFile(ctx context.Context, filePath string) error {
 	// Create context with timeout
 	uploadCtx, cancel := context.WithTimeout(ctx, time.Duration(s.config.Timeout)*time.Second)
 	defer cancel()
@@ -105,6 +146,52 @@ func (s *Service) uploadFile(ctx context.Context, filePath string) error {
 	args := []string{
 		"copy",
 		filePath,
+		destination,
+		"--progress",
+		"--stats", "10s",
+		"--checksum",
+	}
+
+	// Add config path if specified
+	if s.config.RcloneConfigPath != "" {
+		args = append(args, "--config", s.config.RcloneConfigPath)
+	}
+
+	cmd := exec.CommandContext(uploadCtx, s.config.RclonePath, args...)
+
+	// Execute command
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("rclone command failed: %w (output: %s)", err, string(output))
+	}
+
+	return nil
+}
+
+func (s *Service) uploadDirectoryStructure(ctx context.Context, dirPath string) error {
+	// Create context with timeout
+	uploadCtx, cancel := context.WithTimeout(ctx, time.Duration(s.config.Timeout)*time.Second)
+	defer cancel()
+
+	// Extract database and date from directory path
+	database, date := extractBackupInfo(dirPath)
+	
+	// Get directory name to preserve in cloud
+	dirName := filepath.Base(dirPath)
+	
+	// Construct organized destination path including directory name
+	destination := s.config.Destination
+	if database != "" {
+		destination = strings.TrimSuffix(destination, "/") + "/" + database
+		if date != "" {
+			destination = destination + "/" + date + "/" + dirName
+		}
+	}
+
+	// Build rclone command to copy entire directory structure
+	args := []string{
+		"copy",
+		dirPath,
 		destination,
 		"--progress",
 		"--stats", "10s",

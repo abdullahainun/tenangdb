@@ -85,10 +85,10 @@ func (c *Client) createMydumperBackup(ctx context.Context, dbName, backupDir, ti
 	// Build mydumper command
 	args := []string{
 		"--routines",
-		"--triggers",
+		"--triggers", 
 		"--events",
-		"--no-locks",
-		"--trx-consistency-only",
+		"--sync-thread-lock-mode=AUTO",
+		"--trx-tables",
 		fmt.Sprintf("--outputdir=%s", dbBackupDir),
 		fmt.Sprintf("--database=%s", dbName),
 		fmt.Sprintf("--threads=%d", c.config.Mydumper.Threads),
@@ -140,7 +140,6 @@ func (c *Client) createMydumperBackup(ctx context.Context, dbName, backupDir, ti
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 
-	// Command will be executed silently
 
 	if err := cmd.Run(); err != nil {
 		// Remove failed backup directory
@@ -282,9 +281,8 @@ func (c *Client) verifyMydumperBackup(backupDir string) error {
 	// Check if at least one .sql file exists (excluding metadata)
 	sqlFileFound := false
 	for _, file := range files {
-		if filepath.Ext(file.Name()) == ".sql" ||
-			filepath.Ext(file.Name()) == ".gz" ||
-			filepath.Ext(file.Name()) == ".lz4" {
+		ext := filepath.Ext(file.Name())
+		if ext == ".sql" || ext == ".gz" || ext == ".lz4" || ext == ".zst" {
 			sqlFileFound = true
 			break
 		}
