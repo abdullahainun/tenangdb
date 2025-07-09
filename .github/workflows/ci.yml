@@ -234,26 +234,40 @@ jobs:
     - name: Create test config
       run: |
         mkdir -p configs
-        cat > configs/test-config.yaml << EOF
-        database:
-          host: "127.0.0.1"
-          port: 3306
-          user: "root"
-          password: "testpass"
-        backup:
-          directory: "./test-backups"
-          databases:
-            - "testdb"
-          skip_confirmation: true
-        logging:
-          level: "info"
-        upload:
-          enabled: false
-        EOF
+        cat > configs/test-config.yaml << 'EOF'
+database:
+  host: "127.0.0.1"
+  port: 3306
+  user: "root"
+  password: "testpass"
+backup:
+  directory: "./test-backups"
+  databases:
+    - "testdb"
+  skip_confirmation: true
+logging:
+  level: "info"
+upload:
+  enabled: false
+EOF
     
     - name: Run integration test
       run: |
         mkdir -p test-backups
+        
+        # Debug: check if config file exists and show content
+        echo "=== Checking config file ==="
+        ls -la configs/
+        echo "=== Config file content ==="
+        cat configs/test-config.yaml
+        
+        # Debug: check binary
+        echo "=== Binary info ==="
+        ls -la tenangdb
+        ./tenangdb --help
+        
+        # Run the actual test
+        echo "=== Running integration test ==="
         ./tenangdb backup --config configs/test-config.yaml --dry-run
         echo "Integration test completed successfully"
 
