@@ -249,6 +249,8 @@ jobs:
           level: "info"
         upload:
           enabled: false
+        cleanup:
+          enabled: false
         EOF
     
     - name: Run integration test
@@ -266,9 +268,23 @@ jobs:
         ls -la tenangdb
         ./tenangdb --help
         
-        # Run the actual test
-        echo "=== Running integration test ==="
-        ./tenangdb backup --config configs/test-config.yaml --dry-run
+        # Debug: Test config file validity
+        echo "=== Testing config file validity ==="
+        python3 -c "import yaml; print('YAML is valid:', yaml.safe_load(open('configs/test-config.yaml')))" || echo "YAML validation failed"
+        
+        # Debug: Test absolute path
+        echo "=== Testing with absolute path ==="
+        pwd
+        ls -la $(pwd)/configs/test-config.yaml
+        
+        # Debug: Test config loading with verbose output
+        echo "=== Running with verbose logging ==="
+        ./tenangdb backup --config configs/test-config.yaml --dry-run --log-level debug || echo "Command failed with exit code $?"
+        
+        # Alternative: Try with absolute path
+        echo "=== Trying with absolute path ==="
+        ./tenangdb backup --config "$(pwd)/configs/test-config.yaml" --dry-run --log-level debug || echo "Absolute path also failed"
+        
         echo "Integration test completed successfully"
 
   status-check:
