@@ -195,7 +195,7 @@ func (s *Service) processDatabase(ctx context.Context, dbName string) {
 		"database": dbName,
 		"host":     s.config.Database.Host,
 		"port":     s.config.Database.Port,
-	}).Info("🔄 Starting database backup")
+	}).Info("🔄 Backing up " + dbName + " database")
 
 	backupStartTime := time.Now()
 
@@ -239,10 +239,7 @@ func (s *Service) processDatabase(ctx context.Context, dbName string) {
 		"duration":  backupDuration.Round(time.Millisecond),
 		"size":      backupSizeStr,
 		"size_bytes": backupSize,
-	}).Info("✅ " + dbName + " backup completed")
-
-	// Show backup location to user with full path
-	s.logger.WithField("path", backupPath).Info("📁 Backup saved: " + backupPath)
+	}).Info("✅ " + dbName + " backup completed (" + backupSizeStr + " in " + backupDuration.Round(time.Millisecond).String() + ")")
 
 	s.incrementSuccessfulBackups()
 	if s.config.Metrics.Enabled {
@@ -269,7 +266,7 @@ func (s *Service) processDatabase(ctx context.Context, dbName string) {
 				}
 			}
 		} else {
-			log.Info("✅ " + dbName + " upload completed")
+			log.Info("☁️  " + dbName + " upload completed")
 			s.incrementSuccessfulUploads()
 			if s.config.Metrics.Enabled {
 				metrics.RecordUploadEnd(dbName, "rclone", time.Since(uploadStartTime), true, backupSize)
