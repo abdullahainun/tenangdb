@@ -8,7 +8,7 @@ GitHub Actions automatically tests every pull request to `main` with comprehensi
 
 ### **CI Pipeline** (`ci.yml`)
 - **24+ parallel jobs** across Ubuntu 18.04+, macOS 12+
-- **Go versions**: 1.22, 1.23, 1.24, 1.25
+- **Go versions**: 1.22, 1.23, 1.24
 - **Builds**: Linux/Darwin (AMD64/ARM64)
 - **Security**: gosec + govulncheck
 - **Quality**: Linting + integration tests
@@ -16,7 +16,7 @@ GitHub Actions automatically tests every pull request to `main` with comprehensi
 ### **Dependency Testing** (`dependency-test.yml`)
 - **When**: Changes to `scripts/install-dependencies.sh`
 - **Tests**: Ubuntu 18.04+, Debian 10+, macOS 12+ compatibility
-- **Validates**: Go compatibility (1.22-1.25)
+- **Validates**: Go compatibility (1.22-1.24)
 
 ## 📊 **PR Status**
 

@@ -20,11 +20,11 @@ jobs:
           - os: ubuntu-20.04
             go-version: '1.22'
           - os: ubuntu-latest
-            go-version: '1.25'
+            go-version: '1.24'
         exclude:
           # Ubuntu 18.04 has limited Go support
           - os: ubuntu-18.04
-            go-version: '1.25'
+            go-version: '1.24'
     
     steps:
     - name: Checkout code
@@ -196,6 +196,10 @@ jobs:
       run: |
         chmod +x ${{ matrix.deps_script }}
         ${{ matrix.deps_script }} --check-only
+    
+    - name: Install dependencies
+      run: |
+        ${{ matrix.deps_script }} -y
     
     - name: Build with dependencies
       run: |

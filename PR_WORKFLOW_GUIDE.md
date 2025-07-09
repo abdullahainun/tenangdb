@@ -8,7 +8,7 @@ When you create a pull request to `main`, GitHub Actions automatically runs comp
 
 ### **CI Pipeline** (Always runs)
 - **24+ parallel jobs** across Ubuntu 18.04+, macOS 12+
-- **Go versions**: 1.22, 1.23, 1.24, 1.25
+- **Go versions**: 1.22, 1.23, 1.24
 - **Platforms**: Linux, Darwin (AMD64/ARM64)
 - **Security**: gosec + govulncheck scanning
 - **Quality**: Linting and integration tests
@@ -17,7 +17,7 @@ When you create a pull request to `main`, GitHub Actions automatically runs comp
 - Tests on Ubuntu 18.04, 20.04, 22.04, latest
 - Tests on Debian 10, 11, 12
 - Tests on macOS 12, 13, latest
-- Go compatibility validation (1.22-1.25)
+- Go compatibility validation (1.22-1.24)
 
 ## 📊 **PR Status Display**
 
