@@ -1,0 +1,322 @@
+name: Nightly Build
+
+on:
+  schedule:
+    # Run every day at 2:00 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      run_performance_tests:
+        description: 'Run performance tests'
+        type: boolean
+        default: false
+
+jobs:
+  nightly-build:
+    name: Nightly Build - ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        include:
+          - os: ubuntu-latest
+            platform: linux
+          - os: windows-latest
+            platform: windows
+          - os: macos-latest
+            platform: darwin
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.23'
+    
+    - name: Get build info
+      id: build_info
+      run: |
+        VERSION="nightly-$(date +%Y%m%d)"
+        BUILD_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "build_time=$BUILD_TIME" >> $GITHUB_OUTPUT
+      shell: bash
+    
+    - name: Install system dependencies (Ubuntu)
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y mysql-client mydumper rclone
+    
+    - name: Install system dependencies (macOS)
+      if: matrix.os == 'macos-latest'
+      run: |
+        brew install mysql-client mydumper rclone
+    
+    - name: Install system dependencies (Windows)
+      if: matrix.os == 'windows-latest'
+      run: |
+        # For Windows, we'll use the Go version and skip system-specific tools
+        echo "Using Go-based tools for Windows build"
+    
+    - name: Run tests
+      run: go test -v -race ./...
+    
+    - name: Build nightly
+      run: |
+        VERSION=${{ steps.build_info.outputs.version }}
+        BUILD_TIME=${{ steps.build_info.outputs.build_time }}
+        LDFLAGS="-X main.version=${VERSION} -X main.buildTime=${BUILD_TIME}"
+        
+        if [ "${{ matrix.platform }}" = "windows" ]; then
+          BINARY_NAME="tenangdb-nightly-${{ matrix.platform }}.exe"
+        else
+          BINARY_NAME="tenangdb-nightly-${{ matrix.platform }}"
+        fi
+        
+        go build -ldflags "${LDFLAGS}" -o "$BINARY_NAME" ./cmd
+      shell: bash
+    
+    - name: Test nightly build
+      run: |
+        if [ "${{ matrix.platform }}" = "windows" ]; then
+          BINARY_NAME="tenangdb-nightly-${{ matrix.platform }}.exe"
+        else
+          BINARY_NAME="tenangdb-nightly-${{ matrix.platform }}"
+        fi
+        
+        chmod +x "$BINARY_NAME"
+        ./"$BINARY_NAME" version
+        ./"$BINARY_NAME" --help
+      shell: bash
+    
+    - name: Upload nightly artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: nightly-${{ matrix.platform }}
+        path: tenangdb-nightly-*
+        retention-days: 7
+
+  performance-test:
+    name: Performance Test
+    runs-on: ubuntu-latest
+    if: github.event.inputs.run_performance_tests == 'true' || github.event_name == 'schedule'
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: testpass
+          MYSQL_DATABASE: perftest
+        ports:
+          - 3306:3306
+        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.23'
+    
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y mysql-client mydumper rclone
+    
+    - name: Wait for MySQL
+      run: |
+        until mysqladmin ping -h127.0.0.1 -uroot -ptestpass; do
+          echo "Waiting for MySQL..."
+          sleep 2
+        done
+    
+    - name: Create performance test database
+      run: |
+        mysql -h127.0.0.1 -uroot -ptestpass -e "CREATE DATABASE IF NOT EXISTS perftest;"
+        mysql -h127.0.0.1 -uroot -ptestpass perftest << 'EOF'
+        CREATE TABLE performance_test (
+          id INT PRIMARY KEY AUTO_INCREMENT,
+          name VARCHAR(255),
+          email VARCHAR(255),
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          data TEXT
+        );
+        EOF
+        
+        # Insert test data
+        for i in {1..10000}; do
+          mysql -h127.0.0.1 -uroot -ptestpass perftest -e "INSERT INTO performance_test (name, email, data) VALUES ('User $i', 'user$i@example.com', 'Test data for performance testing $i');"
+        done
+    
+    - name: Build TenangDB
+      run: make build
+    
+    - name: Create performance test config
+      run: |
+        mkdir -p perf-test-backups
+        cat > perf-test-config.yaml << EOF
+        database:
+          host: "127.0.0.1"
+          port: 3306
+          user: "root"
+          password: "testpass"
+        backup:
+          directory: "./perf-test-backups"
+          databases:
+            - "perftest"
+          skip_confirmation: true
+        logging:
+          level: "info"
+        upload:
+          enabled: false
+        EOF
+    
+    - name: Run performance benchmark
+      run: |
+        echo "=== Performance Test Started ==="
+        start_time=$(date +%s)
+        
+        ./tenangdb backup --config perf-test-config.yaml
+        
+        end_time=$(date +%s)
+        duration=$((end_time - start_time))
+        
+        echo "=== Performance Test Results ==="
+        echo "Backup duration: ${duration} seconds"
+        echo "Database size: $(du -sh perf-test-backups)"
+        
+        # Check if backup was successful
+        if [ -d "perf-test-backups/perftest" ]; then
+          echo "✅ Performance test passed"
+        else
+          echo "❌ Performance test failed"
+          exit 1
+        fi
+
+  security-nightly:
+    name: Nightly Security Scan
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.23'
+    
+    - name: Run comprehensive security scan
+      run: |
+        echo "=== Running Security Scans ==="
+        
+        # Install security tools
+        go install github.com/securecodewarrior/gosec/v2/cmd/gosec@latest
+        go install golang.org/x/vuln/cmd/govulncheck@latest
+        
+        # Run gosec
+        echo "Running gosec..."
+        gosec ./...
+        
+        # Run govulncheck
+        echo "Running govulncheck..."
+        govulncheck ./...
+        
+        # Check for suspicious patterns
+        echo "Checking for suspicious patterns..."
+        if grep -r "TODO.*SECURITY" . --include="*.go"; then
+          echo "⚠️  Found security TODOs"
+        fi
+        
+        if grep -r "FIXME.*SECURITY" . --include="*.go"; then
+          echo "⚠️  Found security FIXMEs"
+        fi
+        
+        echo "✅ Security scan completed"
+
+  dependency-update-check:
+    name: Check for Dependency Updates
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.23'
+    
+    - name: Check for outdated dependencies
+      run: |
+        echo "=== Checking Go Dependencies ==="
+        go list -u -m all
+        
+        echo "=== Checking for Security Vulnerabilities ==="
+        go install golang.org/x/vuln/cmd/govulncheck@latest
+        govulncheck ./...
+        
+        echo "=== Checking Go Module Tidiness ==="
+        go mod tidy
+        if [ -n "$(git status --porcelain)" ]; then
+          echo "⚠️  go.mod or go.sum files are not tidy"
+          git diff
+        else
+          echo "✅ Go modules are tidy"
+        fi
+
+  notify-results:
+    name: Notify Results
+    runs-on: ubuntu-latest
+    needs: [nightly-build, performance-test, security-nightly, dependency-update-check]
+    if: always()
+    
+    steps:
+    - name: Prepare notification
+      run: |
+        echo "=== Nightly Build Results ==="
+        echo "Nightly Build: ${{ needs.nightly-build.result }}"
+        echo "Performance Test: ${{ needs.performance-test.result }}"
+        echo "Security Scan: ${{ needs.security-nightly.result }}"
+        echo "Dependency Check: ${{ needs.dependency-update-check.result }}"
+        
+        if [ "${{ needs.nightly-build.result }}" != "success" ] || \
+           [ "${{ needs.performance-test.result }}" != "success" ] || \
+           [ "${{ needs.security-nightly.result }}" != "success" ] || \
+           [ "${{ needs.dependency-update-check.result }}" != "success" ]; then
+          echo "❌ Some nightly checks failed"
+          echo "failed=true" >> $GITHUB_ENV
+        else
+          echo "✅ All nightly checks passed"
+          echo "failed=false" >> $GITHUB_ENV
+        fi
+    
+    - name: Create summary
+      run: |
+        cat > nightly-summary.txt << EOF
+        TenangDB Nightly Build Summary - $(date)
+        
+        Build Status: ${{ needs.nightly-build.result }}
+        Performance Test: ${{ needs.performance-test.result }}
+        Security Scan: ${{ needs.security-nightly.result }}
+        Dependency Check: ${{ needs.dependency-update-check.result }}
+        
+        Repository: ${{ github.repository }}
+        Commit: ${{ github.sha }}
+        Branch: ${{ github.ref_name }}
+        EOF
+        
+        echo "=== Nightly Summary ==="
+        cat nightly-summary.txt
+    
+    - name: Upload summary
+      uses: actions/upload-artifact@v4
+      with:
+        name: nightly-summary
+        path: nightly-summary.txt
+        retention-days: 30

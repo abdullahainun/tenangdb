@@ -1,0 +1,340 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test-matrix:
+    name: Test Go ${{ matrix.go-version }} on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        go-version: ['1.23', '1.24']
+        include:
+          # Test additional Go versions on Linux
+          - os: ubuntu-latest
+            go-version: '1.22'
+          - os: ubuntu-latest
+            go-version: '1.25'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Go ${{ matrix.go-version }}
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ matrix.go-version }}
+    
+    - name: Cache Go modules
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ matrix.go-version }}-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-${{ matrix.go-version }}-
+    
+    - name: Get dependencies
+      run: go mod download
+    
+    - name: Verify dependencies
+      run: go mod verify
+    
+    - name: Run go vet
+      run: go vet ./...
+    
+    - name: Run tests
+      run: go test -v -race -coverprofile=coverage.out ./...
+    
+    - name: Upload coverage to Codecov
+      if: matrix.os == 'ubuntu-latest' && matrix.go-version == '1.23'
+      uses: codecov/codecov-action@v4
+      with:
+        file: ./coverage.out
+        flags: unittests
+        name: codecov-umbrella
+    
+    - name: Build
+      run: go build -v ./cmd
+
+  build-matrix:
+    name: Build for ${{ matrix.goos }}/${{ matrix.goarch }}
+    runs-on: ubuntu-latest
+    needs: test-matrix
+    strategy:
+      matrix:
+        goos: [linux, darwin, windows]
+        goarch: [amd64, arm64]
+        exclude:
+          # Windows ARM64 support is limited
+          - goos: windows
+            goarch: arm64
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.23'
+    
+    - name: Cache Go modules
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+        key: ${{ runner.os }}-go-1.23-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-1.23-
+    
+    - name: Get build info
+      id: build_info
+      run: |
+        VERSION=${GITHUB_REF#refs/tags/}
+        if [[ "$VERSION" == "refs/heads/"* ]]; then
+          VERSION=${GITHUB_REF#refs/heads/}
+        fi
+        BUILD_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "build_time=$BUILD_TIME" >> $GITHUB_OUTPUT
+    
+    - name: Build binary
+      env:
+        GOOS: ${{ matrix.goos }}
+        GOARCH: ${{ matrix.goarch }}
+        CGO_ENABLED: 0
+      run: |
+        VERSION=${{ steps.build_info.outputs.version }}
+        BUILD_TIME=${{ steps.build_info.outputs.build_time }}
+        LDFLAGS="-X main.version=${VERSION} -X main.buildTime=${BUILD_TIME}"
+        
+        if [ "$GOOS" = "windows" ]; then
+          BINARY_NAME="tenangdb-${GOOS}-${GOARCH}.exe"
+        else
+          BINARY_NAME="tenangdb-${GOOS}-${GOARCH}"
+        fi
+        
+        echo "Building $BINARY_NAME"
+        go build -ldflags "${LDFLAGS}" -o "$BINARY_NAME" ./cmd
+    
+    - name: Test binary
+      if: matrix.goos != 'windows'
+      run: |
+        if [ "${{ matrix.goos }}" = "windows" ]; then
+          BINARY_NAME="tenangdb-${{ matrix.goos }}-${{ matrix.goarch }}.exe"
+        else
+          BINARY_NAME="tenangdb-${{ matrix.goos }}-${{ matrix.goarch }}"
+        fi
+        
+        chmod +x "$BINARY_NAME"
+        ./"$BINARY_NAME" version
+    
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: tenangdb-${{ matrix.goos }}-${{ matrix.goarch }}
+        path: tenangdb-*
+        retention-days: 7
+
+  dependency-test:
+    name: Test Dependencies on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    needs: test-matrix
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        include:
+          - os: ubuntu-latest
+            deps_script: scripts/install-dependencies.sh
+          - os: macos-latest
+            deps_script: scripts/install-dependencies.sh
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.23'
+    
+    - name: Install system dependencies (Ubuntu)
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y mysql-client
+    
+    - name: Install system dependencies (macOS)
+      if: matrix.os == 'macos-latest'
+      run: |
+        brew install mysql-client
+    
+    - name: Test dependency installation script
+      run: |
+        chmod +x ${{ matrix.deps_script }}
+        ${{ matrix.deps_script }} --check-only
+    
+    - name: Build with dependencies
+      run: |
+        export PATH="/opt/homebrew/opt/mysql-client/bin:$PATH"
+        make build
+    
+    - name: Test built binary
+      run: |
+        export PATH="/opt/homebrew/opt/mysql-client/bin:$PATH"
+        ./tenangdb version
+        ./tenangdb --help
+
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    needs: test-matrix
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.23'
+    
+    - name: Run Gosec Security Scanner
+      uses: securecodewarrior/github-action-gosec@master
+      with:
+        args: './...'
+    
+    - name: Run govulncheck
+      run: |
+        go install golang.org/x/vuln/cmd/govulncheck@latest
+        govulncheck ./...
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.23'
+    
+    - name: golangci-lint
+      uses: golangci/golangci-lint-action@v6
+      with:
+        version: latest
+        args: --timeout=5m
+
+  integration-test:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    needs: [test-matrix, build-matrix]
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: testpass
+          MYSQL_DATABASE: testdb
+        ports:
+          - 3306:3306
+        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.23'
+    
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y mysql-client mydumper
+    
+    - name: Wait for MySQL
+      run: |
+        until mysqladmin ping -h127.0.0.1 -uroot -ptestpass; do
+          echo "Waiting for MySQL..."
+          sleep 2
+        done
+    
+    - name: Setup test database
+      run: |
+        mysql -h127.0.0.1 -uroot -ptestpass -e "CREATE DATABASE IF NOT EXISTS testdb;"
+        mysql -h127.0.0.1 -uroot -ptestpass testdb -e "CREATE TABLE test_table (id INT PRIMARY KEY, name VARCHAR(50));"
+        mysql -h127.0.0.1 -uroot -ptestpass testdb -e "INSERT INTO test_table VALUES (1, 'test');"
+    
+    - name: Build TenangDB
+      run: make build
+    
+    - name: Create test config
+      run: |
+        mkdir -p configs
+        cat > configs/test-config.yaml << EOF
+        database:
+          host: "127.0.0.1"
+          port: 3306
+          user: "root"
+          password: "testpass"
+        backup:
+          directory: "./test-backups"
+          databases:
+            - "testdb"
+          skip_confirmation: true
+        logging:
+          level: "info"
+        upload:
+          enabled: false
+        EOF
+    
+    - name: Run integration test
+      run: |
+        mkdir -p test-backups
+        ./tenangdb backup --config configs/test-config.yaml --dry-run
+        echo "Integration test completed successfully"
+
+  status-check:
+    name: Status Check
+    runs-on: ubuntu-latest
+    needs: [test-matrix, build-matrix, dependency-test, security-scan, lint, integration-test]
+    if: always()
+    steps:
+    - name: Check all jobs
+      run: |
+        if [ "${{ needs.test-matrix.result }}" != "success" ]; then
+          echo "test-matrix failed: ${{ needs.test-matrix.result }}"
+          exit 1
+        fi
+        if [ "${{ needs.build-matrix.result }}" != "success" ]; then
+          echo "build-matrix failed: ${{ needs.build-matrix.result }}"
+          exit 1
+        fi
+        if [ "${{ needs.dependency-test.result }}" != "success" ]; then
+          echo "dependency-test failed: ${{ needs.dependency-test.result }}"
+          exit 1
+        fi
+        if [ "${{ needs.security-scan.result }}" != "success" ]; then
+          echo "security-scan failed: ${{ needs.security-scan.result }}"
+          exit 1
+        fi
+        if [ "${{ needs.lint.result }}" != "success" ]; then
+          echo "lint failed: ${{ needs.lint.result }}"
+          exit 1
+        fi
+        if [ "${{ needs.integration-test.result }}" != "success" ]; then
+          echo "integration-test failed: ${{ needs.integration-test.result }}"
+          exit 1
+        fi
+        echo "All CI checks passed successfully!"
