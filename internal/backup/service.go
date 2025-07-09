@@ -80,8 +80,12 @@ func (s *Service) Run(ctx context.Context) error {
 	metrics.RecordBackupStart("")
 
 	// Update metrics storage
-	s.metricsStorage.SetTotalDatabases(s.stats.TotalDatabases)
-	s.metricsStorage.SetBackupProcessActive(true)
+	if err := s.metricsStorage.SetTotalDatabases(s.stats.TotalDatabases); err != nil {
+		s.logger.WithError(err).Warn("Failed to set total databases metric")
+	}
+	if err := s.metricsStorage.SetBackupProcessActive(true); err != nil {
+		s.logger.WithError(err).Warn("Failed to set backup process active metric")
+	}
 
 	s.logger.Debug("🚀 Starting database backup process")
 	s.logger.WithField("total_databases", s.stats.TotalDatabases).Debug("📊 Backup statistics")
@@ -95,7 +99,9 @@ func (s *Service) Run(ctx context.Context) error {
 	// Process databases in batches
 	if err := s.processDatabasesBatch(ctx); err != nil {
 		metrics.SetBackupProcessStopped()
-		s.metricsStorage.SetBackupProcessActive(false)
+		if err := s.metricsStorage.SetBackupProcessActive(false); err != nil {
+			s.logger.WithError(err).Warn("Failed to set backup process inactive metric")
+		}
 		return fmt.Errorf("batch processing failed: %w", err)
 	}
 
@@ -104,7 +110,9 @@ func (s *Service) Run(ctx context.Context) error {
 	s.mu.Unlock()
 
 	metrics.SetBackupProcessStopped()
-	s.metricsStorage.SetBackupProcessActive(false)
+	if err := s.metricsStorage.SetBackupProcessActive(false); err != nil {
+		s.logger.WithError(err).Warn("Failed to set backup process inactive metric")
+	}
 	s.logFinalStatistics()
 	return nil
 }
@@ -171,7 +179,9 @@ func (s *Service) processDatabase(ctx context.Context, dbName string) {
 		log.Error("❌ " + dbName + " backup failed: " + err.Error())
 		s.incrementFailedBackups()
 		metrics.RecordBackupEnd(dbName, backupDuration, false, 0)
-		s.metricsStorage.UpdateBackupMetrics(dbName, backupDuration, false, 0)
+		if err := s.metricsStorage.UpdateBackupMetrics(dbName, backupDuration, false, 0); err != nil {
+			s.logger.WithError(err).Warn("Failed to update backup metrics")
+		}
 		return
 	}
 
@@ -190,7 +200,9 @@ func (s *Service) processDatabase(ctx context.Context, dbName string) {
 
 	s.incrementSuccessfulBackups()
 	metrics.RecordBackupEnd(dbName, backupDuration, true, backupSize)
-	s.metricsStorage.UpdateBackupMetrics(dbName, backupDuration, true, backupSize)
+	if err := s.metricsStorage.UpdateBackupMetrics(dbName, backupDuration, true, backupSize); err != nil {
+		s.logger.WithError(err).Warn("Failed to update backup metrics")
+	}
 
 	// Upload to cloud if enabled
 	if s.uploader != nil {
@@ -199,12 +211,16 @@ func (s *Service) processDatabase(ctx context.Context, dbName string) {
 			log.Error("❌ " + dbName + " upload failed: " + err.Error())
 			s.incrementFailedUploads()
 			metrics.RecordUploadEnd(dbName, "rclone", time.Since(uploadStartTime), false, 0)
-			s.metricsStorage.UpdateUploadMetrics(dbName, time.Since(uploadStartTime), false, 0)
+			if err := s.metricsStorage.UpdateUploadMetrics(dbName, time.Since(uploadStartTime), false, 0); err != nil {
+				s.logger.WithError(err).Warn("Failed to update upload metrics")
+			}
 		} else {
 			log.Info("✅ " + dbName + " upload completed")
 			s.incrementSuccessfulUploads()
 			metrics.RecordUploadEnd(dbName, "rclone", time.Since(uploadStartTime), true, backupSize)
-			s.metricsStorage.UpdateUploadMetrics(dbName, time.Since(uploadStartTime), true, backupSize)
+			if err := s.metricsStorage.UpdateUploadMetrics(dbName, time.Since(uploadStartTime), true, backupSize); err != nil {
+				s.logger.WithError(err).Warn("Failed to update upload metrics")
+			}
 
 			// Mark backup as uploaded for potential cleanup
 			s.markFileAsUploaded(backupPath)

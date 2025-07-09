@@ -3,6 +3,7 @@ package metrics
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"sync"
@@ -80,7 +81,8 @@ func NewMetricsStorage(filePath string) *MetricsStorage {
 	// Ensure directory exists
 	dir := filepath.Dir(filePath)
 	if err := os.MkdirAll(dir, 0755); err != nil {
-		// Handle error gracefully
+		// Log the error but continue - we'll handle it when trying to write
+		log.Printf("Warning: failed to create directory %s: %v", dir, err)
 	}
 	
 	return &MetricsStorage{
