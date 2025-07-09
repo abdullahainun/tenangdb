@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"syscall"
@@ -34,7 +35,7 @@ func main() {
 		Run:   run,
 	}
 
-	rootCmd.PersistentFlags().StringVar(&configFile, "config", "configs/config.yaml", "config file path")
+	rootCmd.PersistentFlags().StringVar(&configFile, "config", "", "config file path (auto-discovery if not specified)")
 	rootCmd.PersistentFlags().StringVar(&logLevel, "log-level", "info", "log level (debug, info, warn, error)")
 	
 	// Add version flag
@@ -62,6 +63,9 @@ func main() {
 	// Add version command
 	rootCmd.AddCommand(newVersionCommand())
 
+	// Add config command
+	rootCmd.AddCommand(newConfigCommand())
+
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
 	}
@@ -83,7 +87,7 @@ func newBackupCommand() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&configFile, "config", "configs/config.yaml", "config file path")
+	cmd.Flags().StringVar(&configFile, "config", "", "config file path (auto-discovery if not specified)")
 	cmd.Flags().StringVar(&logLevel, "log-level", "info", "log level (debug, info, warn, error)")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "show what would be backed up without actually running backup")
 	cmd.Flags().StringVar(&databases, "databases", "", "comma-separated list of databases to backup (overrides config)")
@@ -228,7 +232,7 @@ func newCleanupCommand() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&configFile, "config", "configs/config.yaml", "config file path")
+	cmd.Flags().StringVar(&configFile, "config", "", "config file path (auto-discovery if not specified)")
 	cmd.Flags().StringVar(&logLevel, "log-level", "info", "log level (debug, info, warn, error)")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "show what would be deleted without actually deleting")
 	cmd.Flags().BoolVar(&force, "force", false, "force cleanup regardless of day (bypass weekend-only restriction)")
@@ -489,7 +493,7 @@ func newRestoreCommand() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&configFile, "config", "configs/config.yaml", "config file path")
+	cmd.Flags().StringVar(&configFile, "config", "", "config file path (auto-discovery if not specified)")
 	cmd.Flags().StringVar(&logLevel, "log-level", "info", "log level (debug, info, warn, error)")
 	cmd.Flags().StringVarP(&backupPath, "backup-path", "b", "", "path to backup directory or SQL file (required)")
 	cmd.Flags().StringVarP(&targetDatabase, "database", "d", "", "target database name (required)")
@@ -602,7 +606,7 @@ func newExporterCommand() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&configFile, "config", "configs/config.yaml", "config file path")
+	cmd.Flags().StringVar(&configFile, "config", "", "config file path (auto-discovery if not specified)")
 	cmd.Flags().StringVar(&logLevel, "log-level", "info", "log level (debug, info, warn, error)")
 	cmd.Flags().StringVar(&port, "port", "9090", "HTTP server port for metrics")
 	cmd.Flags().StringVar(&metricsFile, "metrics-file", "/var/lib/tenangdb/metrics.json", "path to metrics storage file")
@@ -701,4 +705,74 @@ func showVersion() {
 	fmt.Printf("Build time: %s\n", buildTime)
 	fmt.Printf("Go version: %s\n", runtime.Version())
 	fmt.Printf("Platform: %s/%s\n", runtime.GOOS, runtime.GOARCH)
+}
+
+func newConfigCommand() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "config",
+		Short: "Show configuration information",
+		Long:  `Display configuration file locations and current platform information.`,
+		Run: func(cmd *cobra.Command, args []string) {
+			showConfigInfo()
+		},
+	}
+
+	return cmd
+}
+
+func showConfigInfo() {
+	fmt.Printf("TenangDB Configuration\n")
+	fmt.Printf("======================\n\n")
+	
+	fmt.Printf("Platform: %s/%s\n\n", runtime.GOOS, runtime.GOARCH)
+	
+	// Show active config file
+	if activePath, err := config.GetActiveConfigPath(); err == nil {
+		fmt.Printf("Active config file: %s\n\n", activePath)
+	} else {
+		fmt.Printf("No config file found\n\n")
+	}
+	
+	fmt.Printf("Config file search order (first found will be used):\n")
+	configPaths := config.GetConfigPaths()
+	for i, path := range configPaths {
+		// Check if file exists and mark it
+		expandedPath := expandPath(path)
+		if _, err := os.Stat(expandedPath); err == nil {
+			fmt.Printf("  %d. %s ✓ (exists)\n", i+1, path)
+		} else {
+			fmt.Printf("  %d. %s\n", i+1, path)
+		}
+	}
+	
+	fmt.Printf("\nUsage:\n")
+	fmt.Printf("  # Auto-discovery (recommended)\n")
+	fmt.Printf("  tenangdb backup\n\n")
+	fmt.Printf("  # Specific config file\n")
+	fmt.Printf("  tenangdb backup --config /path/to/config.yaml\n\n")
+	
+	if runtime.GOOS == "darwin" {
+		fmt.Printf("macOS Notes:\n")
+		fmt.Printf("  - System config: /usr/local/etc/tenangdb/config.yaml (Homebrew)\n")
+		fmt.Printf("  - User config: ~/Library/Application Support/TenangDB/config.yaml\n")
+		fmt.Printf("  - Logs: ~/Library/Logs/TenangDB/\n")
+	} else {
+		fmt.Printf("Linux Notes:\n")
+		fmt.Printf("  - System config: /etc/tenangdb/config.yaml\n")
+		fmt.Printf("  - User config: ~/.config/tenangdb/config.yaml\n")
+		fmt.Printf("  - Logs: /var/log/tenangdb/\n")
+	}
+}
+
+func expandPath(path string) string {
+	if !strings.HasPrefix(path, "~/") {
+		return path
+	}
+	
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return path
+	}
+	
+	return filepath.Join(homeDir, path[2:])
 }

@@ -2,6 +2,10 @@ package config
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
+	"runtime"
+	"strings"
 	"time"
 
 	"github.com/spf13/viper"
@@ -94,14 +98,30 @@ type MetricsConfig struct {
 }
 
 func LoadConfig(configPath string) (*Config, error) {
-	viper.SetConfigFile(configPath)
-	viper.SetConfigType("yaml")
-
-	// Set default values
+	// Set default values first
 	setDefaults()
 
-	if err := viper.ReadInConfig(); err != nil {
-		return nil, fmt.Errorf("failed to read config file: %w", err)
+	// If specific config path is provided, use it directly
+	if configPath != "" {
+		viper.SetConfigFile(configPath)
+		viper.SetConfigType("yaml")
+
+		if err := viper.ReadInConfig(); err != nil {
+			return nil, fmt.Errorf("failed to read config file %s: %w", configPath, err)
+		}
+	} else {
+		// Auto-discover config file using multi-platform paths
+		foundPath, err := findConfigFile()
+		if err != nil {
+			return nil, fmt.Errorf("failed to find config file: %w", err)
+		}
+
+		viper.SetConfigFile(foundPath)
+		viper.SetConfigType("yaml")
+
+		if err := viper.ReadInConfig(); err != nil {
+			return nil, fmt.Errorf("failed to read config file %s: %w", foundPath, err)
+		}
 	}
 
 	var config Config
@@ -114,6 +134,59 @@ func LoadConfig(configPath string) (*Config, error) {
 	}
 
 	return &config, nil
+}
+
+// findConfigFile searches for config file in platform-specific locations
+func findConfigFile() (string, error) {
+	configPaths := getConfigPaths()
+
+	for _, path := range configPaths {
+		// Expand ~ to home directory
+		expandedPath := expandHomeDir(path)
+		
+		if _, err := os.Stat(expandedPath); err == nil {
+			return expandedPath, nil
+		}
+	}
+
+	return "", fmt.Errorf("no config file found in any of the standard locations: %v", configPaths)
+}
+
+// getConfigPaths returns platform-specific config file paths in priority order
+func getConfigPaths() []string {
+	if runtime.GOOS == "darwin" {
+		// macOS specific paths
+		return []string{
+			"/usr/local/etc/tenangdb/config.yaml",                  // Homebrew system-wide
+			"/etc/tenangdb/config.yaml",                            // System fallback
+			"~/Library/Application Support/TenangDB/config.yaml",   // macOS user config
+			"~/.config/tenangdb/config.yaml",                      // XDG fallback
+			"./config.yaml",                                        // Current dir
+			"./tenangdb.yaml",                                      // Current dir alt
+		}
+	} else {
+		// Linux/Unix paths
+		return []string{
+			"/etc/tenangdb/config.yaml",         // System-wide
+			"~/.config/tenangdb/config.yaml",    // User-specific
+			"./config.yaml",                     // Current dir
+			"./tenangdb.yaml",                   // Current dir alt
+		}
+	}
+}
+
+// expandHomeDir expands ~ to the user's home directory
+func expandHomeDir(path string) string {
+	if !strings.HasPrefix(path, "~/") {
+		return path
+	}
+
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return path // Return original path if home dir can't be determined
+	}
+
+	return filepath.Join(homeDir, path[2:])
 }
 
 func setDefaults() {
@@ -131,9 +204,25 @@ func setDefaults() {
 	viper.SetDefault("backup.min_backup_interval", "1h")
 	viper.SetDefault("backup.skip_confirmation", false)
 
+	// Platform-specific binary paths
+	if runtime.GOOS == "darwin" {
+		// macOS defaults (Homebrew)
+		viper.SetDefault("database.mydumper.binary_path", "/usr/local/bin/mydumper")
+		viper.SetDefault("database.mydumper.myloader.binary_path", "/usr/local/bin/myloader")
+		viper.SetDefault("upload.rclone_path", "/usr/local/bin/rclone")
+		viper.SetDefault("upload.rclone_config_path", "~/.config/rclone/rclone.conf")
+		viper.SetDefault("logging.file_path", "~/Library/Logs/TenangDB/tenangdb.log")
+	} else {
+		// Linux/Unix defaults
+		viper.SetDefault("database.mydumper.binary_path", "/usr/bin/mydumper")
+		viper.SetDefault("database.mydumper.myloader.binary_path", "/usr/bin/myloader")
+		viper.SetDefault("upload.rclone_path", "/usr/bin/rclone")
+		viper.SetDefault("upload.rclone_config_path", "~/.config/rclone/rclone.conf")
+		viper.SetDefault("logging.file_path", "/var/log/tenangdb/tenangdb.log")
+	}
+
 	// Mydumper defaults
 	viper.SetDefault("database.mydumper.enabled", false)
-	viper.SetDefault("database.mydumper.binary_path", "/usr/bin/mydumper")
 	viper.SetDefault("database.mydumper.threads", 4)
 	viper.SetDefault("database.mydumper.chunk_filesize", 100)
 	viper.SetDefault("database.mydumper.compress_method", "gzip")
@@ -145,19 +234,15 @@ func setDefaults() {
 
 	// Myloader defaults
 	viper.SetDefault("database.mydumper.myloader.enabled", false)
-	viper.SetDefault("database.mydumper.myloader.binary_path", "/usr/bin/myloader")
 	viper.SetDefault("database.mydumper.myloader.threads", 4)
 
 	viper.SetDefault("upload.enabled", false)
-	viper.SetDefault("upload.rclone_path", "/usr/bin/rclone")
-	viper.SetDefault("upload.rclone_config_path", "~/.config/rclone/rclone.conf")
 	viper.SetDefault("upload.timeout", 300)
 	viper.SetDefault("upload.retry_count", 3)
 
 	viper.SetDefault("logging.level", "info")
 	viper.SetDefault("logging.format", "clean")
 	viper.SetDefault("logging.file_format", "text")
-	viper.SetDefault("logging.file_path", "log/tenangdb.log")
 
 	viper.SetDefault("cleanup.enabled", false)
 	viper.SetDefault("cleanup.cleanup_uploaded_files", true)
@@ -169,6 +254,16 @@ func setDefaults() {
 
 	viper.SetDefault("metrics.enabled", false)
 	viper.SetDefault("metrics.port", "8080")
+}
+
+// GetConfigPaths returns the config paths for the current platform (for CLI help)
+func GetConfigPaths() []string {
+	return getConfigPaths()
+}
+
+// GetActiveConfigPath returns the path of the config file that would be used
+func GetActiveConfigPath() (string, error) {
+	return findConfigFile()
 }
 
 func validateConfig(config *Config) error {
