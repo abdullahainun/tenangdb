@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -21,12 +22,14 @@ type Config struct {
 }
 
 type DatabaseConfig struct {
-	Host     string          `mapstructure:"host"`
-	Port     int             `mapstructure:"port"`
-	Username string          `mapstructure:"username"`
-	Password string          `mapstructure:"password"`
-	Timeout  int             `mapstructure:"timeout"`
-	Mydumper *MydumperConfig `mapstructure:"mydumper"`
+	Host          string          `mapstructure:"host"`
+	Port          int             `mapstructure:"port"`
+	Username      string          `mapstructure:"username"`
+	Password      string          `mapstructure:"password"`
+	Timeout       int             `mapstructure:"timeout"`
+	MysqldumpPath string          `mapstructure:"mysqldump_path"`
+	MysqlPath     string          `mapstructure:"mysql_path"`
+	Mydumper      *MydumperConfig `mapstructure:"mydumper"`
 }
 
 type BackupConfig struct {
@@ -189,10 +192,166 @@ func expandHomeDir(path string) string {
 	return filepath.Join(homeDir, path[2:])
 }
 
+// findRclonePath attempts to auto-discover the rclone binary location
+func findRclonePath() string {
+	// Common paths to check in order of preference
+	commonPaths := []string{
+		"/opt/homebrew/bin/rclone",     // Homebrew on Apple Silicon
+		"/usr/local/bin/rclone",        // Homebrew on Intel Mac / manual install
+		"/usr/bin/rclone",              // System package manager
+		"/usr/local/sbin/rclone",       // Alternative system location
+		"/snap/bin/rclone",             // Snap package
+	}
+
+	// First try to find rclone in PATH using 'which' command
+	if path, err := exec.LookPath("rclone"); err == nil {
+		return path
+	}
+
+	// If not in PATH, check common installation locations
+	for _, path := range commonPaths {
+		if _, err := os.Stat(path); err == nil {
+			return path
+		}
+	}
+
+	// Platform-specific fallback
+	if runtime.GOOS == "darwin" {
+		return "/usr/local/bin/rclone" // macOS fallback
+	}
+	return "/usr/bin/rclone" // Linux/Unix fallback
+}
+
+// findMydumperPath attempts to auto-discover the mydumper binary location
+func findMydumperPath() string {
+	// Common paths to check in order of preference
+	commonPaths := []string{
+		"/opt/homebrew/bin/mydumper",   // Homebrew on Apple Silicon
+		"/usr/local/bin/mydumper",      // Homebrew on Intel Mac / manual install
+		"/usr/bin/mydumper",            // System package manager
+		"/usr/local/sbin/mydumper",     // Alternative system location
+		"/snap/bin/mydumper",           // Snap package
+	}
+
+	// First try to find mydumper in PATH
+	if path, err := exec.LookPath("mydumper"); err == nil {
+		return path
+	}
+
+	// If not in PATH, check common installation locations
+	for _, path := range commonPaths {
+		if _, err := os.Stat(path); err == nil {
+			return path
+		}
+	}
+
+	// Platform-specific fallback
+	if runtime.GOOS == "darwin" {
+		return "/usr/local/bin/mydumper" // macOS fallback
+	}
+	return "/usr/bin/mydumper" // Linux/Unix fallback
+}
+
+// findMyloaderPath attempts to auto-discover the myloader binary location
+func findMyloaderPath() string {
+	// Common paths to check in order of preference
+	commonPaths := []string{
+		"/opt/homebrew/bin/myloader",   // Homebrew on Apple Silicon
+		"/usr/local/bin/myloader",      // Homebrew on Intel Mac / manual install
+		"/usr/bin/myloader",            // System package manager
+		"/usr/local/sbin/myloader",     // Alternative system location
+		"/snap/bin/myloader",           // Snap package
+	}
+
+	// First try to find myloader in PATH
+	if path, err := exec.LookPath("myloader"); err == nil {
+		return path
+	}
+
+	// If not in PATH, check common installation locations
+	for _, path := range commonPaths {
+		if _, err := os.Stat(path); err == nil {
+			return path
+		}
+	}
+
+	// Platform-specific fallback
+	if runtime.GOOS == "darwin" {
+		return "/usr/local/bin/myloader" // macOS fallback
+	}
+	return "/usr/bin/myloader" // Linux/Unix fallback
+}
+
+// findMysqldumpPath attempts to auto-discover the mysqldump binary location
+func findMysqldumpPath() string {
+	// Common paths to check in order of preference
+	commonPaths := []string{
+		"/opt/homebrew/opt/mysql-client/bin/mysqldump", // Homebrew mysql-client on Apple Silicon
+		"/opt/homebrew/bin/mysqldump",                  // Homebrew mysql on Apple Silicon
+		"/usr/local/opt/mysql-client/bin/mysqldump",    // Homebrew mysql-client on Intel Mac
+		"/usr/local/bin/mysqldump",                     // Homebrew mysql on Intel Mac / manual install
+		"/usr/bin/mysqldump",                           // System package manager
+		"/usr/local/sbin/mysqldump",                    // Alternative system location
+		"/snap/bin/mysqldump",                          // Snap package
+	}
+
+	// First try to find mysqldump in PATH
+	if path, err := exec.LookPath("mysqldump"); err == nil {
+		return path
+	}
+
+	// If not in PATH, check common installation locations
+	for _, path := range commonPaths {
+		if _, err := os.Stat(path); err == nil {
+			return path
+		}
+	}
+
+	// Platform-specific fallback
+	if runtime.GOOS == "darwin" {
+		return "/usr/local/bin/mysqldump" // macOS fallback
+	}
+	return "/usr/bin/mysqldump" // Linux/Unix fallback
+}
+
+// findMysqlPath attempts to auto-discover the mysql binary location
+func findMysqlPath() string {
+	// Common paths to check in order of preference
+	commonPaths := []string{
+		"/opt/homebrew/opt/mysql-client/bin/mysql", // Homebrew mysql-client on Apple Silicon
+		"/opt/homebrew/bin/mysql",                  // Homebrew mysql on Apple Silicon
+		"/usr/local/opt/mysql-client/bin/mysql",    // Homebrew mysql-client on Intel Mac
+		"/usr/local/bin/mysql",                     // Homebrew mysql on Intel Mac / manual install
+		"/usr/bin/mysql",                           // System package manager
+		"/usr/local/sbin/mysql",                    // Alternative system location
+		"/snap/bin/mysql",                          // Snap package
+	}
+
+	// First try to find mysql in PATH
+	if path, err := exec.LookPath("mysql"); err == nil {
+		return path
+	}
+
+	// If not in PATH, check common installation locations
+	for _, path := range commonPaths {
+		if _, err := os.Stat(path); err == nil {
+			return path
+		}
+	}
+
+	// Platform-specific fallback
+	if runtime.GOOS == "darwin" {
+		return "/usr/local/bin/mysql" // macOS fallback
+	}
+	return "/usr/bin/mysql" // Linux/Unix fallback
+}
+
 func setDefaults() {
 	viper.SetDefault("database.host", "localhost")
 	viper.SetDefault("database.port", 3306)
 	viper.SetDefault("database.timeout", 30)
+	viper.SetDefault("database.mysqldump_path", findMysqldumpPath())
+	viper.SetDefault("database.mysql_path", findMysqlPath())
 
 	// Platform-specific backup directories
 	if runtime.GOOS == "darwin" {
@@ -220,9 +379,9 @@ func setDefaults() {
 	// Platform-specific binary paths and directories
 	if runtime.GOOS == "darwin" {
 		// macOS defaults (Homebrew)
-		viper.SetDefault("database.mydumper.binary_path", "/usr/local/bin/mydumper")
-		viper.SetDefault("database.mydumper.myloader.binary_path", "/usr/local/bin/myloader")
-		viper.SetDefault("upload.rclone_path", "/usr/local/bin/rclone")
+		viper.SetDefault("database.mydumper.binary_path", findMydumperPath())
+		viper.SetDefault("database.mydumper.myloader.binary_path", findMyloaderPath())
+		viper.SetDefault("upload.rclone_path", findRclonePath())
 		viper.SetDefault("upload.rclone_config_path", expandHomeDir("~/.config/rclone/rclone.conf"))
 		
 		if isRunningAsRoot() {
@@ -232,9 +391,9 @@ func setDefaults() {
 		}
 	} else {
 		// Linux/Unix defaults
-		viper.SetDefault("database.mydumper.binary_path", "/usr/bin/mydumper")
-		viper.SetDefault("database.mydumper.myloader.binary_path", "/usr/bin/myloader")
-		viper.SetDefault("upload.rclone_path", "/usr/bin/rclone")
+		viper.SetDefault("database.mydumper.binary_path", findMydumperPath())
+		viper.SetDefault("database.mydumper.myloader.binary_path", findMyloaderPath())
+		viper.SetDefault("upload.rclone_path", findRclonePath())
 		viper.SetDefault("upload.rclone_config_path", expandHomeDir("~/.config/rclone/rclone.conf"))
 		
 		if isRunningAsRoot() {
