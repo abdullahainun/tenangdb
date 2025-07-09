@@ -1,0 +1,283 @@
+name: Dependency Update Check
+
+on:
+  schedule:
+    # Run every Monday at 6:00 AM UTC
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+jobs:
+  check-dependency-versions:
+    name: Check Dependency Versions
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.23'
+    
+    - name: Install tools
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y jq curl
+    
+    - name: Check Go version
+      id: go_version
+      run: |
+        echo "Checking latest Go version..."
+        LATEST_GO=$(curl -s https://golang.org/dl/?mode=json | jq -r '.[0].version')
+        CURRENT_GO=$(grep -o "GO_VERSION=\"[^\"]*\"" scripts/install-dependencies.sh | cut -d'"' -f2 || echo "1.23.1")
+        
+        echo "latest_go=$LATEST_GO" >> $GITHUB_OUTPUT
+        echo "current_go=$CURRENT_GO" >> $GITHUB_OUTPUT
+        
+        echo "Latest Go version: $LATEST_GO"
+        echo "Current Go version in script: $CURRENT_GO"
+    
+    - name: Check mydumper version
+      id: mydumper_version
+      run: |
+        echo "Checking latest mydumper version..."
+        LATEST_MYDUMPER=$(curl -s https://api.github.com/repos/mydumper/mydumper/releases/latest | jq -r '.tag_name')
+        CURRENT_MYDUMPER=$(grep -o "mydumper_version=\"[^\"]*\"" scripts/install-dependencies.sh | cut -d'"' -f2 || echo "0.12.7-2")
+        
+        echo "latest_mydumper=$LATEST_MYDUMPER" >> $GITHUB_OUTPUT
+        echo "current_mydumper=$CURRENT_MYDUMPER" >> $GITHUB_OUTPUT
+        
+        echo "Latest mydumper version: $LATEST_MYDUMPER"
+        echo "Current mydumper version in script: $CURRENT_MYDUMPER"
+    
+    - name: Check for supported OS versions
+      id: os_versions
+      run: |
+        echo "Checking supported OS versions..."
+        
+        # Check Ubuntu LTS versions
+        echo "Ubuntu LTS versions:"
+        curl -s https://api.launchpad.net/1.0/ubuntu/series | jq -r '.entries[] | select(.status == "Supported") | .name' | head -5
+        
+        # Check Debian stable versions
+        echo "Debian versions:"
+        curl -s https://www.debian.org/releases/index.en.html | grep -o "Debian [0-9][0-9]*" | head -3
+        
+        # Check macOS versions (approximate)
+        echo "macOS versions supported by GitHub Actions:"
+        echo "12, 13, 14, 15 (based on GitHub Actions runners)"
+    
+    - name: Create update summary
+      run: |
+        cat > dependency-update-summary.md << EOF
+        # Dependency Update Summary - $(date)
+        
+        ## Current Versions in install-dependencies.sh
+        - Go: ${{ steps.go_version.outputs.current_go }}
+        - mydumper: ${{ steps.mydumper_version.outputs.current_mydumper }}
+        
+        ## Latest Available Versions
+        - Go: ${{ steps.go_version.outputs.latest_go }}
+        - mydumper: ${{ steps.mydumper_version.outputs.latest_mydumper }}
+        
+        ## Supported OS Versions
+        - Ubuntu: 18.04, 20.04, 22.04, 24.04
+        - Debian: 10, 11, 12
+        - macOS: 10.15, 11.0, 12.0, 13.0, 14.0, 15.0+
+        
+        ## Recommendations
+        EOF
+        
+        # Add recommendations based on version differences
+        if [ "${{ steps.go_version.outputs.latest_go }}" != "go${{ steps.go_version.outputs.current_go }}" ]; then
+          echo "- ⚠️  Update Go version to ${{ steps.go_version.outputs.latest_go }}" >> dependency-update-summary.md
+        else
+          echo "- ✅ Go version is up to date" >> dependency-update-summary.md
+        fi
+        
+        if [ "${{ steps.mydumper_version.outputs.latest_mydumper }}" != "v${{ steps.mydumper_version.outputs.current_mydumper }}" ]; then
+          echo "- ⚠️  Update mydumper version to ${{ steps.mydumper_version.outputs.latest_mydumper }}" >> dependency-update-summary.md
+        else
+          echo "- ✅ mydumper version is up to date" >> dependency-update-summary.md
+        fi
+        
+        echo "" >> dependency-update-summary.md
+        echo "## Next Steps" >> dependency-update-summary.md
+        echo "1. Review the dependency update summary" >> dependency-update-summary.md
+        echo "2. Update scripts/install-dependencies.sh if needed" >> dependency-update-summary.md
+        echo "3. Test updated script on all supported platforms" >> dependency-update-summary.md
+        echo "4. Update supported version arrays if needed" >> dependency-update-summary.md
+        
+        cat dependency-update-summary.md
+    
+    - name: Test current dependency script
+      run: |
+        echo "Testing current dependency script..."
+        chmod +x scripts/install-dependencies.sh
+        ./scripts/install-dependencies.sh --check-only
+    
+    - name: Create issue if updates needed
+      id: create_issue
+      if: steps.go_version.outputs.latest_go != format('go{0}', steps.go_version.outputs.current_go) || steps.mydumper_version.outputs.latest_mydumper != format('v{0}', steps.mydumper_version.outputs.current_mydumper)
+      run: |
+        echo "Creating GitHub issue for dependency updates..."
+        
+        # Create issue body
+        cat > issue-body.md << EOF
+        # Dependency Update Available
+        
+        This issue was automatically created by the dependency update check workflow.
+        
+        ## Updates Available
+        EOF
+        
+        if [ "${{ steps.go_version.outputs.latest_go }}" != "go${{ steps.go_version.outputs.current_go }}" ]; then
+          cat >> issue-body.md << EOF
+        
+        ### Go Version Update
+        - Current: ${{ steps.go_version.outputs.current_go }}
+        - Latest: ${{ steps.go_version.outputs.latest_go }}
+        
+        **Action Required:**
+        1. Update \`GO_VERSION\` in \`scripts/install-dependencies.sh\`
+        2. Update \`go-version\` in GitHub Actions workflows
+        3. Test on all supported platforms
+        EOF
+        fi
+        
+        if [ "${{ steps.mydumper_version.outputs.latest_mydumper }}" != "v${{ steps.mydumper_version.outputs.current_mydumper }}" ]; then
+          cat >> issue-body.md << EOF
+        
+        ### mydumper Version Update
+        - Current: ${{ steps.mydumper_version.outputs.current_mydumper }}
+        - Latest: ${{ steps.mydumper_version.outputs.latest_mydumper }}
+        
+        **Action Required:**
+        1. Update \`mydumper_version\` in \`scripts/install-dependencies.sh\`
+        2. Update download URLs if needed
+        3. Test installation on all supported platforms
+        EOF
+        fi
+        
+        cat >> issue-body.md << EOF
+        
+        ## Testing Checklist
+        - [ ] Ubuntu 20.04, 22.04, latest
+        - [ ] Debian 10, 11, 12
+        - [ ] macOS 12, 13, 14
+        - [ ] Go compatibility test
+        - [ ] Build test with new versions
+        - [ ] Dependency installation test
+        
+        ## Files to Update
+        - [ ] \`scripts/install-dependencies.sh\`
+        - [ ] \`.github/workflows/ci.yml\`
+        - [ ] \`.github/workflows/dependency-test.yml\`
+        - [ ] \`.github/workflows/nightly.yml\`
+        - [ ] \`.github/workflows/release.yml\`
+        - [ ] \`Makefile\` (if Go version changed)
+        
+        ---
+        *This issue was automatically created on $(date)*
+        EOF
+        
+        echo "issue_created=true" >> $GITHUB_OUTPUT
+        
+        # Use GitHub CLI to create issue
+        gh issue create \
+          --title "Dependency Update Available - $(date +%Y-%m-%d)" \
+          --body-file issue-body.md \
+          --label "enhancement,dependencies,automated" \
+          --assignee "@me"
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Upload summary
+      uses: actions/upload-artifact@v4
+      with:
+        name: dependency-update-summary
+        path: dependency-update-summary.md
+        retention-days: 30
+    
+    - name: Summary
+      run: |
+        echo "=== Dependency Update Check Summary ==="
+        echo "Go version check: completed"
+        echo "mydumper version check: completed"
+        echo "OS version check: completed"
+        
+        if [ "${{ steps.create_issue.outputs.issue_created }}" = "true" ]; then
+          echo "GitHub issue created for updates"
+        else
+          echo "All dependencies are up to date"
+        fi
+
+  test-latest-versions:
+    name: Test Latest Versions
+    runs-on: ubuntu-latest
+    needs: check-dependency-versions
+    if: always()
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up latest Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.25'
+        check-latest: true
+    
+    - name: Test build with latest Go
+      run: |
+        echo "Testing build with latest Go version..."
+        go version
+        
+        # Test if the project builds with latest Go
+        if go build -v ./cmd; then
+          echo "✅ Build successful with latest Go"
+        else
+          echo "❌ Build failed with latest Go"
+          exit 1
+        fi
+    
+    - name: Test dependency installation
+      run: |
+        echo "Testing dependency installation..."
+        chmod +x scripts/install-dependencies.sh
+        
+        # Test check-only mode
+        if ./scripts/install-dependencies.sh --check-only; then
+          echo "✅ Dependency check passed"
+        else
+          echo "⚠️  Some dependencies missing (expected in CI)"
+        fi
+    
+    - name: Create compatibility report
+      run: |
+        cat > compatibility-report.md << EOF
+        # Compatibility Report - $(date)
+        
+        ## Go Version Compatibility
+        - Latest Go tested: $(go version)
+        - Build status: ✅ Success
+        - Test status: $(go test -v ./... > /dev/null 2>&1 && echo "✅ Success" || echo "❌ Failed")
+        
+        ## Dependency Status
+        - Dependency script: $(./scripts/install-dependencies.sh --check-only > /dev/null 2>&1 && echo "✅ Success" || echo "⚠️  Some missing")
+        
+        ## Recommendations
+        - Monitor Go release schedule for new versions
+        - Test with Go release candidates when available
+        - Update CI matrix to include latest Go versions
+        EOF
+        
+        cat compatibility-report.md
+    
+    - name: Upload compatibility report
+      uses: actions/upload-artifact@v4
+      with:
+        name: compatibility-report
+        path: compatibility-report.md
+        retention-days: 30

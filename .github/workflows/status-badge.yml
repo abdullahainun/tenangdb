@@ -1,0 +1,116 @@
+name: Status Badge
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  generate-badge:
+    name: Generate Status Badge
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.23'
+    
+    - name: Run tests and generate coverage
+      run: |
+        go test -v -race -coverprofile=coverage.out ./...
+        go tool cover -html=coverage.out -o coverage.html
+        
+        # Calculate coverage percentage
+        COVERAGE=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | sed 's/%//')
+        echo "COVERAGE=$COVERAGE" >> $GITHUB_ENV
+    
+    - name: Generate test badge
+      uses: schneegans/dynamic-badges-action@v1.7.0
+      with:
+        auth: ${{ secrets.GITHUB_TOKEN }}
+        gistID: # You need to create a gist and put the ID here
+        filename: tenangdb-tests.json
+        label: tests
+        message: ${{ env.COVERAGE }}% coverage
+        color: ${{ env.COVERAGE >= 80 && 'green' || env.COVERAGE >= 60 && 'yellow' || 'red' }}
+    
+    - name: Build status check
+      id: build_status
+      run: |
+        if make build; then
+          echo "BUILD_STATUS=passing" >> $GITHUB_ENV
+          echo "BUILD_COLOR=green" >> $GITHUB_ENV
+        else
+          echo "BUILD_STATUS=failing" >> $GITHUB_ENV
+          echo "BUILD_COLOR=red" >> $GITHUB_ENV
+        fi
+    
+    - name: Generate build badge
+      uses: schneegans/dynamic-badges-action@v1.7.0
+      with:
+        auth: ${{ secrets.GITHUB_TOKEN }}
+        gistID: # You need to create a gist and put the ID here
+        filename: tenangdb-build.json
+        label: build
+        message: ${{ env.BUILD_STATUS }}
+        color: ${{ env.BUILD_COLOR }}
+    
+    - name: Platform support check
+      run: |
+        PLATFORMS="linux/amd64,linux/arm64,darwin/amd64,darwin/arm64,windows/amd64"
+        SUCCESS_COUNT=0
+        TOTAL_COUNT=5
+        
+        for platform in $(echo $PLATFORMS | tr ',' ' '); do
+          GOOS=$(echo $platform | cut -d'/' -f1)
+          GOARCH=$(echo $platform | cut -d'/' -f2)
+          
+          if GOOS=$GOOS GOARCH=$GOARCH go build -o /tmp/test-$GOOS-$GOARCH ./cmd; then
+            SUCCESS_COUNT=$((SUCCESS_COUNT + 1))
+            echo "✅ $platform build successful"
+          else
+            echo "❌ $platform build failed"
+          fi
+        done
+        
+        echo "PLATFORM_SUPPORT=$SUCCESS_COUNT/$TOTAL_COUNT" >> $GITHUB_ENV
+        
+        if [ $SUCCESS_COUNT -eq $TOTAL_COUNT ]; then
+          echo "PLATFORM_COLOR=green" >> $GITHUB_ENV
+        elif [ $SUCCESS_COUNT -gt 3 ]; then
+          echo "PLATFORM_COLOR=yellow" >> $GITHUB_ENV
+        else
+          echo "PLATFORM_COLOR=red" >> $GITHUB_ENV
+        fi
+    
+    - name: Generate platform badge
+      uses: schneegans/dynamic-badges-action@v1.7.0
+      with:
+        auth: ${{ secrets.GITHUB_TOKEN }}
+        gistID: # You need to create a gist and put the ID here
+        filename: tenangdb-platforms.json
+        label: platforms
+        message: ${{ env.PLATFORM_SUPPORT }}
+        color: ${{ env.PLATFORM_COLOR }}
+    
+    
+    - name: Go version check
+      run: |
+        GO_VERSION=$(go version | cut -d' ' -f3)
+        echo "GO_VERSION=$GO_VERSION" >> $GITHUB_ENV
+    
+    - name: Generate Go version badge
+      uses: schneegans/dynamic-badges-action@v1.7.0
+      with:
+        auth: ${{ secrets.GITHUB_TOKEN }}
+        gistID: # You need to create a gist and put the ID here
+        filename: tenangdb-go-version.json
+        label: go
+        message: ${{ env.GO_VERSION }}
+        color: blue

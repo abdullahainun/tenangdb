@@ -330,7 +330,9 @@ func runCleanup(configFile, logLevel string, dryRun bool, force bool, databases 
 	if err := backupService.CleanupUploadedFiles(ctx); err != nil {
 		log.WithError(err).Error("Cleanup process failed")
 		cleanupDuration := time.Since(cleanupStartTime)
-		metricsStorage.UpdateCleanupMetrics(cleanupDuration, false, totalFilesRemoved, totalBytesFreed)
+		if err := metricsStorage.UpdateCleanupMetrics(cleanupDuration, false, totalFilesRemoved, totalBytesFreed); err != nil {
+			log.WithError(err).Warn("Failed to update cleanup metrics")
+		}
 		os.Exit(1)
 	}
 
@@ -340,14 +342,18 @@ func runCleanup(configFile, logLevel string, dryRun bool, force bool, databases 
 		if err := cleanupService.CleanupAgeBasedFiles(ctx, cfg.Backup.Directory, selectedDatabases); err != nil {
 			log.WithError(err).Error("Age-based cleanup failed")
 			cleanupDuration := time.Since(cleanupStartTime)
-			metricsStorage.UpdateCleanupMetrics(cleanupDuration, false, totalFilesRemoved, totalBytesFreed)
+			if err := metricsStorage.UpdateCleanupMetrics(cleanupDuration, false, totalFilesRemoved, totalBytesFreed); err != nil {
+				log.WithError(err).Warn("Failed to update cleanup metrics")
+			}
 			os.Exit(1)
 		}
 	}
 
 	// Record successful cleanup
 	cleanupDuration := time.Since(cleanupStartTime)
-	metricsStorage.UpdateCleanupMetrics(cleanupDuration, true, totalFilesRemoved, totalBytesFreed)
+	if err := metricsStorage.UpdateCleanupMetrics(cleanupDuration, true, totalFilesRemoved, totalBytesFreed); err != nil {
+		log.WithError(err).Warn("Failed to update cleanup metrics")
+	}
 
 	if force {
 		log.Info("Forced cleanup completed successfully")
@@ -479,8 +485,14 @@ func newRestoreCommand() *cobra.Command {
 	cmd.Flags().StringVarP(&backupPath, "backup-path", "b", "", "path to backup directory or SQL file (required)")
 	cmd.Flags().StringVarP(&targetDatabase, "database", "d", "", "target database name (required)")
 
-	cmd.MarkFlagRequired("backup-path")
-	cmd.MarkFlagRequired("database")
+	if err := cmd.MarkFlagRequired("backup-path"); err != nil {
+		fmt.Printf("Error: Failed to mark backup-path flag as required: %v\n", err)
+		os.Exit(1)
+	}
+	if err := cmd.MarkFlagRequired("database"); err != nil {
+		fmt.Printf("Error: Failed to mark database flag as required: %v\n", err)
+		os.Exit(1)
+	}
 
 	return cmd
 }
@@ -538,13 +550,17 @@ func runRestore(configFile, logLevel, backupPath, targetDatabase string) {
 	if err != nil {
 		log.WithError(err).Error("Database restore failed")
 		metrics.RecordRestoreEnd(targetDatabase, restoreDuration, false)
-		metricsStorage.UpdateRestoreMetrics(targetDatabase, restoreDuration, false)
+		if err := metricsStorage.UpdateRestoreMetrics(targetDatabase, restoreDuration, false); err != nil {
+			log.WithError(err).Warn("Failed to update restore metrics")
+		}
 		os.Exit(1)
 	}
 
 	// Record successful restore
 	metrics.RecordRestoreEnd(targetDatabase, restoreDuration, true)
-	metricsStorage.UpdateRestoreMetrics(targetDatabase, restoreDuration, true)
+	if err := metricsStorage.UpdateRestoreMetrics(targetDatabase, restoreDuration, true); err != nil {
+		log.WithError(err).Warn("Failed to update restore metrics")
+	}
 
 	log.WithField("target_database", targetDatabase).Info("Database restore completed successfully")
 }
