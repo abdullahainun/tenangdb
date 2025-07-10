@@ -307,41 +307,8 @@ func (s *Service) createBackupWithRetry(ctx context.Context, dbName string) (str
 }
 
 func (s *Service) uploadBackup(ctx context.Context, backupPath string) error {
-	// Check if backupPath is a directory (mydumper) or file (mysqldump)
-	info, err := os.Stat(backupPath)
-	if err != nil {
-		return fmt.Errorf("failed to stat backup path: %w", err)
-	}
-
-	if info.IsDir() {
-		// For mydumper directories, upload all files in the directory
-		return s.uploadDirectory(ctx, backupPath)
-	} else {
-		// For mysqldump files, upload single file
-		return s.uploader.Upload(ctx, backupPath)
-	}
-}
-
-func (s *Service) uploadDirectory(ctx context.Context, dirPath string) error {
-	// Get all files in the directory
-	files, err := os.ReadDir(dirPath)
-	if err != nil {
-		return fmt.Errorf("failed to read directory: %w", err)
-	}
-
-	// Upload each file
-	for _, file := range files {
-		if file.IsDir() {
-			continue // Skip subdirectories
-		}
-
-		filePath := filepath.Join(dirPath, file.Name())
-		if err := s.uploader.Upload(ctx, filePath); err != nil {
-			return fmt.Errorf("failed to upload file %s: %w", file.Name(), err)
-		}
-	}
-
-	return nil
+	// Upload backup (directory or file) - upload service will handle the logic
+	return s.uploader.Upload(ctx, backupPath)
 }
 
 func (s *Service) createBackupDirectory() error {

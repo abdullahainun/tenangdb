@@ -45,6 +45,12 @@ type BackupConfig struct {
 	SkipConfirmation      bool          `mapstructure:"skip_confirmation"`
 }
 
+// MydumperConfig supports cross-platform mydumper versions with automatic parameter detection
+// Tested and supported versions:
+//   - v0.9.1+ (Ubuntu 18.04, older Linux distributions)
+//   - v0.10.0+ (most modern Linux distributions) 
+//   - v0.19.3+ (macOS Homebrew, latest versions)
+// The system automatically detects version and uses appropriate parameters for compatibility
 type MydumperConfig struct {
 	Enabled         bool            `mapstructure:"enabled"`
 	BinaryPath      string          `mapstructure:"binary_path"`
