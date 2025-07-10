@@ -12,10 +12,11 @@ TenangDB sekarang menggunakan arsitektur terpisah untuk backup job dan metrics m
 ### 1. Install Binary
 
 ```bash
-# Build tenangdb
-go build -o tenangdb cmd/main.go
+# Download binary release
+curl -L https://github.com/abdullahainun/tenangdb/releases/latest/download/tenangdb-linux-amd64 -o tenangdb
 
 # Install to system
+sudo mkdir -p /opt/tenangdb
 sudo cp tenangdb /opt/tenangdb/tenangdb
 sudo chmod +x /opt/tenangdb/tenangdb
 ```
