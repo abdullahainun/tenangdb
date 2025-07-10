@@ -82,18 +82,8 @@ func (c *Client) createMydumperBackup(ctx context.Context, dbName, backupDir, ti
 		return "", fmt.Errorf("failed to create backup directory: %w", err)
 	}
 
-	// Build mydumper command
-	args := []string{
-		"--routines",
-		"--triggers", 
-		"--events",
-		"--sync-thread-lock-mode=AUTO",
-		"--trx-tables",
-		fmt.Sprintf("--outputdir=%s", dbBackupDir),
-		fmt.Sprintf("--database=%s", dbName),
-		fmt.Sprintf("--threads=%d", c.config.Mydumper.Threads),
-		fmt.Sprintf("--chunk-filesize=%d", c.config.Mydumper.ChunkFilesize),
-	}
+	// Build mydumper command with version-compatible arguments
+	args := c.buildMydumperArgs(dbBackupDir, dbName)
 
 	// Use defaults-file if specified, otherwise use individual connection parameters
 	if c.config.Mydumper.DefaultsFile != "" {
@@ -383,6 +373,51 @@ func (c *Client) restoreWithMysql(ctx context.Context, backupPath, dbName string
 	}
 
 	return nil
+}
+
+func (c *Client) buildMydumperArgs(dbBackupDir, dbName string) []string {
+	// Start with common arguments available in all supported mydumper versions
+	// Supports: v0.9.1+ (Ubuntu 18.04), v0.10.0+ (most Linux distros), v0.19.3+ (macOS Homebrew)
+	args := []string{
+		"--routines",
+		"--triggers",
+		"--events",
+		fmt.Sprintf("--outputdir=%s", dbBackupDir),
+		fmt.Sprintf("--database=%s", dbName),
+		fmt.Sprintf("--threads=%d", c.config.Mydumper.Threads),
+		fmt.Sprintf("--chunk-filesize=%d", c.config.Mydumper.ChunkFilesize),
+	}
+
+	// Version-aware parameter selection for cross-platform compatibility
+	if c.isMydumperVersionCompatible() {
+		// Modern mydumper (v0.19.x+) - macOS Homebrew, newer Linux packages
+		args = append(args, "--sync-thread-lock-mode=AUTO", "--trx-tables")
+	} else {
+		// Legacy mydumper (v0.9.1 - v0.10.x) - Ubuntu 18.04, CentOS, older Linux distros
+		args = append(args, "--no-locks", "--trx-consistency-only")
+	}
+
+	return args
+}
+
+func (c *Client) isMydumperVersionCompatible() bool {
+	// Detect mydumper version by checking for modern parameters in --help output
+	// Returns true for v0.19.x+ (modern), false for v0.9.1-v0.10.x (legacy)
+	// Tested versions:
+	//   - v0.9.1 (Ubuntu 18.04) → legacy parameters
+	//   - v0.10.0 (most Linux distros) → legacy parameters  
+	//   - v0.19.3 (macOS Homebrew) → modern parameters
+	cmd := exec.Command(c.config.Mydumper.BinaryPath, "--help")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		// If help fails, assume legacy version for safety
+		return false
+	}
+
+	outputStr := string(output)
+	// Check for modern parameters that exist in v0.19.x+
+	return strings.Contains(outputStr, "--sync-thread-lock-mode") && 
+		   strings.Contains(outputStr, "--trx-tables")
 }
 
 func (c *Client) Close() error {
