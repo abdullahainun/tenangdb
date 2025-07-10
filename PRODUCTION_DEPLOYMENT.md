@@ -23,7 +23,7 @@ sudo cp tenangdb /usr/local/bin/
 sudo chmod +x /usr/local/bin/tenangdb
 
 # Create config
-sudo cp configs/config.yaml.template /etc/tenangdb/config.yaml
+sudo cp config.yaml.example /etc/tenangdb/config.yaml
 sudo chown tenangdb:tenangdb /etc/tenangdb/config.yaml
 sudo chmod 600 /etc/tenangdb/config.yaml
 ```
@@ -88,7 +88,7 @@ sudo systemctl status tenangdb.timer
 ```bash
 # Config auto-discovered at ~/.config/tenangdb/config.yaml
 mkdir -p ~/.config/tenangdb
-cp configs/config.yaml.template ~/.config/tenangdb/config.yaml
+cp config.yaml.example ~/.config/tenangdb/config.yaml
 
 # Run
 tenangdb backup

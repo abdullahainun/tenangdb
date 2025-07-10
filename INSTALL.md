@@ -82,7 +82,7 @@ sudo mkdir -p /var/backups
 ### **2. Copy Configuration Template**
 ```bash
 # Copy from project
-sudo cp configs/config.yaml /etc/tenangdb/config.yaml
+sudo cp config.yaml.example /etc/tenangdb/config.yaml
 
 # Edit configuration
 sudo nano /etc/tenangdb/config.yaml
@@ -355,7 +355,7 @@ tenangdb version
 ## 🔧 Configuration Reference
 
 ### **Complete Configuration Example**
-See [configs/config.yaml](configs/config.yaml) for a complete configuration example with all available options.
+See [config.yaml.example](config.yaml.example) for a complete configuration example with all available options.
 
 ### **Log Levels**
 - `panic` - Highest level, logs and then panics

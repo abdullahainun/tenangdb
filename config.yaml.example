@@ -1,0 +1,77 @@
+# TenangDB Configuration Example
+# Copy this file to config.yaml and customize for your environment
+
+# Database connection settings
+database:
+  host: 127.0.0.1
+  port: 3306
+  username: username
+  password: "password"
+  timeout: 30
+
+  # mydumper provides fast, parallel backups (supports v0.9.1 - v0.19.3+)
+  # Auto-discovers binary paths: /opt/homebrew/bin, /usr/local/bin, /usr/bin
+  mydumper:
+    enabled: true
+    # Optional overrides (auto-configured if not specified):
+    # binary_path: /usr/local/bin/mydumper
+    # defaults_file: /etc/tenangdb/my_backup.cnf
+    # threads: 4
+    # chunk_filesize: 100
+    # compress_method: gzip
+
+    myloader:
+      enabled: true
+      threads: 4
+      # Optional overrides:
+      # binary_path: /usr/local/bin/myloader
+      # defaults_file: /etc/tenangdb/my_restore.cnf
+
+# Backup storage and database selection
+backup:
+  # Auto-discovered paths:
+  #   macOS: ~/Library/Application Support/TenangDB/backups
+  #   Linux: ~/.local/share/tenangdb/backups (user) or /var/backups/tenangdb (root)
+  databases:
+    - database1
+    - database2
+  # Optional overrides (auto-configured):
+  # directory: /custom/backup/path
+  # batch_size: 5
+  # concurrency: 3
+  # timeout: 30m
+  # retry_count: 3
+
+# Cloud upload creates structure: {destination}/{database}/{YYYY-MM}/{backup-timestamp}/
+upload:
+  enabled: false
+  destination: "remote:backup-folder"  # Configure with: rclone config
+  # Auto-discovered paths and settings:
+  # rclone_path: /usr/local/bin/rclone
+  # rclone_config_path: ~/.config/rclone/rclone.conf
+  # timeout: 300
+  # retry_count: 3
+
+# Logging settings
+logging:
+  level: info                    # debug, info, warn, error
+  format: text                   # text (human-readable) or json (structured)
+  # Auto-discovered paths:
+  #   macOS: ~/Library/Logs/TenangDB/tenangdb.log
+  #   Linux: ~/.local/share/tenangdb/logs/tenangdb.log
+
+# Optional: Metrics endpoint for monitoring
+metrics:
+  enabled: false
+  port: "8080"
+
+# Cleanup manages backup retention and removes old files
+cleanup:
+  enabled: true
+  cleanup_uploaded_files: true   # Clean local files after successful upload
+  remote_retention_days: 3       # Keep remote backups for 3 days
+  weekend_only: false            # Run cleanup any day (not weekend-only)
+  age_based_cleanup: true        # Enable age-based local cleanup
+  max_age_days: 7               # Maximum age before cleanup
+  verify_cloud_exists: true     # Verify cloud file exists before local deletion
+  # databases: ["sys", "mysql"]  # Specific databases to cleanup (optional)
