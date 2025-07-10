@@ -18,12 +18,14 @@ sudo mkdir -p /var/log/tenangdb
 sudo mkdir -p /var/backups/tenangdb
 sudo chown -R tenangdb:tenangdb /var/log/tenangdb /var/backups/tenangdb
 
-# Install binary
-sudo cp tenangdb /usr/local/bin/
+# Install binary from release
+curl -L https://github.com/abdullahainun/tenangdb/releases/latest/download/tenangdb-linux-amd64 -o tenangdb
+sudo mv tenangdb /usr/local/bin/
 sudo chmod +x /usr/local/bin/tenangdb
 
 # Create config
-sudo cp config.yaml.example /etc/tenangdb/config.yaml
+curl -L https://raw.githubusercontent.com/abdullahainun/tenangdb/main/config.yaml.example -o config.yaml
+sudo cp config.yaml /etc/tenangdb/config.yaml
 sudo chown tenangdb:tenangdb /etc/tenangdb/config.yaml
 sudo chmod 600 /etc/tenangdb/config.yaml
 ```
@@ -86,9 +88,9 @@ sudo systemctl status tenangdb.timer
 **Run as regular user:**
 
 ```bash
-# Config auto-discovered at ~/.config/tenangdb/config.yaml
+# Download and setup config
 mkdir -p ~/.config/tenangdb
-cp config.yaml.example ~/.config/tenangdb/config.yaml
+curl -L https://raw.githubusercontent.com/abdullahainun/tenangdb/main/config.yaml.example -o ~/.config/tenangdb/config.yaml
 
 # Run
 tenangdb backup

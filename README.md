@@ -1,70 +1,168 @@
 # TenangDB
 
-🛡️ **Backup yang Bikin Tenang** - A comprehensive MySQL backup solution that lets you sleep peacefully knowing your databases are safe, automatically backed up, uploaded to cloud storage, and ready for instant restore.
+🛡️ **Backup yang Bikin Tenang** - MySQL backup solution with auto-discovery and cloud integration.
 
-*No more worries about database disasters. TenangDB has got you covered.*
+*Zero-configuration backup system that just works.*
 
-## Why Choose TenangDB?
+## ⚡ Installation
 
-✅ **Peace of Mind**: Automated daily backups with cloud redundancy  
-✅ **Disaster Recovery**: One-command restore from any backup point  
-✅ **Zero Maintenance**: Set it once, runs forever with intelligent cleanup  
-✅ **Enterprise Grade**: Battle-tested with parallel processing & monitoring  
+```bash
+# One-liner install
+curl -sSL https://raw.githubusercontent.com/abdullahainun/tenangdb/main/install.sh | bash
+
+# Install dependencies
+brew install mydumper rclone mysql-client  # macOS
+sudo apt install mydumper rclone mysql-client  # Ubuntu
+sudo dnf install mydumper rclone mysql  # CentOS/Fedora
+```
 
 ## 🚀 Quick Start
 
 ```bash
-# 1. Install dependencies
-make test-deps
+# 1. Get config template
+curl -L https://raw.githubusercontent.com/abdullahainun/tenangdb/main/config.yaml.example -o config.yaml
 
-# 2. Build TenangDB
-git clone https://github.com/abdullahainun/tenangdb.git
-cd tenangdb && make build
+# 2. Edit with your database credentials
+nano config.yaml
 
-# 3. Configure
-cp configs/config.yaml /etc/tenangdb/config.yaml
-nano /etc/tenangdb/config.yaml  # Update your database credentials
-
-# 4. Run your first backup
-./tenangdb backup --config /etc/tenangdb/config.yaml
+# 3. Run backup
+tenangdb backup
 ```
 
-## 📋 Basic Commands
+## ⚙️ Basic Config
+
+```yaml
+database:
+  host: your_mysql_host
+  username: your_username
+  password: your_password
+  mydumper:
+    enabled: true
+
+backup:
+  databases:
+    - your_database1
+    - your_database2
+
+# Optional: Cloud upload
+upload:
+  enabled: false
+  destination: "your-remote:backup-folder"
+```
+
+**Auto-Discovery Features:**
+- Binary paths (mydumper, myloader, rclone, mysql)
+- Backup directories (platform-specific)
+- Log locations and optimal settings
+
+## 📋 Commands
 
 ```bash
-# Backup databases
-./tenangdb backup --config config.yaml
-
-# Restore database
-./tenangdb restore --backup-path /backup/db-2025-07-05_10-30-15 --target-database restored_db
-
-# Cleanup old backups
-./tenangdb cleanup --config config.yaml
+tenangdb backup                    # Backup all databases
+tenangdb backup --databases db1,db2   # Backup specific databases
+tenangdb restore --backup-path /path/to/backup --database target_db
+tenangdb cleanup --force           # Clean old backups
+tenangdb config                   # Show configuration
 ```
 
-## 📚 Documentation
+## 🔧 Advanced
 
-- 📖 **[Installation Guide](INSTALL.md)** - Complete setup instructions
-- ⚙️ **[Configuration Guide](configs/README.md)** - Configuration options & examples
-- 📊 **[Monitoring Setup](grafana/README.md)** - Grafana dashboard import
-- 🔧 **[Commands Reference](docs/COMMANDS.md)** - All available commands & options
-- 🔄 **[Backward Compatibility](docs/BACKWARD_COMPATIBILITY.md)** - Migration guide for new syntax
+<details>
+<summary><strong>MySQL User Setup</strong></summary>
 
-## 🎯 Key Features
+```sql
+-- Create dedicated user
+CREATE USER 'tenangdb'@'%' IDENTIFIED BY 'secure_password';
+GRANT SELECT, SHOW DATABASES, SHOW VIEW, LOCK TABLES, EVENT, TRIGGER, ROUTINE, RELOAD, REPLICATION CLIENT ON *.* TO 'tenangdb'@'%';
+GRANT INSERT, UPDATE, DELETE, CREATE, DROP, ALTER, INDEX, REFERENCES, CREATE TEMPORARY TABLES, CREATE VIEW ON *.* TO 'tenangdb'@'%';
+FLUSH PRIVILEGES;
+```
+</details>
 
-- **🔄 Dual Backup Engine**: mydumper (parallel) + mysqldump (traditional)
-- **📤 Cloud Integration**: Auto-upload to S3, Minio, or any rclone-supported storage
-- **🚀 One-Click Restore**: Instant database recovery from any backup
-- **🧹 Smart Cleanup**: Age-based cleanup with cloud verification
-- **📊 Monitoring Ready**: Prometheus metrics + Grafana dashboard
-- **⚙️ Production Ready**: Systemd services, structured logging, security hardening
+<details>
+<summary><strong>Cloud Storage Setup</strong></summary>
 
-## 🤝 Support
+```bash
+# Configure rclone
+rclone config
 
-- 🐛 **Issues**: [GitHub Issues](https://github.com/abdullahainun/tenangdb/issues)
-- 📖 **Documentation**: Check the files in `/docs` folder
-- 💡 **Feature Requests**: Open an issue with enhancement label
+# Test connection
+rclone lsf your-remote:
 
-## 📄 License
+# Enable in config.yaml
+upload:
+  enabled: true
+  destination: "your-remote:database-backups"
+```
+</details>
 
-MIT License - See [LICENSE](LICENSE) file for details
+<details>
+<summary><strong>Production Deployment</strong></summary>
+
+```bash
+# Install system-wide
+curl -L https://github.com/abdullahainun/tenangdb/releases/latest/download/tenangdb-linux-amd64 -o tenangdb
+sudo mv tenangdb /usr/local/bin/ && sudo chmod +x /usr/local/bin/tenangdb
+
+# Setup config
+sudo mkdir -p /etc/tenangdb
+curl -L https://raw.githubusercontent.com/abdullahainun/tenangdb/main/config.yaml.example | sudo tee /etc/tenangdb/config.yaml
+sudo nano /etc/tenangdb/config.yaml
+```
+</details>
+
+## 📋 Details
+
+<details>
+<summary><strong>Directory Structure</strong></summary>
+
+```
+Backups: ~/Library/Application Support/TenangDB/backups/ (macOS)
+         ~/.local/share/tenangdb/backups/ (Linux)
+
+Structure: {backup-dir}/{database}/{YYYY-MM}/{backup-timestamp}/
+Cloud:     {destination}/{database}/{YYYY-MM}/{backup-timestamp}/
+```
+</details>
+
+<details>
+<summary><strong>Compatibility</strong></summary>
+
+**mydumper:** v0.9.1+ (Ubuntu 18.04) to v0.19.3+ (macOS Homebrew)  
+**MySQL:** 5.7+, 8.0+, MariaDB 10.3+  
+**Platforms:** macOS (Intel/Apple Silicon), Linux (Ubuntu/CentOS/Debian/Fedora)
+</details>
+
+## 📚 Links
+
+**Documentation:** [Installation Guide](INSTALL.md) • [MySQL Setup](MYSQL_USER_SETUP.md) • [Production Deployment](PRODUCTION_DEPLOYMENT.md) • [Config Reference](config.yaml.example)
+
+<details>
+<summary><strong>Troubleshooting</strong></summary>
+
+**Binary not found:**
+```bash
+which tenangdb || curl -sSL https://raw.githubusercontent.com/abdullahainun/tenangdb/main/install.sh | bash
+```
+
+**Dependencies missing:**
+```bash
+which mydumper myloader rclone mysql
+# Install: brew/apt/dnf install mydumper rclone mysql-client
+```
+
+**Connection failed:**
+```bash
+mysql -h your_host -u your_user -p
+SHOW GRANTS FOR 'your_user'@'%';
+```
+
+**Debug mode:**
+```bash
+tenangdb backup --log-level debug --dry-run
+```
+</details>
+
+---
+
+**Support:** [Issues](https://github.com/abdullahainun/tenangdb/issues) • **License:** [MIT](LICENSE)

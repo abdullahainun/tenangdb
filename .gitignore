@@ -24,6 +24,7 @@ build/
 dist/
 
 # Configuration files with sensitive data
+config.yaml
 config.local.yaml
 *.local.yaml
 .env

@@ -3,9 +3,9 @@
 ## 🛠️ Prerequisites & Dependencies
 
 ### **System Requirements**
-- Linux/Unix system
+- Linux/macOS system
 - MySQL server access
-- Go 1.23+ (for building from source)
+- Go 1.23+ (only for building from source)
 
 ### **Required Dependencies**
 
@@ -16,6 +16,9 @@ sudo apt update && sudo apt install mydumper
 
 # CentOS/RHEL/Fedora
 sudo dnf install mydumper
+
+# macOS (Homebrew)
+brew install mydumper
 
 # Verify installation
 mydumper --version
@@ -39,6 +42,9 @@ sudo apt install mysql-client
 # CentOS/RHEL/Fedora
 sudo dnf install mysql
 
+# macOS (Homebrew)
+brew install mysql-client
+
 # Verify installation
 mysql --version
 ```
@@ -47,7 +53,27 @@ mysql --version
 
 ## 🚀 TenangDB Installation
 
-### **Option 1: Build from Source**
+### **Option 1: Download Release Binary (Recommended)**
+```bash
+# One-liner install
+curl -sSL https://raw.githubusercontent.com/abdullahainun/tenangdb/main/install.sh | bash
+
+# Or manual download for your platform:
+# Linux
+curl -L https://github.com/abdullahainun/tenangdb/releases/latest/download/tenangdb-linux-amd64 -o tenangdb
+
+# macOS Intel
+curl -L https://github.com/abdullahainun/tenangdb/releases/latest/download/tenangdb-darwin-amd64 -o tenangdb
+
+# macOS Apple Silicon
+curl -L https://github.com/abdullahainun/tenangdb/releases/latest/download/tenangdb-darwin-arm64 -o tenangdb
+
+# Make executable and install
+chmod +x tenangdb
+sudo mv tenangdb /usr/local/bin/
+```
+
+### **Option 2: Build from Source**
 ```bash
 git clone https://github.com/abdullahainun/tenangdb.git
 cd tenangdb
@@ -55,17 +81,10 @@ go build -o tenangdb cmd/main.go
 sudo mv tenangdb /usr/local/bin/
 ```
 
-### **Option 2: Using Make**
-```bash
-git clone https://github.com/abdullahainun/tenangdb.git
-cd tenangdb
-make build
-sudo make install
-```
-
 ### **Verify Installation**
 ```bash
 tenangdb --help
+tenangdb version
 ```
 
 ---
@@ -79,10 +98,14 @@ sudo mkdir -p /var/log/tenangdb
 sudo mkdir -p /var/backups
 ```
 
-### **2. Copy Configuration Template**
+### **2. Download Configuration Template**
 ```bash
-# Copy from project
-sudo cp config.yaml.example /etc/tenangdb/config.yaml
+# Download example config
+curl -L https://raw.githubusercontent.com/abdullahainun/tenangdb/main/config.yaml.example -o config.yaml
+
+# For system-wide installation
+sudo mkdir -p /etc/tenangdb
+sudo cp config.yaml /etc/tenangdb/config.yaml
 
 # Edit configuration
 sudo nano /etc/tenangdb/config.yaml
@@ -195,7 +218,7 @@ tenangdb cleanup --config /etc/tenangdb/config.yaml --force
 tenangdb cleanup --databases mysql,sys --config /etc/tenangdb/config.yaml --force
 
 # Restore database
-tenangdb restore --config /etc/tenangdb/config.yaml --backup-path /path/to/backup --target-database restored_db
+tenangdb restore --config /etc/tenangdb/config.yaml --backup-path /path/to/backup --database restored_db
 ```
 
 ### **Advanced Usage**
