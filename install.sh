@@ -149,6 +149,61 @@ download_and_install() {
     print_success "TenangDB installed successfully to $INSTALL_DIR/$BINARY_NAME"
 }
 
+# Add to PATH if needed
+add_to_path() {
+    if [ "$INSTALL_DIR" = "$HOME/.local/bin" ]; then
+        # Check if ~/.local/bin is already in PATH
+        if [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then
+            print_status "Adding $HOME/.local/bin to PATH..."
+            
+            # Detect shell and add to appropriate rc file
+            if [ -n "$ZSH_VERSION" ] || [ "$SHELL" = "/bin/zsh" ] || [ "$SHELL" = "/usr/bin/zsh" ]; then
+                # Zsh
+                if [ -f "$HOME/.zshrc" ]; then
+                    echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$HOME/.zshrc"
+                    print_success "Added to ~/.zshrc"
+                fi
+            elif [ -n "$BASH_VERSION" ] || [ "$SHELL" = "/bin/bash" ] || [ "$SHELL" = "/usr/bin/bash" ]; then
+                # Bash
+                if [ -f "$HOME/.bashrc" ]; then
+                    echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$HOME/.bashrc"
+                    print_success "Added to ~/.bashrc"
+                fi
+            else
+                # Try to detect from SHELL variable or add to both
+                case "$SHELL" in
+                    *zsh*)
+                        if [ -f "$HOME/.zshrc" ]; then
+                            echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$HOME/.zshrc"
+                            print_success "Added to ~/.zshrc"
+                        fi
+                        ;;
+                    *bash*)
+                        if [ -f "$HOME/.bashrc" ]; then
+                            echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$HOME/.bashrc"
+                            print_success "Added to ~/.bashrc"
+                        fi
+                        ;;
+                    *)
+                        # Fallback: try to add to both if they exist
+                        if [ -f "$HOME/.bashrc" ]; then
+                            echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$HOME/.bashrc"
+                            print_success "Added to ~/.bashrc"
+                        fi
+                        if [ -f "$HOME/.zshrc" ]; then
+                            echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$HOME/.zshrc"
+                            print_success "Added to ~/.zshrc"
+                        fi
+                        ;;
+                esac
+            fi
+            
+            print_warning "Please run 'source ~/.bashrc' or 'source ~/.zshrc' to apply changes"
+            print_warning "Or restart your terminal session"
+        fi
+    fi
+}
+
 # Verify installation
 verify_installation() {
     if command -v "$BINARY_NAME" >/dev/null 2>&1; then
@@ -156,7 +211,9 @@ verify_installation() {
         print_success "Installation verified: $installed_version"
     else
         print_warning "Binary installed but not found in PATH"
-        print_warning "Add $INSTALL_DIR to your PATH or use full path: $INSTALL_DIR/$BINARY_NAME"
+        if [ "$INSTALL_DIR" != "$HOME/.local/bin" ]; then
+            print_warning "Add $INSTALL_DIR to your PATH or use full path: $INSTALL_DIR/$BINARY_NAME"
+        fi
     fi
 }
 
@@ -201,6 +258,7 @@ main() {
     check_permissions
     get_latest_version
     download_and_install
+    add_to_path
     verify_installation
     show_next_steps
 }
