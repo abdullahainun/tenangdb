@@ -25,6 +25,7 @@ GRANT TRIGGER ON *.* TO 'tenangdb'@'%';
 GRANT ROUTINE ON *.* TO 'tenangdb'@'%';
 GRANT RELOAD ON *.* TO 'tenangdb'@'%';
 GRANT REPLICATION CLIENT ON *.* TO 'tenangdb'@'%';
+GRANT PROCESS ON *.* TO 'tenangdb'@'%';
 
 -- Grant restore privileges
 GRANT INSERT, UPDATE, DELETE ON *.* TO 'tenangdb'@'%';
@@ -50,10 +51,10 @@ CREATE USER 'tenangdb'@'localhost' IDENTIFIED BY 'your_secure_password_here';
 CREATE USER 'tenangdb'@'192.168.1.%' IDENTIFIED BY 'your_secure_password_here';
 
 -- Grant same privileges as above for each host
-GRANT SELECT, SHOW DATABASES, SHOW VIEW, LOCK TABLES, EVENT, TRIGGER, ROUTINE, RELOAD, REPLICATION CLIENT ON *.* TO 'tenangdb'@'localhost';
+GRANT SELECT, SHOW DATABASES, SHOW VIEW, LOCK TABLES, EVENT, TRIGGER, ROUTINE, RELOAD, REPLICATION CLIENT, PROCESS ON *.* TO 'tenangdb'@'localhost';
 GRANT INSERT, UPDATE, DELETE, CREATE, DROP, ALTER, INDEX, REFERENCES, CREATE TEMPORARY TABLES, CREATE VIEW ON *.* TO 'tenangdb'@'localhost';
 
-GRANT SELECT, SHOW DATABASES, SHOW VIEW, LOCK TABLES, EVENT, TRIGGER, ROUTINE, RELOAD, REPLICATION CLIENT ON *.* TO 'tenangdb'@'192.168.1.%';
+GRANT SELECT, SHOW DATABASES, SHOW VIEW, LOCK TABLES, EVENT, TRIGGER, ROUTINE, RELOAD, REPLICATION CLIENT, PROCESS ON *.* TO 'tenangdb'@'192.168.1.%';
 GRANT INSERT, UPDATE, DELETE, CREATE, DROP, ALTER, INDEX, REFERENCES, CREATE TEMPORARY TABLES, CREATE VIEW ON *.* TO 'tenangdb'@'192.168.1.%';
 
 FLUSH PRIVILEGES;
@@ -71,6 +72,7 @@ FLUSH PRIVILEGES;
 - `ROUTINE` - Export stored procedures and functions
 - `RELOAD` - Execute FLUSH TABLES WITH READ LOCK
 - `REPLICATION CLIENT` - Get binary log position for consistency
+- `PROCESS` - Required by mydumper for consistent snapshots
 
 ### **Restore Operations (myloader & mysql)**
 - `INSERT, UPDATE, DELETE` - Restore table data
@@ -199,6 +201,7 @@ GRANT TRIGGER ON *.* TO 'tenangdb'@'%';
 GRANT ROUTINE ON *.* TO 'tenangdb'@'%';
 GRANT RELOAD ON *.* TO 'tenangdb'@'%';
 GRANT REPLICATION CLIENT ON *.* TO 'tenangdb'@'%';
+GRANT PROCESS ON *.* TO 'tenangdb'@'%';
 
 -- Restore privileges
 GRANT INSERT, UPDATE, DELETE ON *.* TO 'tenangdb'@'%';
