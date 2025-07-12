@@ -177,7 +177,7 @@ show_next_steps() {
     echo "   sudo dnf install mydumper rclone mysql"
     echo
     echo "2. Download example configuration:"
-    echo "   curl -L https://raw.githubusercontent.com/$REPO/main/config.yaml.example -o config.yaml"
+    echo "   curl -L https://go.ainun.cloud/tenangdb-config.yaml.example -o config.yaml"
     echo
     echo "3. Edit configuration with your database credentials:"
     echo "   nano config.yaml"
