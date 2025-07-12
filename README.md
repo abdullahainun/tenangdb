@@ -8,7 +8,7 @@
 
 ```bash
 # One-liner install
-curl -sSL https://raw.githubusercontent.com/abdullahainun/tenangdb/main/install.sh | bash
+curl -sSL https://go.ainun.cloud/tenangdb-install.sh | bash
 
 # Install dependencies
 brew install mydumper rclone mysql-client  # macOS
@@ -20,7 +20,7 @@ sudo dnf install mydumper rclone mysql  # CentOS/Fedora
 
 ```bash
 # 1. Get config template
-curl -L https://raw.githubusercontent.com/abdullahainun/tenangdb/main/config.yaml.example -o config.yaml
+curl -L https://go.ainun.cloud/tenangdb-config.yaml.example -o config.yaml
 
 # 2. Edit with your database credentials
 nano config.yaml
@@ -101,12 +101,12 @@ upload:
 
 ```bash
 # Install system-wide
-curl -L https://github.com/abdullahainun/tenangdb/releases/latest/download/tenangdb-linux-amd64 -o tenangdb
+curl -L https://go.ainun.cloud/tenangdb-latest -o tenangdb
 sudo mv tenangdb /usr/local/bin/ && sudo chmod +x /usr/local/bin/tenangdb
 
 # Setup config
 sudo mkdir -p /etc/tenangdb
-curl -L https://raw.githubusercontent.com/abdullahainun/tenangdb/main/config.yaml.example | sudo tee /etc/tenangdb/config.yaml
+curl -L https://go.ainun.cloud/tenangdb-config.yaml.example | sudo tee /etc/tenangdb/config.yaml
 sudo nano /etc/tenangdb/config.yaml
 ```
 </details>
@@ -142,7 +142,7 @@ Cloud:     {destination}/{database}/{YYYY-MM}/{backup-timestamp}/
 
 **Binary not found:**
 ```bash
-which tenangdb || curl -sSL https://raw.githubusercontent.com/abdullahainun/tenangdb/main/install.sh | bash
+which tenangdb || curl -sSL https://go.ainun.cloud/tenangdb-install.sh | bash
 ```
 
 **Dependencies missing:**
