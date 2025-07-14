@@ -1,14 +1,14 @@
 # Backup Frequency Check Feature
 
-Fitur ini mencegah backup yang tidak disengaja atau terlalu sering dengan mengecek kapan terakhir kali backup dilakukan.
+This feature prevents accidental or too frequent backups by checking when the last backup was performed.
 
-## Konfigurasi
+## Configuration
 
-Tambahkan konfigurasi berikut ke `config.yaml`:
+Add the following configuration to `config.yaml`:
 
 ```yaml
 backup:
-  # ... konfigurasi backup lainnya
+  # ... other backup configurations
   
   # Backup frequency check configuration
   check_last_backup_time: true      # Enable backup frequency checking
@@ -16,9 +16,9 @@ backup:
   skip_confirmation: false          # Set to true to skip confirmation prompts
 ```
 
-## Penggunaan
+## Usage
 
-### 1. Backup Normal (dengan pengecekan)
+### 1. Normal Backup (with checking)
 ```bash
 ./tenangdb backup --config config.yaml
 ```
@@ -39,21 +39,21 @@ Continue backup? (y/n/force):
 - `n` or `no` - Cancel backup
 - `force` or `f` - Force backup without confirmation
 
-## Konfigurasi Interval
+## Interval Configuration
 
-Anda dapat mengatur interval minimum dengan berbagai format:
+You can set the minimum interval with various formats:
 
 ```yaml
 backup:
-  min_backup_interval: 30m    # 30 menit
-  min_backup_interval: 1h     # 1 jam
-  min_backup_interval: 2h30m  # 2 jam 30 menit
-  min_backup_interval: 24h    # 1 hari
+  min_backup_interval: 30m    # 30 minutes
+  min_backup_interval: 1h     # 1 hour
+  min_backup_interval: 2h30m  # 2 hours 30 minutes
+  min_backup_interval: 24h    # 1 day
 ```
 
 ## Tracking File
 
-Sistem akan membuat file `.tenangdb_backup_tracking.json` di dalam backup directory untuk melacak waktu backup terakhir:
+The system creates a `.tenangdb_backup_tracking.json` file in the backup directory to track last backup times:
 
 ```json
 {
@@ -67,20 +67,20 @@ Sistem akan membuat file `.tenangdb_backup_tracking.json` di dalam backup direct
 
 ## Disable Feature
 
-Untuk menonaktifkan fitur ini, set:
+To disable this feature, set:
 
 ```yaml
 backup:
   check_last_backup_time: false
 ```
 
-## Contoh Workflow
+## Example Workflow
 
-1. **Backup pertama** - Berjalan normal tanpa konfirmasi
-2. **Backup kedua dalam 1 jam** - Muncul konfirmasi
-3. **User pilih 'y'** - Backup dilanjutkan
-4. **Backup ketiga dengan --force** - Langsung jalan tanpa konfirmasi
-5. **Backup setelah 1 jam** - Berjalan normal tanpa konfirmasi
+1. **First backup** - Runs normally without confirmation
+2. **Second backup within 1 hour** - Shows confirmation prompt
+3. **User selects 'y'** - Backup continues
+4. **Third backup with --force** - Runs immediately without confirmation
+5. **Backup after 1 hour** - Runs normally without confirmation
 
 ## Log Messages
 
