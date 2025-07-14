@@ -1,0 +1,71 @@
+version: '3.8'
+
+services:
+  tenangdb:
+    # Use GitHub Container Registry image
+    image: ghcr.io/abdullahainun/tenangdb:latest
+    # Or build locally:
+    # build:
+    #   context: .
+    #   dockerfile: Dockerfile
+    container_name: tenangdb
+    restart: unless-stopped
+    volumes:
+      # Mount config file
+      - ./config.yaml:/config.yaml:ro
+      # Mount backup destination
+      - ./backups:/backups
+      # Mount logs directory
+      - ./logs:/logs
+    environment:
+      - TZ=Asia/Jakarta
+    # Uncomment if your app needs network access
+    # network_mode: host
+    # Or use specific ports:
+    # ports:
+    #   - "8080:8080"
+    
+    # Health check example
+    healthcheck:
+      test: ["CMD", "/tenangdb", "version"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+
+  # Optional: Add MySQL service for testing
+  mysql:
+    image: mysql:8.0
+    container_name: tenangdb-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpass
+      MYSQL_DATABASE: testdb
+      MYSQL_USER: testuser
+      MYSQL_PASSWORD: testpass
+    volumes:
+      - mysql_data:/var/lib/mysql
+    ports:
+      - "3306:3306"
+    
+    # Health check for MySQL
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+volumes:
+  mysql_data:
+    driver: local
