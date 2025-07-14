@@ -62,7 +62,7 @@ jobs:
         name: codecov-umbrella
     
     - name: Build
-      run: go build -v -o tenangdb ./cmd
+      run: CGO_ENABLED=0 go build -a -installsuffix cgo -ldflags '-extldflags "-static"' -v -o tenangdb ./cmd
 
   build-matrix:
     name: Build for ${{ matrix.goos }}/${{ matrix.goarch }}
@@ -126,7 +126,7 @@ jobs:
         fi
         
         echo "Building $BINARY_NAME"
-        go build -ldflags "${LDFLAGS}" -o "$BINARY_NAME" ./cmd
+        go build -a -installsuffix cgo -ldflags '-extldflags "-static"' -ldflags "${LDFLAGS}" -o "$BINARY_NAME" ./cmd
     
     - name: Test binary
       if: matrix.goos == 'linux' && matrix.goarch == 'amd64'
