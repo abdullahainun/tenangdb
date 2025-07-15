@@ -35,13 +35,15 @@ docs/website/
 - **Modern Gradient Design**: Clean, professional appearance
 - **Responsive Layout**: Works on all devices
 - **Interactive Elements**: Smooth animations and transitions
-- **Terminal Demo**: Animated code examples
+- **Terminal Demo**: Real Docker command examples from latest tests
 - **Dark/Light Theme**: Optimized for readability
 
 ### Content Sections
-- **Hero Section**: Value proposition and quick start
+- **Hero Section**: Value proposition and Docker quick start
 - **Features Grid**: Key benefits and capabilities  
-- **Installation Guide**: Step-by-step setup instructions
+- **Docker Quick Start**: 2-step Docker deployment guide
+- **Source Installation**: Traditional build-from-source guide
+- **Production Deployment**: Docker production examples
 - **Documentation Links**: Direct links to all docs
 - **GitHub Integration**: Real-time stars counter
 

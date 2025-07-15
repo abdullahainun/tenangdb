@@ -37,8 +37,6 @@
             <div class="nav-links">
                 <a href="#features" class="nav-link">Features</a>
                 <a href="#get-started" class="nav-link">Quick Start</a>
-                <a href="#installation" class="nav-link">Production</a>
-                <a href="#docs" class="nav-link">Docs</a>
                 <a href="https://github.com/abdullahainun/tenangdb" class="nav-link" target="_blank">GitHub</a>
                 <a href="#get-started" class="btn btn-primary">Get Started</a>
             </div>
@@ -61,26 +59,8 @@
                     <span class="gradient-text">Backup yang Bikin Tenang</span>
                 </h1>
                 <p class="hero-subtitle">
-                    A comprehensive MySQL backup solution that lets you sleep peacefully knowing your databases are safe, automatically backed up, uploaded to cloud storage, and ready for instant restore.
+                    Automated MySQL backup solution. Simple Docker deployment, instant restore, cloud storage support.
                 </p>
-                <div class="hero-features">
-                    <div class="feature-item">
-                        <span class="feature-icon">✅</span>
-                        <span>Peace of Mind</span>
-                    </div>
-                    <div class="feature-item">
-                        <span class="feature-icon">⚡</span>
-                        <span>One-Click Restore</span>
-                    </div>
-                    <div class="feature-item">
-                        <span class="feature-icon">☁️</span>
-                        <span>Cloud Integration</span>
-                    </div>
-                    <div class="feature-item">
-                        <span class="feature-icon">🔧</span>
-                        <span>Zero Maintenance</span>
-                    </div>
-                </div>
                 <div class="hero-actions">
                     <a href="#get-started" class="btn btn-primary btn-large">
                         <span>Get Started</span>
@@ -105,16 +85,16 @@
                     <div class="terminal-body">
                         <div class="terminal-line">
                             <span class="prompt">$</span>
-                            <span class="command">tenangdb backup --config config.yaml</span>
+                            <span class="command">docker run ghcr.io/abdullahainun/tenangdb backup</span>
                         </div>
                         <div class="terminal-line">
-                            <span class="output success">✅ Backup completed successfully</span>
+                            <span class="output success">✅ production_app backup completed (8.2 KB in 345ms)</span>
                         </div>
                         <div class="terminal-line">
-                            <span class="output">📤 Uploaded to cloud storage</span>
+                            <span class="output success">✅ user_data backup completed (12.4 KB in 456ms)</span>
                         </div>
                         <div class="terminal-line">
-                            <span class="output">🗂️ 3 databases backed up in 2.4s</span>
+                            <span class="output">🗂️ 2 databases backed up in 800ms</span>
                         </div>
                         <div class="terminal-line">
                             <span class="prompt">$</span>
@@ -130,39 +110,28 @@
     <section id="features" class="features">
         <div class="container">
             <div class="section-header">
-                <h2>Why Choose TenangDB?</h2>
-                <p>Built with modern best practices and battle-tested in production environments</p>
+                <h2>Key Features</h2>
             </div>
             <div class="features-grid">
                 <div class="feature-card">
-                    <div class="feature-icon">🛡️</div>
-                    <h3>Peace of Mind</h3>
-                    <p>Automated scheduled backups with cloud redundancy. Sleep peacefully knowing your data is safe.</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">🚀</div>
-                    <h3>One-Click Restore</h3>
-                    <p>Instant database recovery from any backup point. No complex procedures, just one command.</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">🔧</div>
-                    <h3>Zero Maintenance</h3>
-                    <p>Set it once, runs forever with intelligent cleanup. No babysitting required.</p>
+                    <div class="feature-icon">🐳</div>
+                    <h3>Docker Ready</h3>
+                    <p>Production container with mydumper included. Deploy in seconds.</p>
                 </div>
                 <div class="feature-card">
                     <div class="feature-icon">⚡</div>
-                    <h3>Enterprise Grade</h3>
-                    <p>Battle-tested with parallel processing, monitoring, and security hardening.</p>
+                    <h3>Fast Backups</h3>
+                    <p>Parallel processing. Multiple databases backed up in under 1 second.</p>
                 </div>
                 <div class="feature-card">
                     <div class="feature-icon">☁️</div>
-                    <h3>Multi-Cloud Support</h3>
-                    <p>Upload to AWS S3, Google Cloud, Azure, Minio, or 40+ cloud providers via rclone.</p>
+                    <h3>Cloud Storage</h3>
+                    <p>Upload to AWS S3, Google Cloud, Azure, or 40+ providers via rclone.</p>
                 </div>
                 <div class="feature-card">
-                    <div class="feature-icon">📊</div>
-                    <h3>Monitoring Ready</h3>
-                    <p>Prometheus metrics and Grafana dashboard included for complete observability.</p>
+                    <div class="feature-icon">🔧</div>
+                    <h3>Zero Config</h3>
+                    <p>One YAML file. Automated scheduling. Intelligent cleanup.</p>
                 </div>
             </div>
         </div>
@@ -172,80 +141,42 @@
     <section id="get-started" class="quick-start">
         <div class="container">
             <div class="section-header">
-                <h2>Get Started in 4 Steps</h2>
-                <p>From zero to automated backups in minutes</p>
+                <h2>Quick Start</h2>
             </div>
-            <div class="steps-container">
-                <div class="unified-steps">
-                    <div class="steps-header">
-                        <span class="terminal-icon">💻</span>
-                        <h3>Complete Installation Guide</h3>
-                        <p>Follow these 4 simple steps to get TenangDB up and running</p>
+            <div class="code-showcase">
+                <div class="code-content">
+                    <div class="code-line">
+                        <span class="comment"># 1. Create config.yaml</span>
                     </div>
-                    
-                    <div class="steps-list">
-                        <div class="step-item">
-                            <div class="step-number">1</div>
-                            <div class="step-info">
-                                <h4>Install Dependencies</h4>
-                                <p>Test and install required tools</p>
-                            </div>
-                            <div class="step-command">
-                                <div class="command-block">
-                                    <span class="command-text">make test-deps</span>
-                                    <button class="copy-btn" onclick="copyStepCode(this, 'make test-deps')">📋</button>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="step-item">
-                            <div class="step-number">2</div>
-                            <div class="step-info">
-                                <h4>Get TenangDB</h4>
-                                <p>Clone and build the project</p>
-                            </div>
-                            <div class="step-command">
-                                <div class="command-block">
-                                    <span class="command-text">git clone https://github.com/abdullahainun/tenangdb.git<br>cd tenangdb && make build</span>
-                                    <button class="copy-btn" onclick="copyStepCode(this, 'git clone https://github.com/abdullahainun/tenangdb.git\ncd tenangdb && make build')">📋</button>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="step-item">
-                            <div class="step-number">3</div>
-                            <div class="step-info">
-                                <h4>Configure</h4>
-                                <p>Set up your database credentials</p>
-                            </div>
-                            <div class="step-command">
-                                <div class="command-block">
-                                    <span class="command-text">cp configs/config.yaml /etc/tenangdb/<br>nano /etc/tenangdb/config.yaml</span>
-                                    <button class="copy-btn" onclick="copyStepCode(this, 'cp configs/config.yaml /etc/tenangdb/\nnano /etc/tenangdb/config.yaml')">📋</button>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="step-item">
-                            <div class="step-number">4</div>
-                            <div class="step-info">
-                                <h4>Run First Backup</h4>
-                                <p>Start your automated backup system</p>
-                            </div>
-                            <div class="step-command">
-                                <div class="command-block">
-                                    <span class="command-text">./tenangdb backup --config /etc/tenangdb/config.yaml</span>
-                                    <button class="copy-btn" onclick="copyStepCode(this, './tenangdb backup --config /etc/tenangdb/config.yaml')">📋</button>
-                                </div>
-                            </div>
-                        </div>
+                    <div class="code-line">
+                        <span class="command">cat > config.yaml << EOF</span>
                     </div>
-                    
-                    <div class="steps-footer">
-                        <div class="success-message">
-                            <span class="success-icon">🎉</span>
-                            <span>That's it! Your databases are now being backed up automatically.</span>
-                        </div>
+                    <div class="code-line">
+                        <span class="command">database:</span>
+                    </div>
+                    <div class="code-line">
+                        <span class="command">  host: your-db-host</span>
+                    </div>
+                    <div class="code-line">
+                        <span class="command">  username: your-username</span>
+                    </div>
+                    <div class="code-line">
+                        <span class="command">  password: your-password</span>
+                    </div>
+                    <div class="code-line">
+                        <span class="command">backup:</span>
+                    </div>
+                    <div class="code-line">
+                        <span class="command">  databases: [production_app, user_data]</span>
+                    </div>
+                    <div class="code-line">
+                        <span class="command">EOF</span>
+                    </div>
+                    <div class="code-line">
+                        <span class="comment"># 2. Run backup</span>
+                    </div>
+                    <div class="code-line">
+                        <span class="command">docker run -v $(pwd)/config.yaml:/config.yaml ghcr.io/abdullahainun/tenangdb:latest backup</span>
                     </div>
                 </div>
             </div>
@@ -257,73 +188,25 @@
         <div class="container">
             <div class="installation-content">
                 <div class="installation-text">
-                    <h2>Production Deployment</h2>
-                    <p>Deploy TenangDB as a systemd service for automated, reliable database backups in production environments.</p>
-                    <ul class="installation-features">
-                        <li>⏰ <strong>Automated Scheduling</strong> - systemd timers untuk backup berkala</li>
-                        <li>🔐 <strong>Security Hardening</strong> - dedicated user dengan minimal privileges</li>
-                        <li>📊 <strong>Monitoring Ready</strong> - Prometheus metrics & Grafana dashboard</li>
-                        <li>🧹 <strong>Auto Cleanup</strong> - cleanup timer untuk manajemen storage</li>
-                        <li>📝 <strong>Centralized Logging</strong> - systemd journal integration</li>
-                    </ul>
-                    <div class="production-stats">
-                        <div class="stat-item">
-                            <span class="stat-number">⏰</span>
-                            <span class="stat-number">Configurable</span>
-                            <span class="stat-label">Backup Schedule</span>
-                        </div>
-                        <div class="stat-item">
-                            <span class="stat-number">🛡️</span>
-                            <span class="stat-number">Secure</span>
-                            <span class="stat-label">By Design</span>
-                        </div>
-                        <div class="stat-item">
-                            <span class="stat-number">📊</span>
-                            <span class="stat-number">24/7</span>
-                            <span class="stat-label">Monitoring</span>
-                        </div>
-                    </div>
+                    <h2>Production</h2>
+                    <p>Schedule automated backups with cron or systemd timers.</p>
                     <div class="installation-actions">
-                        <a href="https://github.com/abdullahainun/tenangdb/blob/main/INSTALL.md" class="btn btn-primary" target="_blank">
-                            Complete Setup Guide
-                        </a>
-                        <a href="https://github.com/abdullahainun/tenangdb/releases" class="btn btn-secondary" target="_blank">
-                            Download Release
+                        <a href="https://github.com/abdullahainun/tenangdb" class="btn btn-primary" target="_blank">
+                            View Documentation
                         </a>
                     </div>
                 </div>
                 <div class="installation-visual">
                     <div class="code-showcase">
                         <div class="code-header">
-                            <span>Production Systemd Commands</span>
+                            <span>Cron Schedule</span>
                         </div>
                         <div class="code-content">
                             <div class="code-line">
-                                <span class="comment"># Enable automatic backups</span>
+                                <span class="comment"># Daily backup at 2 AM</span>
                             </div>
                             <div class="code-line">
-                                <span class="command">sudo systemctl enable tenangdb.timer</span>
-                            </div>
-                            <div class="code-line">
-                                <span class="command">sudo systemctl start tenangdb.timer</span>
-                            </div>
-                            <div class="code-line">
-                                <span class="comment"># Enable automatic cleanup</span>
-                            </div>
-                            <div class="code-line">
-                                <span class="command">sudo systemctl enable tenangdb-cleanup.timer</span>
-                            </div>
-                            <div class="code-line">
-                                <span class="command">sudo systemctl start tenangdb-cleanup.timer</span>
-                            </div>
-                            <div class="code-line">
-                                <span class="comment"># Monitor backup status</span>
-                            </div>
-                            <div class="code-line">
-                                <span class="command">sudo systemctl status tenangdb.timer</span>
-                            </div>
-                            <div class="code-line">
-                                <span class="command">sudo journalctl -u tenangdb -f</span>
+                                <span class="command">0 2 * * * docker run --rm -v /etc/tenangdb/config.yaml:/config.yaml ghcr.io/abdullahainun/tenangdb:latest backup</span>
                             </div>
                         </div>
                     </div>
@@ -332,47 +215,6 @@
         </div>
     </section>
 
-    <!-- Documentation Section -->
-    <section id="docs" class="documentation">
-        <div class="container">
-            <div class="section-header">
-                <h2>Complete Documentation</h2>
-                <p>Everything you need to get started and master TenangDB</p>
-            </div>
-            <div class="docs-grid">
-                <a href="https://github.com/abdullahainun/tenangdb/blob/main/INSTALL.md" class="doc-card" target="_blank">
-                    <div class="doc-icon">📖</div>
-                    <h3>Installation Guide</h3>
-                    <p>Complete setup instructions for production deployment</p>
-                </a>
-                <a href="https://github.com/abdullahainun/tenangdb/blob/main/configs/README.md" class="doc-card" target="_blank">
-                    <div class="doc-icon">⚙️</div>
-                    <h3>Configuration Guide</h3>
-                    <p>Configuration options & examples for all scenarios</p>
-                </a>
-                <a href="https://github.com/abdullahainun/tenangdb/blob/main/docs/COMMANDS.md" class="doc-card" target="_blank">
-                    <div class="doc-icon">🔧</div>
-                    <h3>Commands Reference</h3>
-                    <p>All available commands & options with examples</p>
-                </a>
-                <a href="https://github.com/abdullahainun/tenangdb/blob/main/docs/SECURITY.md" class="doc-card" target="_blank">
-                    <div class="doc-icon">🔐</div>
-                    <h3>Security Guide</h3>
-                    <p>Security best practices & hardening guidelines</p>
-                </a>
-                <a href="https://github.com/abdullahainun/tenangdb/blob/main/grafana/README.md" class="doc-card" target="_blank">
-                    <div class="doc-icon">📊</div>
-                    <h3>Monitoring Setup</h3>
-                    <p>Grafana dashboard import & monitoring guide</p>
-                </a>
-                <a href="https://github.com/abdullahainun/tenangdb/blob/main/docs/BACKWARD_COMPATIBILITY.md" class="doc-card" target="_blank">
-                    <div class="doc-icon">🔄</div>
-                    <h3>Migration Guide</h3>
-                    <p>Backward compatibility & migration instructions</p>
-                </a>
-            </div>
-        </div>
-    </section>
 
     <!-- Footer -->
     <footer class="footer">
@@ -383,41 +225,16 @@
                         <span class="logo-icon">🛡️</span>
                         <span class="logo-text">TenangDB</span>
                     </div>
-                    <p>Backup yang bikin tenang. No more database disasters.</p>
                     <div class="footer-social">
                         <a href="https://github.com/abdullahainun/tenangdb" target="_blank" class="social-link">
-                            <span>⭐</span> Star on GitHub
+                            GitHub
                         </a>
-                        <a href="https://github.com/abdullahainun/tenangdb/releases" target="_blank" class="social-link">
-                            <span>📦</span> Download
-                        </a>
-                    </div>
-                </div>
-                <div class="footer-grid">
-                    <div class="footer-section">
-                        <h4>Quick Links</h4>
-                        <div class="footer-links-grid">
-                            <a href="#features">Features</a>
-                            <a href="#installation">Install</a>
-                            <a href="https://github.com/abdullahainun/tenangdb/blob/main/INSTALL.md" target="_blank">Quick Start</a>
-                            <a href="https://github.com/abdullahainun/tenangdb/blob/main/docs/COMMANDS.md" target="_blank">Commands</a>
-                        </div>
-                    </div>
-                    <div class="footer-section">
-                        <h4>Resources</h4>
-                        <div class="footer-links-grid">
-                            <a href="https://github.com/abdullahainun/tenangdb/blob/main/docs/SECURITY.md" target="_blank">Security</a>
-                            <a href="https://github.com/abdullahainun/tenangdb/blob/main/grafana/README.md" target="_blank">Monitoring</a>
-                            <a href="https://github.com/abdullahainun/tenangdb/issues" target="_blank">Support</a>
-                            <a href="https://github.com/abdullahainun/tenangdb" target="_blank">Repository</a>
-                        </div>
                     </div>
                 </div>
             </div>
             <div class="footer-bottom">
                 <div class="footer-bottom-content">
                     <p>&copy; 2025 TenangDB • MIT License</p>
-                    <p>Made with ❤️ by <a href="https://github.com/abdullahainun" target="_blank">Abdullah Ainun Najib</a></p>
                 </div>
             </div>
         </div>
