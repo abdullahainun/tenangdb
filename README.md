@@ -6,56 +6,27 @@
 
 ## ⚡ Installation
 
-### 🐳 Docker (Recommended)
 ```bash
-# Pull from GitHub Container Registry
+# Docker (Recommended)
 docker pull ghcr.io/abdullahainun/tenangdb:latest
 
-# Run with config
-docker run -v $(pwd)/config.yaml:/config.yaml ghcr.io/abdullahainun/tenangdb:latest backup
-
-# Or use docker-compose
-curl -L https://raw.githubusercontent.com/abdullahainun/tenangdb/main/docker-compose.yml -o docker-compose.yml
-docker-compose up -d
-```
-
-### 📦 Binary Installation
-```bash
-# One-liner install
+# Binary
 curl -sSL https://go.ainun.cloud/tenangdb-install.sh | bash
-
-# Install dependencies (if not using Docker)
-brew install mydumper rclone mysql-client  # macOS
-sudo apt install mydumper rclone mysql-client  # Ubuntu
-sudo dnf install mydumper rclone mysql  # CentOS/Fedora
 ```
 
 ## 🚀 Quick Start
 
-### 🐳 Docker Quick Start
 ```bash
-# 1. Get config template
+# 1. Get config
+mkdir tenangdb && cd tenangdb
 curl -L https://go.ainun.cloud/tenangdb-config.yaml.example -o config.yaml
+nano config.yaml  # Edit database credentials
 
-# 2. Edit with your database credentials
-nano config.yaml
-
-# 3. Run backup with Docker
+# 2. Run backup
+# Docker:
 docker run -v $(pwd)/config.yaml:/config.yaml ghcr.io/abdullahainun/tenangdb:latest backup
 
-# Or use docker-compose for persistent setup
-docker-compose up -d tenangdb
-```
-
-### 📦 Binary Quick Start
-```bash
-# 1. Get config template
-curl -L https://go.ainun.cloud/tenangdb-config.yaml.example -o config.yaml
-
-# 2. Edit with your database credentials
-nano config.yaml
-
-# 3. Run backup
+# Binary:
 tenangdb backup
 ```
 
@@ -87,31 +58,19 @@ upload:
 
 ## 📋 Commands
 
-### 🐳 Docker Commands
 ```bash
-# Backup all databases
-docker run -v $(pwd)/config.yaml:/config.yaml ghcr.io/abdullahainun/tenangdb:latest backup
+# Backup
+tenangdb backup                           # All databases
+tenangdb backup --databases db1,db2      # Specific databases
 
-# Backup specific databases
-docker run -v $(pwd)/config.yaml:/config.yaml ghcr.io/abdullahainun/tenangdb:latest backup --databases db1,db2
+# Restore
+tenangdb restore --backup-path /path --database target_db
 
-# Restore database
-docker run -v $(pwd)/config.yaml:/config.yaml -v $(pwd)/backups:/backups ghcr.io/abdullahainun/tenangdb:latest restore --backup-path /backups/path --database target_db
+# Maintenance
+tenangdb cleanup --force                  # Clean old backups
+tenangdb config                          # Show config
 
-# Clean old backups
-docker run -v $(pwd)/config.yaml:/config.yaml ghcr.io/abdullahainun/tenangdb:latest cleanup --force
-
-# Show configuration
-docker run -v $(pwd)/config.yaml:/config.yaml ghcr.io/abdullahainun/tenangdb:latest config
-```
-
-### 📦 Binary Commands
-```bash
-tenangdb backup                    # Backup all databases
-tenangdb backup --databases db1,db2   # Backup specific databases
-tenangdb restore --backup-path /path/to/backup --database target_db
-tenangdb cleanup --force           # Clean old backups
-tenangdb config                   # Show configuration
+# Docker: prefix with 'docker run -v $(pwd)/config.yaml:/config.yaml ghcr.io/abdullahainun/tenangdb:latest'
 ```
 
 ## 🔧 Advanced
