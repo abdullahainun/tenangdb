@@ -53,7 +53,19 @@ backup:
 
 ## Tracking File
 
-The system creates a `.tenangdb_backup_tracking.json` file in the backup directory to track last backup times:
+The system creates a `.tenangdb_backup_tracking_*.json` file in a persistent location to track last backup times:
+
+### Location Strategy:
+- **macOS**: `~/Library/Application Support/TenangDB/`
+- **Linux (regular)**: `~/.local/share/tenangdb/`
+- **Docker container**: `/tmp/tenangdb/`
+- **Fallback**: Backup directory
+
+### Docker Usage:
+For Docker containers, mount `/tmp` volume to persist tracking data:
+```bash
+docker run -v $(pwd)/tmp:/tmp ghcr.io/abdullahainun/tenangdb:latest backup
+```
 
 ```json
 {
