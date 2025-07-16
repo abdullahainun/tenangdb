@@ -18,6 +18,7 @@ import (
 	"github.com/abdullahainun/tenangdb/pkg/database"
 
 	"github.com/spf13/cobra"
+	"bufio"
 )
 
 var (
@@ -77,13 +78,14 @@ func newBackupCommand() *cobra.Command {
 	var dryRun bool
 	var databases string
 	var force bool
+	var yes bool
 
 	cmd := &cobra.Command{
 		Use:   "backup",
 		Short: "Run database backup",
 		Long:  `Backup databases to local directory with optional cloud upload.`,
 		Run: func(cmd *cobra.Command, args []string) {
-			runBackup(configFile, logLevel, dryRun, databases, force)
+			runBackup(configFile, logLevel, dryRun, databases, force, yes)
 		},
 	}
 
@@ -92,11 +94,12 @@ func newBackupCommand() *cobra.Command {
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "show what would be backed up without actually running backup")
 	cmd.Flags().StringVar(&databases, "databases", "", "comma-separated list of databases to backup (overrides config)")
 	cmd.Flags().BoolVar(&force, "force", false, "skip backup frequency confirmation prompts")
+	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "skip confirmation prompts (for automated mode)")
 
 	return cmd
 }
 
-func runBackup(configFile, logLevel string, dryRun bool, databases string, force bool) {
+func runBackup(configFile, logLevel string, dryRun bool, databases string, force bool, yes bool) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -123,8 +126,8 @@ func runBackup(configFile, logLevel string, dryRun bool, databases string, force
 		log.Infof("Using databases from command line: %v", selectedDatabases)
 	}
 	
-	// Override skip confirmation if force flag is used
-	if force {
+	// Override skip confirmation if force or yes flag is used
+	if force || yes {
 		cfg.Backup.SkipConfirmation = true
 	}
 
@@ -162,6 +165,12 @@ func runBackup(configFile, logLevel string, dryRun bool, databases string, force
 				log.WithError(err).Error("Failed to start metrics server")
 			}
 		}()
+	}
+
+	// Show confirmation prompt if not skipped
+	if !cfg.Backup.SkipConfirmation && !showBackupConfirmation(cfg, log) {
+		log.Info("Backup cancelled by user")
+		return
 	}
 
 	// Initialize backup service
@@ -213,7 +222,7 @@ func run(cmd *cobra.Command, args []string) {
 	log.Debug("DEPRECATED: Running tenangdb without 'backup' subcommand is deprecated. Use 'tenangdb backup' instead.")
 	
 	// Call the new backup function for backward compatibility
-	runBackup(configFile, logLevel, dryRun, databases, false)
+	runBackup(configFile, logLevel, dryRun, databases, false, false)
 }
 
 func newCleanupCommand() *cobra.Command {
@@ -793,4 +802,53 @@ func expandPath(path string) string {
 	}
 	
 	return filepath.Join(homeDir, path[2:])
+}
+
+// showBackupConfirmation displays a confirmation prompt with backup summary
+func showBackupConfirmation(cfg *config.Config, log *logger.Logger) bool {
+	// Display backup summary
+	fmt.Printf("\n📋 Backup Summary\n")
+	fmt.Printf("================\n\n")
+	
+	// Database list
+	fmt.Printf("💾 Databases to backup:\n")
+	for i, db := range cfg.Backup.Databases {
+		fmt.Printf("  %d. %s\n", i+1, db)
+	}
+	
+	fmt.Printf("\n📁 Backup directory: %s\n", cfg.Backup.Directory)
+	
+	// Upload information
+	if cfg.Upload.Enabled {
+		fmt.Printf("☁️  Upload enabled: %s\n", cfg.Upload.Destination)
+		fmt.Printf("   Rclone config: %s\n", cfg.Upload.RcloneConfigPath)
+	} else {
+		fmt.Printf("☁️  Upload: Disabled (local backup only)\n")
+	}
+	
+	// Backup options
+	fmt.Printf("\n⚙️  Options:\n")
+	fmt.Printf("   Concurrency: %d\n", cfg.Backup.Concurrency)
+	fmt.Printf("   Batch size: %d\n", cfg.Backup.BatchSize)
+	
+	// Estimate time (rough calculation)
+	estimatedTime := len(cfg.Backup.Databases) * 2 // 2 minutes per database as rough estimate
+	if estimatedTime > 60 {
+		fmt.Printf("   Estimated time: ~%d minutes\n", estimatedTime)
+	} else {
+		fmt.Printf("   Estimated time: ~%d minutes\n", estimatedTime)
+	}
+	
+	fmt.Printf("\n")
+	
+	// Confirmation prompt
+	fmt.Print("Do you want to proceed with backup? [y/N]: ")
+	
+	scanner := bufio.NewScanner(os.Stdin)
+	if scanner.Scan() {
+		response := strings.ToLower(strings.TrimSpace(scanner.Text()))
+		return response == "y" || response == "yes"
+	}
+	
+	return false
 }

@@ -31,6 +31,9 @@ backup
 
 # Binary:
 tenangdb backup
+
+# Automated mode (skip confirmation):
+tenangdb backup --yes
 ```
 
 ## ⚙️ Basic Config
@@ -47,6 +50,7 @@ backup:
   databases:
     - your_database1
     - your_database2
+  skip_confirmation: false  # Set to true for automated mode
 
 # Optional: Cloud upload
 upload:

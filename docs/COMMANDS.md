@@ -18,6 +18,36 @@ tenangdb [command] [options]
 
 ## 🔄 Default Backup Command
 
+### Confirmation Feature
+
+TenangDB now includes an interactive confirmation prompt before running backups. This shows:
+
+```
+📋 Backup Summary
+================
+
+💾 Databases to backup:
+  1. app_db
+  2. user_db
+  3. logs_db
+
+📁 Backup directory: /home/user/backups
+☁️  Upload enabled: minio
+   Rclone config: /home/user/.config/rclone/rclone.conf
+
+⚙️  Options:
+   Concurrency: 2
+   Batch size: 5
+   Estimated time: ~6 minutes
+
+Do you want to proceed with backup? [y/N]: 
+```
+
+**Skip confirmation:**
+- `--yes` or `-y`: Skip all prompts (for automated/cron jobs)
+- `--force`: Skip frequency checks and confirmations
+- Config: `skip_confirmation: true`
+
 ### Basic Usage
 ```bash
 # Backup all configured databases
@@ -37,17 +67,25 @@ tenangdb [command] [options]
 | `--log-level` | Log level (panic, fatal, error, warn, info, debug, trace) | `info` |
 | `--dry-run` | Preview actions without executing | `false` |
 | `--databases` | Comma-separated list of databases to backup | All from config |
+| `--force` | Skip backup frequency confirmation prompts | `false` |
+| `--yes, -y` | Skip all confirmation prompts (automated mode) | `false` |
 
 ### Examples
 ```bash
 # Backup specific databases
-./tenangdb --databases app_db,user_db --config config.yaml
+./tenangdb backup --databases app_db,user_db --config config.yaml
 
 # Debug mode with verbose output
-./tenangdb --log-level trace --config config.yaml
+./tenangdb backup --log-level trace --config config.yaml
 
 # Test configuration without running backup
-./tenangdb --dry-run --config config.yaml
+./tenangdb backup --dry-run --config config.yaml
+
+# Skip confirmation prompts for automated mode
+./tenangdb backup --yes --config config.yaml
+
+# Force backup without frequency checks
+./tenangdb backup --force --config config.yaml
 ```
 
 ## 🚀 Restore Command
