@@ -90,9 +90,7 @@ func (c *Compressor) DecompressBackup(archiveFile string) (string, error) {
 
 	// Determine output directory
 	outputDir := strings.TrimSuffix(archiveFile, filepath.Ext(archiveFile))
-	if strings.HasSuffix(outputDir, ".tar") {
-		outputDir = strings.TrimSuffix(outputDir, ".tar")
-	}
+	outputDir = strings.TrimSuffix(outputDir, ".tar")
 
 	// Extract archive
 	err := c.extractTarGz(archiveFile, outputDir)

@@ -823,7 +823,7 @@ func expandPath(path string) string {
 }
 
 // showBackupConfirmation displays a confirmation prompt with backup summary
-func showBackupConfirmation(cfg *config.Config, log *logger.Logger) bool {
+func showBackupConfirmation(cfg *config.Config, _ *logger.Logger) bool {
 	// Display backup summary
 	fmt.Printf("\n📋 Backup Summary\n")
 	fmt.Printf("================\n\n")
@@ -864,7 +864,7 @@ func showBackupConfirmation(cfg *config.Config, log *logger.Logger) bool {
 }
 
 // showCleanupConfirmation displays a confirmation prompt for cleanup operation
-func showCleanupConfirmation(backupService *backup.Service, cleanupCfg *config.CleanupConfig, backupDir string, selectedDatabases []string, log *logger.Logger) bool {
+func showCleanupConfirmation(_ *backup.Service, cleanupCfg *config.CleanupConfig, backupDir string, selectedDatabases []string, _ *logger.Logger) bool {
 	fmt.Printf("\n📋 Cleanup Summary\n")
 	fmt.Printf("=================\n\n")
 	
@@ -883,7 +883,6 @@ func showCleanupConfirmation(backupService *backup.Service, cleanupCfg *config.C
 	}
 	
 	// Categorize files by age
-	var filesToKeep []BackupFileInfo
 	var filesToDelete []BackupFileInfo
 	var totalSizeToDelete int64
 	
@@ -893,8 +892,6 @@ func showCleanupConfirmation(backupService *backup.Service, cleanupCfg *config.C
 		if ageDays >= maxAgeDays {
 			filesToDelete = append(filesToDelete, fileInfo)
 			totalSizeToDelete += fileInfo.Size
-		} else {
-			filesToKeep = append(filesToKeep, fileInfo)
 		}
 	}
 	
