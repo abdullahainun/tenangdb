@@ -1,6 +1,10 @@
 # Build stage
 FROM golang:1.23-alpine AS builder
 
+# Build arguments for version info
+ARG VERSION=dev
+ARG COMMIT_SHA=unknown
+
 # Install build dependencies
 RUN apk add --no-cache git ca-certificates tzdata
 
@@ -16,11 +20,27 @@ RUN go mod download
 # Copy source code
 COPY . .
 
-# Build the application with static linking
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -ldflags '-extldflags "-static"' -o tenangdb cmd/main.go
+# Build the application with static linking and version info
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo \
+    -ldflags "-extldflags '-static' -X main.Version=${VERSION} -X main.CommitSHA=${COMMIT_SHA}" \
+    -o tenangdb cmd/main.go
 
 # Runtime stage - use stable Ubuntu base
 FROM ubuntu:22.04
+
+# Build arguments for labels
+ARG VERSION=dev
+ARG COMMIT_SHA=unknown
+
+# Add container labels
+LABEL org.opencontainers.image.title="TenangDB"
+LABEL org.opencontainers.image.description="Backup yang Bikin Tenang - MySQL backup automation tool"
+LABEL org.opencontainers.image.version="${VERSION}"
+LABEL org.opencontainers.image.revision="${COMMIT_SHA}"
+LABEL org.opencontainers.image.vendor="Ainun Abdullah"
+LABEL org.opencontainers.image.licenses="MIT"
+LABEL org.opencontainers.image.source="https://github.com/abdullahainun/tenangdb"
+LABEL org.opencontainers.image.documentation="https://tenangdb.ainun.cloud"
 
 # Install dependencies including mydumper
 RUN apt-get update && \
