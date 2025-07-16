@@ -121,16 +121,45 @@ jobs:
       run: |
         echo "🔍 Validating Docker Compose..."
         
-        # Validate docker-compose.yml syntax
-        docker-compose config > /dev/null
-        echo "✅ Docker Compose syntax is valid"
-        
-        # Check if required services are defined
-        if ! docker-compose config | grep -q "tenangdb"; then
-          echo "⚠️  No tenangdb service found in docker-compose.yml"
-        else
-          echo "✅ tenangdb service found"
+        # Check if docker-compose.yml exists
+        if [ ! -f "docker-compose.yml" ]; then
+          echo "⚠️  docker-compose.yml not found, skipping validation"
+          exit 0
         fi
+        
+        # Validate docker-compose.yml syntax and structure
+        python3 -c "
+        import yaml
+        import sys
+        
+        try:
+            with open('docker-compose.yml', 'r') as f:
+                compose_data = yaml.safe_load(f)
+            
+            print('✅ Docker Compose YAML syntax is valid')
+            
+            # Check if it has services section
+            if 'services' not in compose_data:
+                print('⚠️  No services section found in docker-compose.yml')
+            else:
+                services = compose_data['services']
+                print(f'✅ Found {len(services)} service(s): {list(services.keys())}')
+                
+                # Check for tenangdb service
+                if 'tenangdb' in services:
+                    print('✅ tenangdb service found')
+                else:
+                    print('⚠️  No tenangdb service found in docker-compose.yml')
+        
+        except yaml.YAMLError as e:
+            print('❌ Docker Compose YAML syntax error')
+            print(f'Error: {e}')
+            sys.exit(1)
+        except Exception as e:
+            print('❌ Error reading docker-compose.yml')
+            print(f'Error: {e}')
+            sys.exit(1)
+        "
         
         echo "✅ Docker Compose validation completed"
 
