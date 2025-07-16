@@ -23,8 +23,8 @@ curl -L https://go.ainun.cloud/tenangdb-config.yaml.example -o config.yaml
 nano config.yaml  # Edit database credentials
 
 # 2. Run backup
-# Docker:
-docker run -v $(pwd)/config.yaml:/config.yaml ghcr.io/abdullahainun/tenangdb:latest backup
+mkdir -p backups && sudo chown $(id -u):$(id -g) backups
+docker run --user $(id -u):$(id -g) -v $(pwd)/config.yaml:/config.yaml -v $(pwd)/backups:/backups ghcr.io/abdullahainun/tenangdb:latest backup
 
 # Binary:
 tenangdb backup
