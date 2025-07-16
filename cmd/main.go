@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"context"
+	"crypto/md5"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -1051,7 +1052,7 @@ func checkBackupFrequency(cfg *config.Config, log *logger.Logger) bool {
 
 // getLastBackupTime reads the last backup timestamp from tracking file
 func getLastBackupTime(backupDir string) (time.Time, error) {
-	trackingFile := filepath.Join(backupDir, ".tenangdb_backup_tracking.json")
+	trackingFile := getTrackingFilePath(backupDir)
 	
 	data, err := os.ReadFile(trackingFile)
 	if err != nil {
@@ -1071,7 +1072,12 @@ func getLastBackupTime(backupDir string) (time.Time, error) {
 
 // updateLastBackupTime updates the last backup timestamp in tracking file
 func updateLastBackupTime(backupDir string) error {
-	trackingFile := filepath.Join(backupDir, ".tenangdb_backup_tracking.json")
+	trackingFile := getTrackingFilePath(backupDir)
+	
+	// Ensure the directory exists
+	if err := os.MkdirAll(filepath.Dir(trackingFile), 0755); err != nil {
+		return fmt.Errorf("failed to create tracking directory: %w", err)
+	}
 	
 	tracking := struct {
 		LastBackupTime time.Time `json:"last_backup_time"`
@@ -1085,6 +1091,42 @@ func updateLastBackupTime(backupDir string) error {
 	}
 	
 	return os.WriteFile(trackingFile, data, 0644)
+}
+
+// getTrackingFilePath returns the path for backup tracking file
+// Uses a more persistent location to survive container restarts
+func getTrackingFilePath(backupDir string) string {
+	// Try to use a more persistent location based on platform
+	var trackingDir string
+	
+	if runtime.GOOS == "darwin" {
+		// macOS: Use Application Support directory
+		if homeDir, err := os.UserHomeDir(); err == nil {
+			trackingDir = filepath.Join(homeDir, "Library", "Application Support", "TenangDB")
+		}
+	} else {
+		// Linux: Use /tmp for Docker containers, XDG for regular usage
+		if _, err := os.Stat("/.dockerenv"); err == nil {
+			// Running in Docker container - use /tmp which is more likely to be persistent
+			trackingDir = "/tmp/tenangdb"
+		} else if homeDir, err := os.UserHomeDir(); err == nil {
+			// Regular Linux usage
+			trackingDir = filepath.Join(homeDir, ".local", "share", "tenangdb")
+		}
+	}
+	
+	// Fallback to backup directory if we can't determine a better location
+	if trackingDir == "" {
+		trackingDir = backupDir
+	}
+	
+	// Create a safe filename based on backup directory path
+	// This allows multiple backup configs to have separate tracking files
+	hash := md5.Sum([]byte(backupDir))
+	hasher := fmt.Sprintf("%x", hash)[:8]
+	
+	trackingFile := fmt.Sprintf(".tenangdb_backup_tracking_%s.json", hasher)
+	return filepath.Join(trackingDir, trackingFile)
 }
 
 // formatDuration formats duration in human readable format
