@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/abdullahainun/tenangdb/internal/compression"
 	"github.com/abdullahainun/tenangdb/internal/config"
 	"github.com/abdullahainun/tenangdb/internal/logger"
 	"github.com/abdullahainun/tenangdb/internal/metrics"
@@ -20,6 +21,7 @@ type Service struct {
 	logger         *logger.Logger
 	dbClient       *database.Client
 	uploader       *upload.Service
+	compressor     *compression.Compressor
 	stats          *Statistics
 	uploadedFiles  map[string]time.Time // Track uploaded files with timestamp
 	metricsStorage *metrics.MetricsStorage
@@ -49,6 +51,9 @@ func NewService(cfg *config.Config, log *logger.Logger) (*Service, error) {
 		uploader = upload.NewService(&cfg.Upload, log)
 	}
 
+	// Initialize compressor
+	compressor := compression.NewCompressor(&cfg.Backup.Compression, log)
+
 	// Initialize metrics storage only if metrics are enabled
 	var metricsStorage *metrics.MetricsStorage
 	if cfg.Metrics.Enabled {
@@ -64,6 +69,7 @@ func NewService(cfg *config.Config, log *logger.Logger) (*Service, error) {
 		config:         cfg,
 		logger:         log,
 		dbClient:       dbClient,
+		compressor:     compressor,
 		uploader:       uploader,
 		uploadedFiles:  make(map[string]time.Time),
 		metricsStorage: metricsStorage,
@@ -221,8 +227,21 @@ func (s *Service) processDatabase(ctx context.Context, dbName string) {
 		return
 	}
 
-	// Get backup size
-	backupSize, sizeErr := s.getBackupSize(backupPath)
+	// Compress backup if enabled
+	finalBackupPath := backupPath
+	if s.config.Backup.Compression.Enabled {
+		log.WithField("database", dbName).Info("🗜️ Compressing backup")
+		compressedPath, compressionErr := s.compressor.CompressBackup(backupPath)
+		if compressionErr != nil {
+			log.WithError(compressionErr).Warn("⚠️ Backup compression failed, continuing with uncompressed backup")
+		} else {
+			finalBackupPath = compressedPath
+			log.WithField("database", dbName).Info("✅ Backup compression completed")
+		}
+	}
+
+	// Get backup size (of final path)
+	backupSize, sizeErr := s.getBackupSize(finalBackupPath)
 	if sizeErr != nil {
 		log.WithError(sizeErr).Warn("Failed to get backup size")
 		backupSize = 0
@@ -254,7 +273,7 @@ func (s *Service) processDatabase(ctx context.Context, dbName string) {
 	// Upload to cloud if enabled
 	if s.uploader != nil {
 		uploadStartTime := time.Now()
-		if err := s.uploadBackup(ctx, backupPath); err != nil {
+		if err := s.uploadBackup(ctx, finalBackupPath); err != nil {
 			log.Error("❌ " + dbName + " upload failed: " + err.Error())
 			s.incrementFailedUploads()
 			if s.config.Metrics.Enabled {
@@ -278,7 +297,7 @@ func (s *Service) processDatabase(ctx context.Context, dbName string) {
 			}
 
 			// Mark backup as uploaded for potential cleanup
-			s.markFileAsUploaded(backupPath)
+			s.markFileAsUploaded(finalBackupPath)
 		}
 	}
 }

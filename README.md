@@ -23,14 +23,25 @@ curl -L https://go.ainun.cloud/tenangdb-config.yaml.example -o config.yaml
 nano config.yaml  # Edit database credentials
 
 # 2. Run backup
-mkdir -p backups && sudo chown $(id -u):$(id -g) backups
+mkdir -p backups logs && sudo chown $(id -u):$(id -g) backups logs
+
+# Interactive mode (with confirmation prompt)
+docker run -it --user $(id -u):$(id -g) \
+  -v $(pwd)/config.yaml:/config.yaml \
+  -v $(pwd)/backups:/backups \
+  -v $(pwd)/logs:/logs \
+  ghcr.io/abdullahainun/tenangdb:latest backup
+
+# Automated mode (skip confirmation)
 docker run --user $(id -u):$(id -g) \
--v $(pwd)/config.yaml:/config.yaml \
--v $(pwd)/backups:/backups ghcr.io/abdullahainun/tenangdb:latest \
-backup
+  -v $(pwd)/config.yaml:/config.yaml \
+  -v $(pwd)/backups:/backups \
+  -v $(pwd)/logs:/logs \
+  ghcr.io/abdullahainun/tenangdb:latest backup --yes
 
 # Binary:
-tenangdb backup
+tenangdb backup                    # Interactive with confirmation
+tenangdb backup --yes              # Automated mode
 ```
 
 ## ⚙️ Basic Config
@@ -47,6 +58,12 @@ backup:
   databases:
     - your_database1
     - your_database2
+  directory: /backups
+
+logging:
+  level: info
+  format: clean
+  file_path: /logs/tenangdb.log
 
 # Optional: Cloud upload
 upload:

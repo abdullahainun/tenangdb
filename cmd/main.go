@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bufio"
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/signal"
@@ -77,13 +79,14 @@ func newBackupCommand() *cobra.Command {
 	var dryRun bool
 	var databases string
 	var force bool
+	var yes bool
 
 	cmd := &cobra.Command{
 		Use:   "backup",
 		Short: "Run database backup",
 		Long:  `Backup databases to local directory with optional cloud upload.`,
 		Run: func(cmd *cobra.Command, args []string) {
-			runBackup(configFile, logLevel, dryRun, databases, force)
+			runBackup(configFile, logLevel, dryRun, databases, force, yes)
 		},
 	}
 
@@ -92,11 +95,12 @@ func newBackupCommand() *cobra.Command {
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "show what would be backed up without actually running backup")
 	cmd.Flags().StringVar(&databases, "databases", "", "comma-separated list of databases to backup (overrides config)")
 	cmd.Flags().BoolVar(&force, "force", false, "skip backup frequency confirmation prompts")
+	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "skip confirmation prompts (for automated mode)")
 
 	return cmd
 }
 
-func runBackup(configFile, logLevel string, dryRun bool, databases string, force bool) {
+func runBackup(configFile, logLevel string, dryRun bool, databases string, force bool, yes bool) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -123,8 +127,8 @@ func runBackup(configFile, logLevel string, dryRun bool, databases string, force
 		log.Infof("Using databases from command line: %v", selectedDatabases)
 	}
 	
-	// Override skip confirmation if force flag is used
-	if force {
+	// Override skip confirmation if force or yes flag is used
+	if force || yes {
 		cfg.Backup.SkipConfirmation = true
 	}
 
@@ -164,6 +168,18 @@ func runBackup(configFile, logLevel string, dryRun bool, databases string, force
 		}()
 	}
 
+	// Check backup frequency if enabled
+	if cfg.Backup.CheckLastBackupTime && !force && !checkBackupFrequency(cfg, log) {
+		log.Info("Backup cancelled due to frequency check")
+		return
+	}
+
+	// Show confirmation prompt if not skipped
+	if !cfg.Backup.SkipConfirmation && !showBackupConfirmation(cfg, log) {
+		log.Info("Backup cancelled by user")
+		return
+	}
+
 	// Initialize backup service
 	backupService, err := backup.NewService(cfg, log)
 	if err != nil {
@@ -183,6 +199,12 @@ func runBackup(configFile, logLevel string, dryRun bool, databases string, force
 			log.WithError(err).Error("Backup process failed")
 			os.Exit(1)
 		}
+		
+		// Update last backup time tracking
+		if err := updateLastBackupTime(cfg.Backup.Directory); err != nil {
+			log.WithError(err).Warn("Failed to update backup timestamp")
+		}
+		
 		log.Info("✅ All backup process completed successfully")
 	case <-sigChan:
 		log.Info("Received shutdown signal, gracefully shutting down...")
@@ -213,7 +235,7 @@ func run(cmd *cobra.Command, args []string) {
 	log.Debug("DEPRECATED: Running tenangdb without 'backup' subcommand is deprecated. Use 'tenangdb backup' instead.")
 	
 	// Call the new backup function for backward compatibility
-	runBackup(configFile, logLevel, dryRun, databases, false)
+	runBackup(configFile, logLevel, dryRun, databases, false, false)
 }
 
 func newCleanupCommand() *cobra.Command {
@@ -222,13 +244,14 @@ func newCleanupCommand() *cobra.Command {
 	var dryRun bool
 	var force bool
 	var databases string
+	var yes bool
 
 	cmd := &cobra.Command{
 		Use:   "cleanup",
 		Short: "Cleanup uploaded backup files",
 		Long:  `Remove local backup files that have been successfully uploaded to cloud storage.`,
 		Run: func(cmd *cobra.Command, args []string) {
-			runCleanup(configFile, logLevel, dryRun, force, databases)
+			runCleanup(configFile, logLevel, dryRun, force, databases, yes)
 		},
 	}
 
@@ -237,11 +260,12 @@ func newCleanupCommand() *cobra.Command {
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "show what would be deleted without actually deleting")
 	cmd.Flags().BoolVar(&force, "force", false, "force cleanup regardless of day (bypass weekend-only restriction)")
 	cmd.Flags().StringVar(&databases, "databases", "", "comma-separated list of databases to cleanup (overrides config)")
+	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "skip confirmation prompts (for automated mode)")
 
 	return cmd
 }
 
-func runCleanup(configFile, logLevel string, dryRun bool, force bool, databases string) {
+func runCleanup(configFile, logLevel string, dryRun bool, force bool, databases string, yes bool) {
 	ctx := context.Background()
 
 	// Load configuration first to get log file path
@@ -328,6 +352,12 @@ func runCleanup(configFile, logLevel string, dryRun bool, force bool, databases 
 		return
 	}
 
+	// Show confirmation prompt if not skipped
+	if !yes && !showCleanupConfirmation(backupService, &cfg.Cleanup, cfg.Backup.Directory, selectedDatabases, log) {
+		log.Info("Cleanup cancelled by user")
+		return
+	}
+
 	// Record cleanup start
 	cleanupStartTime := time.Now()
 	var totalFilesRemoved int64
@@ -345,19 +375,21 @@ func runCleanup(configFile, logLevel string, dryRun bool, force bool, databases 
 		os.Exit(1)
 	}
 
-	// Perform age-based cleanup if enabled
-	if cfg.Cleanup.AgeBasedCleanup {
-		cleanupService := backup.NewCleanupService(&cfg.Cleanup, &cfg.Upload, log)
-		if err := cleanupService.CleanupAgeBasedFiles(ctx, cfg.Backup.Directory, selectedDatabases); err != nil {
-			log.WithError(err).Error("Age-based cleanup failed")
-			cleanupDuration := time.Since(cleanupStartTime)
-			if cfg.Metrics.Enabled && metricsStorage != nil {
-				if err := metricsStorage.UpdateCleanupMetrics(cleanupDuration, false, totalFilesRemoved, totalBytesFreed); err != nil {
-					log.WithError(err).Warn("Failed to update cleanup metrics")
-				}
+	// Perform age-based cleanup (always enabled for cleanup command)
+	maxAgeDays := cfg.Cleanup.MaxAgeDays
+	if maxAgeDays == 0 {
+		maxAgeDays = 7 // Safe default: 7 days
+	}
+	
+	if err := cleanupOldBackupFiles(cfg.Backup.Directory, selectedDatabases, maxAgeDays, log); err != nil {
+		log.WithError(err).Error("Age-based cleanup failed")
+		cleanupDuration := time.Since(cleanupStartTime)
+		if cfg.Metrics.Enabled && metricsStorage != nil {
+			if err := metricsStorage.UpdateCleanupMetrics(cleanupDuration, false, totalFilesRemoved, totalBytesFreed); err != nil {
+				log.WithError(err).Warn("Failed to update cleanup metrics")
 			}
-			os.Exit(1)
 		}
+		os.Exit(1)
 	}
 
 	// Record successful cleanup
@@ -483,13 +515,14 @@ func newRestoreCommand() *cobra.Command {
 	var logLevel string
 	var backupPath string
 	var targetDatabase string
+	var yes bool
 
 	cmd := &cobra.Command{
 		Use:   "restore",
 		Short: "Restore database from backup",
 		Long:  `Restore a database from mydumper backup directory or SQL file.`,
 		Run: func(cmd *cobra.Command, args []string) {
-			runRestore(configFile, logLevel, backupPath, targetDatabase)
+			runRestore(configFile, logLevel, backupPath, targetDatabase, yes)
 		},
 	}
 
@@ -497,6 +530,7 @@ func newRestoreCommand() *cobra.Command {
 	cmd.Flags().StringVar(&logLevel, "log-level", "info", "log level (debug, info, warn, error)")
 	cmd.Flags().StringVarP(&backupPath, "backup-path", "b", "", "path to backup directory or SQL file (required)")
 	cmd.Flags().StringVarP(&targetDatabase, "database", "d", "", "target database name (required)")
+	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "skip confirmation prompts (for automated mode)")
 
 	if err := cmd.MarkFlagRequired("backup-path"); err != nil {
 		fmt.Printf("Error: Failed to mark backup-path flag as required: %v\n", err)
@@ -510,7 +544,7 @@ func newRestoreCommand() *cobra.Command {
 	return cmd
 }
 
-func runRestore(configFile, logLevel, backupPath, targetDatabase string) {
+func runRestore(configFile, logLevel, backupPath, targetDatabase string, yes bool) {
 	ctx := context.Background()
 
 	// Load configuration first to get log file path
@@ -554,6 +588,12 @@ func runRestore(configFile, logLevel, backupPath, targetDatabase string) {
 	}
 
 	log.WithField("backup_path", backupPath).WithField("target_database", targetDatabase).Info("Starting database restore")
+
+	// Show confirmation prompt if not skipped
+	if !yes && !showRestoreConfirmation(backupPath, targetDatabase, dbClient, ctx, log) {
+		log.Info("Database restore cancelled by user")
+		return
+	}
 
 	// Record restore start
 	restoreStartTime := time.Now()
@@ -793,4 +833,424 @@ func expandPath(path string) string {
 	}
 	
 	return filepath.Join(homeDir, path[2:])
+}
+
+// showBackupConfirmation displays a confirmation prompt with backup summary
+func showBackupConfirmation(cfg *config.Config, _ *logger.Logger) bool {
+	// Display backup summary
+	fmt.Printf("\n📋 Backup Summary\n")
+	fmt.Printf("================\n\n")
+	
+	// Database list
+	fmt.Printf("💾 Databases to backup:\n")
+	for i, db := range cfg.Backup.Databases {
+		fmt.Printf("  %d. %s\n", i+1, db)
+	}
+	
+	fmt.Printf("\n📁 Backup directory: %s\n", cfg.Backup.Directory)
+	
+	// Upload information
+	if cfg.Upload.Enabled {
+		fmt.Printf("☁️  Upload enabled: %s\n", cfg.Upload.Destination)
+		fmt.Printf("   Rclone config: %s\n", cfg.Upload.RcloneConfigPath)
+	} else {
+		fmt.Printf("☁️  Upload: Disabled (local backup only)\n")
+	}
+	
+	// Backup options
+	fmt.Printf("\n⚙️  Options:\n")
+	fmt.Printf("   Concurrency: %d\n", cfg.Backup.Concurrency)
+	fmt.Printf("   Batch size: %d\n", cfg.Backup.BatchSize)
+	
+	fmt.Printf("\n")
+	
+	// Confirmation prompt
+	fmt.Print("Do you want to proceed with backup? [y/N]: ")
+	
+	scanner := bufio.NewScanner(os.Stdin)
+	if scanner.Scan() {
+		response := strings.ToLower(strings.TrimSpace(scanner.Text()))
+		return response == "y" || response == "yes"
+	}
+	
+	return false
+}
+
+// showCleanupConfirmation displays a confirmation prompt for cleanup operation
+func showCleanupConfirmation(_ *backup.Service, cleanupCfg *config.CleanupConfig, backupDir string, selectedDatabases []string, _ *logger.Logger) bool {
+	fmt.Printf("\n📋 Cleanup Summary\n")
+	fmt.Printf("=================\n\n")
+	
+	// Set safe defaults for cleanup command
+	maxAgeDays := cleanupCfg.MaxAgeDays
+	if maxAgeDays == 0 {
+		maxAgeDays = 7 // Safe default: 7 days
+	}
+	
+	// Get all backup files in directory
+	allBackupFiles := getBackupFiles(backupDir, selectedDatabases)
+	
+	if len(allBackupFiles) == 0 {
+		fmt.Printf("✅ No backup files found in %s\n", backupDir)
+		return false
+	}
+	
+	// Categorize files by age
+	var filesToDelete []BackupFileInfo
+	var totalSizeToDelete int64
+	
+	for _, fileInfo := range allBackupFiles {
+		ageDays := int(time.Since(fileInfo.ModTime).Hours() / 24)
+		
+		if ageDays >= maxAgeDays {
+			filesToDelete = append(filesToDelete, fileInfo)
+			totalSizeToDelete += fileInfo.Size
+		}
+	}
+	
+	// Display all files with age info
+	fmt.Printf("📁 Backup files found:\n")
+	for i, fileInfo := range allBackupFiles {
+		if i >= 15 { // Show max 15 files
+			fmt.Printf("   ... and %d more files\n", len(allBackupFiles)-15)
+			break
+		}
+		
+		ageDays := int(time.Since(fileInfo.ModTime).Hours() / 24)
+		status := "✅ Keep"
+		if ageDays >= maxAgeDays {
+			status = "⚠️  Will delete"
+		}
+		
+		fmt.Printf("  %d. %s (%d days old, %s) %s\n", 
+			i+1, fileInfo.Name, ageDays, formatFileSize(fileInfo.Size), status)
+	}
+	
+	fmt.Printf("\n📊 Files to delete: %d (%d+ days old)\n", len(filesToDelete), maxAgeDays)
+	fmt.Printf("📊 Total space to free: %s\n", formatFileSize(totalSizeToDelete))
+	fmt.Printf("⏰ Age threshold: %d days (configurable)\n", maxAgeDays)
+	
+	if len(filesToDelete) == 0 {
+		fmt.Printf("\n✅ No files old enough to cleanup (all files are < %d days old)\n", maxAgeDays)
+		return false
+	}
+	
+	fmt.Printf("\n⚠️  WARNING: This action cannot be undone!\n")
+	fmt.Printf("⚠️  Deleted backup files cannot be recovered!\n\n")
+	
+	// Confirmation prompt
+	fmt.Print("Do you want to proceed with cleanup? [y/N]: ")
+	
+	scanner := bufio.NewScanner(os.Stdin)
+	if scanner.Scan() {
+		response := strings.ToLower(strings.TrimSpace(scanner.Text()))
+		return response == "y" || response == "yes"
+	}
+	
+	return false
+}
+
+// BackupFileInfo holds information about a backup file
+type BackupFileInfo struct {
+	Name    string
+	Path    string
+	Size    int64
+	ModTime time.Time
+}
+
+// getBackupFiles scans backup directory and returns backup file information
+func getBackupFiles(backupDir string, selectedDatabases []string) []BackupFileInfo {
+	var backupFiles []BackupFileInfo
+	
+	// Read backup directory
+	entries, err := os.ReadDir(backupDir)
+	if err != nil {
+		return backupFiles
+	}
+	
+	for _, entry := range entries {
+		// Skip non-directories and non-backup files
+		if !entry.IsDir() && !strings.HasSuffix(entry.Name(), ".tar.gz") && 
+		   !strings.HasSuffix(entry.Name(), ".tar.zst") && 
+		   !strings.HasSuffix(entry.Name(), ".tar.xz") {
+			continue
+		}
+		
+		// Check if file should be included based on database filter
+		if len(selectedDatabases) > 0 && !shouldCleanupFile(entry.Name(), selectedDatabases) {
+			continue
+		}
+		
+		// Get file info
+		fullPath := filepath.Join(backupDir, entry.Name())
+		info, err := os.Stat(fullPath)
+		if err != nil {
+			continue
+		}
+		
+		// Calculate size (for directories, get total size)
+		var size int64
+		if info.IsDir() {
+			size, _ = getDirSize(fullPath)
+		} else {
+			size = info.Size()
+		}
+		
+		backupFiles = append(backupFiles, BackupFileInfo{
+			Name:    entry.Name(),
+			Path:    fullPath,
+			Size:    size,
+			ModTime: info.ModTime(),
+		})
+	}
+	
+	return backupFiles
+}
+
+// checkBackupFrequency checks if enough time has passed since last backup
+func checkBackupFrequency(cfg *config.Config, log *logger.Logger) bool {
+	// Get last backup time
+	lastBackupTime, err := getLastBackupTime(cfg.Backup.Directory)
+	if err != nil {
+		// If no tracking file exists, allow backup
+		log.WithError(err).Debug("No previous backup timestamp found, allowing backup")
+		return true
+	}
+	
+	// Calculate time since last backup
+	timeSinceLastBackup := time.Since(lastBackupTime)
+	
+	// Check if enough time has passed
+	if timeSinceLastBackup < cfg.Backup.MinBackupInterval {
+		// Show frequency warning
+		fmt.Printf("\n⚠️  Backup Frequency Warning\n")
+		fmt.Printf("==========================\n\n")
+		fmt.Printf("📅 Last backup: %s\n", lastBackupTime.Format("2006-01-02 15:04:05"))
+		fmt.Printf("🕐 Time since last backup: %s\n", formatDuration(timeSinceLastBackup))
+		fmt.Printf("⏰ Minimum interval: %s\n", formatDuration(cfg.Backup.MinBackupInterval))
+		
+		remaining := cfg.Backup.MinBackupInterval - timeSinceLastBackup
+		fmt.Printf("⏳ Time remaining: %s\n", formatDuration(remaining))
+		
+		fmt.Printf("\n⚠️  Last backup was %s ago, are you sure you want to run backup again?\n", formatDuration(timeSinceLastBackup))
+		fmt.Printf("💡 Use --force to skip this check\n\n")
+		
+		fmt.Print("Continue backup? (y/n/force): ")
+		
+		scanner := bufio.NewScanner(os.Stdin)
+		if scanner.Scan() {
+			response := strings.ToLower(strings.TrimSpace(scanner.Text()))
+			return response == "y" || response == "yes" || response == "force" || response == "f"
+		}
+		
+		return false
+	}
+	
+	return true
+}
+
+// getLastBackupTime reads the last backup timestamp from tracking file
+func getLastBackupTime(backupDir string) (time.Time, error) {
+	trackingFile := filepath.Join(backupDir, ".tenangdb_backup_tracking.json")
+	
+	data, err := os.ReadFile(trackingFile)
+	if err != nil {
+		return time.Time{}, err
+	}
+	
+	var tracking struct {
+		LastBackupTime time.Time `json:"last_backup_time"`
+	}
+	
+	if err := json.Unmarshal(data, &tracking); err != nil {
+		return time.Time{}, err
+	}
+	
+	return tracking.LastBackupTime, nil
+}
+
+// updateLastBackupTime updates the last backup timestamp in tracking file
+func updateLastBackupTime(backupDir string) error {
+	trackingFile := filepath.Join(backupDir, ".tenangdb_backup_tracking.json")
+	
+	tracking := struct {
+		LastBackupTime time.Time `json:"last_backup_time"`
+	}{
+		LastBackupTime: time.Now(),
+	}
+	
+	data, err := json.Marshal(tracking)
+	if err != nil {
+		return err
+	}
+	
+	return os.WriteFile(trackingFile, data, 0644)
+}
+
+// formatDuration formats duration in human readable format
+func formatDuration(d time.Duration) string {
+	if d < time.Minute {
+		return fmt.Sprintf("%d seconds", int(d.Seconds()))
+	} else if d < time.Hour {
+		return fmt.Sprintf("%d minutes", int(d.Minutes()))
+	} else if d < 24*time.Hour {
+		hours := int(d.Hours())
+		minutes := int(d.Minutes()) % 60
+		if minutes == 0 {
+			return fmt.Sprintf("%d hours", hours)
+		}
+		return fmt.Sprintf("%d hours %d minutes", hours, minutes)
+	} else {
+		days := int(d.Hours()) / 24
+		hours := int(d.Hours()) % 24
+		if hours == 0 {
+			return fmt.Sprintf("%d days", days)
+		}
+		return fmt.Sprintf("%d days %d hours", days, hours)
+	}
+}
+
+// cleanupOldBackupFiles removes backup files older than specified days
+func cleanupOldBackupFiles(backupDir string, selectedDatabases []string, maxAgeDays int, log *logger.Logger) error {
+	// Get all backup files
+	allBackupFiles := getBackupFiles(backupDir, selectedDatabases)
+	
+	var filesToDelete []BackupFileInfo
+	for _, fileInfo := range allBackupFiles {
+		ageDays := int(time.Since(fileInfo.ModTime).Hours() / 24)
+		if ageDays >= maxAgeDays {
+			filesToDelete = append(filesToDelete, fileInfo)
+		}
+	}
+	
+	// Delete old files
+	for _, fileInfo := range filesToDelete {
+		log.WithField("file", fileInfo.Name).
+			WithField("age_days", int(time.Since(fileInfo.ModTime).Hours()/24)).
+			Info("🗑️ Deleting old backup file")
+		
+		if err := os.RemoveAll(fileInfo.Path); err != nil {
+			log.WithError(err).WithField("file", fileInfo.Path).Error("Failed to delete backup file")
+			return fmt.Errorf("failed to delete %s: %w", fileInfo.Path, err)
+		}
+	}
+	
+	log.WithField("deleted_files", len(filesToDelete)).Info("✅ Age-based cleanup completed")
+	return nil
+}
+
+// formatFileSize formats file size in human readable format
+func formatFileSize(size int64) string {
+	const (
+		KB = 1024
+		MB = KB * 1024
+		GB = MB * 1024
+	)
+	
+	if size >= GB {
+		return fmt.Sprintf("%.1f GB", float64(size)/GB)
+	} else if size >= MB {
+		return fmt.Sprintf("%.1f MB", float64(size)/MB)
+	} else if size >= KB {
+		return fmt.Sprintf("%.1f KB", float64(size)/KB)
+	}
+	
+	return fmt.Sprintf("%d bytes", size)
+}
+
+// showRestoreConfirmation displays a confirmation prompt for restore operation
+func showRestoreConfirmation(backupPath, targetDatabase string, dbClient *database.Client, ctx context.Context, log *logger.Logger) bool {
+	fmt.Printf("\n⚠️  Database Restore Warning\n")
+	fmt.Printf("===========================\n\n")
+	
+	// Display restore details
+	fmt.Printf("🎯 Target database: %s\n", targetDatabase)
+	fmt.Printf("📂 Backup source: %s\n", backupPath)
+	
+	// Get backup info
+	if info, err := os.Stat(backupPath); err == nil {
+		fmt.Printf("📅 Backup date: %s\n", info.ModTime().Format("2006-01-02 15:04:05"))
+		
+		// Show backup size
+		if info.IsDir() {
+			if size, err := getDirSize(backupPath); err == nil {
+				fmt.Printf("📊 Backup size: %s\n", formatFileSize(size))
+			}
+		} else {
+			fmt.Printf("📊 Backup size: %s\n", formatFileSize(info.Size()))
+		}
+	}
+	
+	// Check if target database exists
+	databaseExists, err := checkDatabaseExists(dbClient, ctx, targetDatabase)
+	if err != nil {
+		log.WithError(err).Warn("Failed to check if database exists")
+		databaseExists = false
+	}
+	
+	fmt.Printf("\n")
+	
+	if databaseExists {
+		fmt.Printf("🔴 **DANGER ZONE** 🔴\n")
+		fmt.Printf("⚠️  WARNING: Database '%s' already exists!\n", targetDatabase)
+		fmt.Printf("⚠️  This operation will COMPLETELY OVERWRITE the existing database!\n")
+		fmt.Printf("⚠️  ALL existing data in '%s' will be PERMANENTLY LOST!\n", targetDatabase)
+		fmt.Printf("⚠️  This action CANNOT be undone!\n")
+		fmt.Printf("\n")
+		fmt.Printf("💡 Recommendation: Create a backup of the existing database first\n")
+		fmt.Printf("   tenangdb backup --databases %s\n", targetDatabase)
+	} else {
+		fmt.Printf("✅ Database '%s' does not exist - will be created\n", targetDatabase)
+	}
+	
+	fmt.Printf("\n")
+	
+	// Different confirmation message based on whether database exists
+	var prompt string
+	if databaseExists {
+		prompt = fmt.Sprintf("Are you ABSOLUTELY SURE you want to OVERWRITE database '%s'? [y/N]: ", targetDatabase)
+	} else {
+		prompt = fmt.Sprintf("Do you want to create and restore database '%s'? [y/N]: ", targetDatabase)
+	}
+	
+	fmt.Print(prompt)
+	
+	scanner := bufio.NewScanner(os.Stdin)
+	if scanner.Scan() {
+		response := strings.ToLower(strings.TrimSpace(scanner.Text()))
+		return response == "y" || response == "yes"
+	}
+	
+	return false
+}
+
+// checkDatabaseExists checks if a database exists
+func checkDatabaseExists(dbClient *database.Client, ctx context.Context, databaseName string) (bool, error) {
+	databases, err := dbClient.ListDatabases(ctx)
+	if err != nil {
+		return false, err
+	}
+	
+	for _, db := range databases {
+		if db == databaseName {
+			return true, nil
+		}
+	}
+	
+	return false, nil
+}
+
+// getDirSize calculates the total size of a directory
+func getDirSize(path string) (int64, error) {
+	var size int64
+	err := filepath.Walk(path, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() {
+			size += info.Size()
+		}
+		return nil
+	})
+	return size, err
 }
