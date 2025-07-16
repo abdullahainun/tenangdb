@@ -98,9 +98,10 @@ upload:
 # Production deployment
 docker-compose up -d  # See docker-compose.yml
 
-# MySQL user setup
+# MySQL user setup (MySQL 8.0+)
 CREATE USER 'tenangdb'@'%' IDENTIFIED BY 'secure_password';
-GRANT SELECT, SHOW DATABASES, SHOW VIEW, LOCK TABLES, EVENT, TRIGGER, ROUTINE, RELOAD, REPLICATION CLIENT ON *.* TO 'tenangdb'@'%';
+GRANT SELECT, SHOW DATABASES, LOCK TABLES, EVENT, TRIGGER, EXECUTE ON *.* TO 'tenangdb'@'%';
+GRANT REPLICATION CLIENT ON *.* TO 'tenangdb'@'%';
 GRANT INSERT, UPDATE, DELETE, CREATE, DROP, ALTER, INDEX, REFERENCES, CREATE TEMPORARY TABLES, CREATE VIEW ON *.* TO 'tenangdb'@'%';
 FLUSH PRIVILEGES;
 ```

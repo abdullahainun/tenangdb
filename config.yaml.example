@@ -36,7 +36,7 @@ backup:
     - database1
     - database2
   # Optional overrides (auto-configured):
-  # directory: /custom/backup/path
+  directory: /backups
   # batch_size: 5
   # concurrency: 3
   # timeout: 30m
@@ -54,8 +54,8 @@ upload:
 
 # Logging settings
 logging:
-  level: info                    # debug, info, warn, error
-  format: text                   # text (human-readable) or json (structured)
+  level: info                     # debug, info, warn, error
+  format: clean                   # text (human-readable) or json (structured)
   # Auto-discovered paths:
   #   macOS: ~/Library/Logs/TenangDB/tenangdb.log
   #   Linux: ~/.local/share/tenangdb/logs/tenangdb.log
@@ -67,7 +67,7 @@ metrics:
 
 # Cleanup manages backup retention and removes old files
 cleanup:
-  enabled: true
+  enabled: false
   cleanup_uploaded_files: true   # Clean local files after successful upload
   remote_retention_days: 3       # Keep remote backups for 3 days
   weekend_only: false            # Run cleanup any day (not weekend-only)
