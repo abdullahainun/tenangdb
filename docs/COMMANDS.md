@@ -38,7 +38,6 @@ TenangDB now includes an interactive confirmation prompt before running backups.
 ⚙️  Options:
    Concurrency: 2
    Batch size: 5
-   Estimated time: ~6 minutes
 
 Do you want to proceed with backup? [y/N]: 
 ```

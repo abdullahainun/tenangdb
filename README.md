@@ -24,16 +24,22 @@ nano config.yaml  # Edit database credentials
 
 # 2. Run backup
 mkdir -p backups && sudo chown $(id -u):$(id -g) backups
+
+# Interactive mode (with confirmation prompt)
+docker run -it --user $(id -u):$(id -g) \
+  -v $(pwd)/config.yaml:/config.yaml \
+  -v $(pwd)/backups:/backups \
+  ghcr.io/abdullahainun/tenangdb:latest backup
+
+# Automated mode (skip confirmation)
 docker run --user $(id -u):$(id -g) \
--v $(pwd)/config.yaml:/config.yaml \
--v $(pwd)/backups:/backups ghcr.io/abdullahainun/tenangdb:latest \
-backup
+  -v $(pwd)/config.yaml:/config.yaml \
+  -v $(pwd)/backups:/backups \
+  ghcr.io/abdullahainun/tenangdb:latest backup --yes
 
 # Binary:
-tenangdb backup
-
-# Automated mode (skip confirmation):
-tenangdb backup --yes
+tenangdb backup                    # Interactive with confirmation
+tenangdb backup --yes              # Automated mode
 ```
 
 ## ⚙️ Basic Config

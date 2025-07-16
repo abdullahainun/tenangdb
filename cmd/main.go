@@ -831,14 +831,6 @@ func showBackupConfirmation(cfg *config.Config, log *logger.Logger) bool {
 	fmt.Printf("   Concurrency: %d\n", cfg.Backup.Concurrency)
 	fmt.Printf("   Batch size: %d\n", cfg.Backup.BatchSize)
 	
-	// Estimate time (rough calculation)
-	estimatedTime := len(cfg.Backup.Databases) * 2 // 2 minutes per database as rough estimate
-	if estimatedTime > 60 {
-		fmt.Printf("   Estimated time: ~%d minutes\n", estimatedTime)
-	} else {
-		fmt.Printf("   Estimated time: ~%d minutes\n", estimatedTime)
-	}
-	
 	fmt.Printf("\n")
 	
 	// Confirmation prompt
