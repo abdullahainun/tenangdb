@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bufio"
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/signal"
@@ -18,7 +20,6 @@ import (
 	"github.com/abdullahainun/tenangdb/pkg/database"
 
 	"github.com/spf13/cobra"
-	"bufio"
 )
 
 var (
@@ -167,6 +168,12 @@ func runBackup(configFile, logLevel string, dryRun bool, databases string, force
 		}()
 	}
 
+	// Check backup frequency if enabled
+	if cfg.Backup.CheckLastBackupTime && !force && !checkBackupFrequency(cfg, log) {
+		log.Info("Backup cancelled due to frequency check")
+		return
+	}
+
 	// Show confirmation prompt if not skipped
 	if !cfg.Backup.SkipConfirmation && !showBackupConfirmation(cfg, log) {
 		log.Info("Backup cancelled by user")
@@ -192,6 +199,12 @@ func runBackup(configFile, logLevel string, dryRun bool, databases string, force
 			log.WithError(err).Error("Backup process failed")
 			os.Exit(1)
 		}
+		
+		// Update last backup time tracking
+		if err := updateLastBackupTime(cfg.Backup.Directory); err != nil {
+			log.WithError(err).Warn("Failed to update backup timestamp")
+		}
+		
 		log.Info("✅ All backup process completed successfully")
 	case <-sigChan:
 		log.Info("Received shutdown signal, gracefully shutting down...")
@@ -992,6 +1005,109 @@ func getBackupFiles(backupDir string, selectedDatabases []string) []BackupFileIn
 	}
 	
 	return backupFiles
+}
+
+// checkBackupFrequency checks if enough time has passed since last backup
+func checkBackupFrequency(cfg *config.Config, log *logger.Logger) bool {
+	// Get last backup time
+	lastBackupTime, err := getLastBackupTime(cfg.Backup.Directory)
+	if err != nil {
+		// If no tracking file exists, allow backup
+		log.WithError(err).Debug("No previous backup timestamp found, allowing backup")
+		return true
+	}
+	
+	// Calculate time since last backup
+	timeSinceLastBackup := time.Since(lastBackupTime)
+	
+	// Check if enough time has passed
+	if timeSinceLastBackup < cfg.Backup.MinBackupInterval {
+		// Show frequency warning
+		fmt.Printf("\n⚠️  Backup Frequency Warning\n")
+		fmt.Printf("==========================\n\n")
+		fmt.Printf("📅 Last backup: %s\n", lastBackupTime.Format("2006-01-02 15:04:05"))
+		fmt.Printf("🕐 Time since last backup: %s\n", formatDuration(timeSinceLastBackup))
+		fmt.Printf("⏰ Minimum interval: %s\n", formatDuration(cfg.Backup.MinBackupInterval))
+		
+		remaining := cfg.Backup.MinBackupInterval - timeSinceLastBackup
+		fmt.Printf("⏳ Time remaining: %s\n", formatDuration(remaining))
+		
+		fmt.Printf("\n⚠️  Last backup was %s ago, are you sure you want to run backup again?\n", formatDuration(timeSinceLastBackup))
+		fmt.Printf("💡 Use --force to skip this check\n\n")
+		
+		fmt.Print("Continue backup? (y/n/force): ")
+		
+		scanner := bufio.NewScanner(os.Stdin)
+		if scanner.Scan() {
+			response := strings.ToLower(strings.TrimSpace(scanner.Text()))
+			return response == "y" || response == "yes" || response == "force" || response == "f"
+		}
+		
+		return false
+	}
+	
+	return true
+}
+
+// getLastBackupTime reads the last backup timestamp from tracking file
+func getLastBackupTime(backupDir string) (time.Time, error) {
+	trackingFile := filepath.Join(backupDir, ".tenangdb_backup_tracking.json")
+	
+	data, err := os.ReadFile(trackingFile)
+	if err != nil {
+		return time.Time{}, err
+	}
+	
+	var tracking struct {
+		LastBackupTime time.Time `json:"last_backup_time"`
+	}
+	
+	if err := json.Unmarshal(data, &tracking); err != nil {
+		return time.Time{}, err
+	}
+	
+	return tracking.LastBackupTime, nil
+}
+
+// updateLastBackupTime updates the last backup timestamp in tracking file
+func updateLastBackupTime(backupDir string) error {
+	trackingFile := filepath.Join(backupDir, ".tenangdb_backup_tracking.json")
+	
+	tracking := struct {
+		LastBackupTime time.Time `json:"last_backup_time"`
+	}{
+		LastBackupTime: time.Now(),
+	}
+	
+	data, err := json.Marshal(tracking)
+	if err != nil {
+		return err
+	}
+	
+	return os.WriteFile(trackingFile, data, 0644)
+}
+
+// formatDuration formats duration in human readable format
+func formatDuration(d time.Duration) string {
+	if d < time.Minute {
+		return fmt.Sprintf("%d seconds", int(d.Seconds()))
+	} else if d < time.Hour {
+		return fmt.Sprintf("%d minutes", int(d.Minutes()))
+	} else if d < 24*time.Hour {
+		hours := int(d.Hours())
+		minutes := int(d.Minutes()) % 60
+		if minutes == 0 {
+			return fmt.Sprintf("%d hours", hours)
+		}
+		return fmt.Sprintf("%d hours %d minutes", hours, minutes)
+	} else {
+		days := int(d.Hours()) / 24
+		hours := int(d.Hours()) % 24
+		if hours == 0 {
+			return fmt.Sprintf("%d days", days)
+		}
+		return fmt.Sprintf("%d days %d hours", days, hours)
+	}
 }
 
 // cleanupOldBackupFiles removes backup files older than specified days
