@@ -88,13 +88,25 @@
                             <span class="command">docker run ghcr.io/abdullahainun/tenangdb backup</span>
                         </div>
                         <div class="terminal-line">
-                            <span class="output success">✅ production_app backup completed (8.2 KB in 345ms)</span>
+                            <span class="output">🚀 Starting backup process - 12 databases detected</span>
                         </div>
                         <div class="terminal-line">
-                            <span class="output success">✅ user_data backup completed (12.4 KB in 456ms)</span>
+                            <span class="output success">✅ production_app backup completed (156 MB in 4.2s)</span>
                         </div>
                         <div class="terminal-line">
-                            <span class="output">🗂️ 2 databases backed up in 800ms</span>
+                            <span class="output success">✅ user_accounts backup completed (89 MB in 2.8s)</span>
+                        </div>
+                        <div class="terminal-line">
+                            <span class="output success">✅ analytics_data backup completed (234 MB in 6.1s)</span>
+                        </div>
+                        <div class="terminal-line">
+                            <span class="output success">✅ inventory backup completed (45 MB in 1.5s)</span>
+                        </div>
+                        <div class="terminal-line">
+                            <span class="output">... 8 more databases ...</span>
+                        </div>
+                        <div class="terminal-line">
+                            <span class="output">🗂️ 12 databases backed up in 45s</span>
                         </div>
                         <div class="terminal-line">
                             <span class="prompt">$</span>
@@ -121,7 +133,7 @@
                 <div class="feature-card">
                     <div class="feature-icon">⚡</div>
                     <h3>Fast Backups</h3>
-                    <p>Parallel processing. Multiple databases backed up in under 1 second.</p>
+                    <p>Parallel processing with mydumper. Efficient backup of multiple databases.</p>
                 </div>
                 <div class="feature-card">
                     <div class="feature-icon">☁️</div>
@@ -146,37 +158,37 @@
             <div class="code-showcase">
                 <div class="code-content">
                     <div class="code-line">
-                        <span class="comment"># 1. Create config.yaml</span>
+                        <span class="comment"># 1. Download config template</span>
                     </div>
                     <div class="code-line">
-                        <span class="command">cat > config.yaml << EOF</span>
+                        <span class="command">curl -L https://go.ainun.cloud/tenangdb-config.yaml.example -o config.yaml</span>
                     </div>
                     <div class="code-line">
-                        <span class="command">database:</span>
+                        <span class="comment"># 2. Edit with your database credentials</span>
                     </div>
                     <div class="code-line">
-                        <span class="command">  host: your-db-host</span>
+                        <span class="command">nano config.yaml</span>
                     </div>
                     <div class="code-line">
-                        <span class="command">  username: your-username</span>
+                        <span class="comment"># 3. Setup permissions</span>
                     </div>
                     <div class="code-line">
-                        <span class="command">  password: your-password</span>
+                        <span class="command">mkdir -p backups && sudo chown $(id -u):$(id -g) backups</span>
                     </div>
                     <div class="code-line">
-                        <span class="command">backup:</span>
+                        <span class="comment"># 4. Run backup</span>
                     </div>
                     <div class="code-line">
-                        <span class="command">  databases: [production_app, user_data]</span>
+                        <span class="command">docker run --user $(id -u):$(id -g) \</span>
                     </div>
                     <div class="code-line">
-                        <span class="command">EOF</span>
+                        <span class="command">  -v $(pwd)/config.yaml:/config.yaml \</span>
                     </div>
                     <div class="code-line">
-                        <span class="comment"># 2. Run backup</span>
+                        <span class="command">  -v $(pwd)/backups:/backups \</span>
                     </div>
                     <div class="code-line">
-                        <span class="command">docker run -v $(pwd)/config.yaml:/config.yaml ghcr.io/abdullahainun/tenangdb:latest backup</span>
+                        <span class="command">  ghcr.io/abdullahainun/tenangdb:latest backup</span>
                     </div>
                 </div>
             </div>
@@ -206,7 +218,19 @@
                                 <span class="comment"># Daily backup at 2 AM</span>
                             </div>
                             <div class="code-line">
-                                <span class="command">0 2 * * * docker run --rm -v /etc/tenangdb/config.yaml:/config.yaml ghcr.io/abdullahainun/tenangdb:latest backup</span>
+                                <span class="command">0 2 * * * docker run --rm \</span>
+                            </div>
+                            <div class="code-line">
+                                <span class="command">  --user $(id -u):$(id -g) \</span>
+                            </div>
+                            <div class="code-line">
+                                <span class="command">  -v /etc/tenangdb/config.yaml:/config.yaml \</span>
+                            </div>
+                            <div class="code-line">
+                                <span class="command">  -v /var/backups/tenangdb:/backups \</span>
+                            </div>
+                            <div class="code-line">
+                                <span class="command">  ghcr.io/abdullahainun/tenangdb:latest backup</span>
                             </div>
                         </div>
                     </div>
