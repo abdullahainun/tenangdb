@@ -1,0 +1,130 @@
+name: Documentation
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - '**.md'
+      - 'docs/**'
+      - '**.yaml'
+      - '**.yml'
+      - 'config.yaml.example'
+      - 'docker-compose.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - '**.md'
+      - 'docs/**'
+      - '**.yaml'
+      - '**.yml'
+      - 'config.yaml.example'
+      - 'docker-compose.yml'
+
+jobs:
+  validate-docs:
+    name: Validate Documentation
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Validate README.md
+      run: |
+        echo "🔍 Validating README.md..."
+        
+        # Check if README.md exists
+        if [ ! -f "README.md" ]; then
+          echo "❌ README.md not found"
+          exit 1
+        fi
+        
+        # Check if README.md contains required sections
+        required_sections=("Quick Start" "Config" "Features" "Commands")
+        for section in "${required_sections[@]}"; do
+          if ! grep -q "## .*$section" README.md; then
+            echo "❌ Missing section: $section"
+            exit 1
+          fi
+        done
+        
+        echo "✅ README.md validation passed"
+    
+    - name: Validate YAML files
+      run: |
+        echo "🔍 Validating YAML files..."
+        
+        # Install yamllint
+        pip install yamllint
+        
+        # Check config.yaml.example
+        if [ -f "config.yaml.example" ]; then
+          yamllint config.yaml.example
+          echo "✅ config.yaml.example is valid"
+        fi
+        
+        # Check docker-compose.yml
+        if [ -f "docker-compose.yml" ]; then
+          yamllint docker-compose.yml
+          echo "✅ docker-compose.yml is valid"
+        fi
+        
+        # Check other YAML files
+        find . -name "*.yml" -o -name "*.yaml" | grep -v .github | while read file; do
+          if [ -f "$file" ]; then
+            yamllint "$file"
+            echo "✅ $file is valid"
+          fi
+        done
+        
+        echo "✅ All YAML files are valid"
+    
+    - name: Check documentation links
+      run: |
+        echo "🔍 Checking documentation links..."
+        
+        # Check if referenced documentation files exist
+        docs_files=("INSTALL.md" "DOCKER.md" "MYSQL_USER_SETUP.md" "PRODUCTION_DEPLOYMENT.md")
+        for doc in "${docs_files[@]}"; do
+          if grep -q "$doc" README.md; then
+            if [ ! -f "$doc" ]; then
+              echo "⚠️  Referenced but missing: $doc"
+            else
+              echo "✅ Found: $doc"
+            fi
+          fi
+        done
+        
+        echo "✅ Documentation links check completed"
+    
+    - name: Validate Docker Compose
+      if: hashFiles('docker-compose.yml') != ''
+      run: |
+        echo "🔍 Validating Docker Compose..."
+        
+        # Validate docker-compose.yml syntax
+        docker-compose config > /dev/null
+        echo "✅ Docker Compose syntax is valid"
+        
+        # Check if required services are defined
+        if ! docker-compose config | grep -q "tenangdb"; then
+          echo "⚠️  No tenangdb service found in docker-compose.yml"
+        else
+          echo "✅ tenangdb service found"
+        fi
+        
+        echo "✅ Docker Compose validation completed"
+
+  status-check:
+    name: Documentation Status Check
+    runs-on: ubuntu-latest
+    needs: [validate-docs]
+    if: always()
+    steps:
+    - name: Check validation results
+      run: |
+        if [ "${{ needs.validate-docs.result }}" != "success" ]; then
+          echo "❌ Documentation validation failed: ${{ needs.validate-docs.result }}"
+          exit 1
+        fi
+        echo "✅ All documentation checks passed!"
