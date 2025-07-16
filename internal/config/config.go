@@ -33,16 +33,26 @@ type DatabaseConfig struct {
 }
 
 type BackupConfig struct {
-	Directory             string        `mapstructure:"directory"`
-	Databases             []string      `mapstructure:"databases"`
-	BatchSize             int           `mapstructure:"batch_size"`
-	Concurrency           int           `mapstructure:"concurrency"`
-	Timeout               time.Duration `mapstructure:"timeout"`
-	RetryCount            int           `mapstructure:"retry_count"`
-	RetryDelay            time.Duration `mapstructure:"retry_delay"`
-	CheckLastBackupTime   bool          `mapstructure:"check_last_backup_time"`
-	MinBackupInterval     time.Duration `mapstructure:"min_backup_interval"`
-	SkipConfirmation      bool          `mapstructure:"skip_confirmation"`
+	Directory             string           `mapstructure:"directory"`
+	Databases             []string         `mapstructure:"databases"`
+	BatchSize             int              `mapstructure:"batch_size"`
+	Concurrency           int              `mapstructure:"concurrency"`
+	Timeout               time.Duration    `mapstructure:"timeout"`
+	RetryCount            int              `mapstructure:"retry_count"`
+	RetryDelay            time.Duration    `mapstructure:"retry_delay"`
+	CheckLastBackupTime   bool             `mapstructure:"check_last_backup_time"`
+	MinBackupInterval     time.Duration    `mapstructure:"min_backup_interval"`
+	SkipConfirmation      bool             `mapstructure:"skip_confirmation"`
+	Compression           CompressionConfig `mapstructure:"compression"`
+}
+
+// CompressionConfig controls backup compression settings
+type CompressionConfig struct {
+	Enabled       bool   `mapstructure:"enabled"`
+	Format        string `mapstructure:"format"`         // "tar.gz", "tar.zst", "tar.xz"
+	Level         int    `mapstructure:"level"`          // 1-9 compression level
+	KeepOriginal  bool   `mapstructure:"keep_original"`  // Keep uncompressed backup locally
+	CompressUpload bool  `mapstructure:"compress_upload"` // Only compress for upload
 }
 
 // MydumperConfig supports cross-platform mydumper versions with automatic parameter detection
@@ -381,6 +391,13 @@ func setDefaults() {
 	viper.SetDefault("backup.check_last_backup_time", true)
 	viper.SetDefault("backup.min_backup_interval", "1h")
 	viper.SetDefault("backup.skip_confirmation", false)
+	
+	// Compression defaults
+	viper.SetDefault("backup.compression.enabled", false)
+	viper.SetDefault("backup.compression.format", "tar.gz")
+	viper.SetDefault("backup.compression.level", 6)
+	viper.SetDefault("backup.compression.keep_original", true)
+	viper.SetDefault("backup.compression.compress_upload", true)
 
 	// Platform-specific binary paths and directories
 	if runtime.GOOS == "darwin" {

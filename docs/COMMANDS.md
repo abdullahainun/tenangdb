@@ -89,6 +89,41 @@ Do you want to proceed with backup? [y/N]:
 
 ## 🚀 Restore Command
 
+### Confirmation Feature
+
+TenangDB restore command includes a critical safety confirmation to prevent accidental database overwrites:
+
+```
+⚠️  Database Restore Warning
+===========================
+
+🎯 Target database: production_db
+📂 Backup source: /backup/prod-2025-01-10_10-30-15/
+📅 Backup date: 2025-01-10 10:30:15
+📊 Backup size: 125.3 MB
+
+🔴 **DANGER ZONE** 🔴
+⚠️  WARNING: Database 'production_db' already exists!
+⚠️  This operation will COMPLETELY OVERWRITE the existing database!
+⚠️  ALL existing data in 'production_db' will be PERMANENTLY LOST!
+⚠️  This action CANNOT be undone!
+
+💡 Recommendation: Create a backup of the existing database first
+   tenangdb backup --databases production_db
+
+Are you ABSOLUTELY SURE you want to OVERWRITE database 'production_db'? [y/N]: 
+```
+
+**For new databases:**
+```
+✅ Database 'new_db' does not exist - will be created
+Do you want to create and restore database 'new_db'? [y/N]: 
+```
+
+**Skip confirmation:**
+- `--yes` or `-y`: Skip confirmation prompts (for automated mode)
+- Essential for restore scripts and automation
+
 ### Basic Usage
 ```bash
 # Restore database from backup
@@ -106,6 +141,7 @@ Do you want to proceed with backup? [y/N]:
 | `--config` | Path to configuration file | ❌ |
 | `--log-level` | Log level | ❌ |
 | `--dry-run` | Preview actions without executing | ❌ |
+| `--yes, -y` | Skip confirmation prompts (for automated mode) | ❌ |
 
 ### Examples
 ```bash
@@ -115,9 +151,42 @@ Do you want to proceed with backup? [y/N]:
 # Restore from cloud backup (download first)
 rclone copy minio:backups/db-2025-07-05_10-30-15 /tmp/restore/
 ./tenangdb restore --backup-path /tmp/restore/db-2025-07-05_10-30-15 --target-database restored_db
+
+# Automated restore (skip confirmation)
+./tenangdb restore --backup-path /backup/db-2025-07-05_10-30-15 --target-database restored_db --yes
+
+# Restore from compressed backup (auto-decompression)
+./tenangdb restore --backup-path /backup/db-2025-07-05_10-30-15.tar.gz --target-database restored_db
 ```
 
 ## 🧹 Cleanup Command
+
+### Confirmation Feature
+
+TenangDB cleanup command includes a safety confirmation prompt to prevent accidental file deletion:
+
+```
+📋 Cleanup Summary
+=================
+
+🗂️ Files to delete:
+  1. /backups/app_db-2025-01-10_10-30-15/ (45.2 MB)
+  2. /backups/logs_db-2025-01-09_10-30-15/ (128.7 MB)
+  3. /backups/user_db-2025-01-08_10-30-15/ (23.1 MB)
+
+📁 Total files: 3
+📊 Total space to free: 196.9 MB
+⏰ Max age: 7 days
+
+⚠️  WARNING: This action cannot be undone!
+⚠️  Deleted backup files cannot be recovered!
+
+Do you want to proceed with cleanup? [y/N]: 
+```
+
+**Skip confirmation:**
+- `--yes` or `-y`: Skip confirmation prompts (for automated/cron jobs)
+- Useful for scheduled cleanup operations
 
 ### Basic Usage
 ```bash
@@ -140,6 +209,7 @@ rclone copy minio:backups/db-2025-07-05_10-30-15 /tmp/restore/
 | `--databases` | Comma-separated list of databases to clean | All from config |
 | `--max-age-days` | Override max age from config | From config |
 | `--log-level` | Log level | `info` |
+| `--yes, -y` | Skip confirmation prompts (for automated mode) | `false` |
 
 ### Examples
 ```bash
@@ -154,6 +224,9 @@ rclone copy minio:backups/db-2025-07-05_10-30-15 /tmp/restore/
 
 # Force cleanup with debug logging
 ./tenangdb cleanup --force --log-level debug --config config.yaml
+
+# Skip confirmation prompts for automated mode
+./tenangdb cleanup --yes --force --config config.yaml
 ```
 
 ## 📊 Version & Help

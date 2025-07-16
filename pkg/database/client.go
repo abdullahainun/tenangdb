@@ -11,7 +11,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/abdullahainun/tenangdb/internal/compression"
 	"github.com/abdullahainun/tenangdb/internal/config"
+	"github.com/abdullahainun/tenangdb/internal/logger"
 
 	_ "github.com/go-sql-driver/mysql"
 )
@@ -290,18 +292,59 @@ func (c *Client) CreateDirectory(path string) error {
 }
 
 func (c *Client) RestoreBackup(ctx context.Context, backupPath, dbName string) error {
+	// Create a temporary logger for compression operations
+	log := logger.NewLogger("info")
+	
+	// Auto-decompress if needed
+	finalBackupPath := backupPath
+	var cleanupPath string
+	
+	if c.isCompressedBackup(backupPath) {
+		log.WithField("backup", backupPath).Info("🗜️ Decompressing backup for restore")
+		
+		// Create compressor for decompression
+		compressionConfig := &config.CompressionConfig{
+			Enabled: true,
+			Format:  "tar.gz",
+			Level:   6,
+		}
+		compressor := compression.NewCompressor(compressionConfig, log)
+		
+		// Decompress backup
+		decompressedPath, err := compressor.DecompressBackup(backupPath)
+		if err != nil {
+			return fmt.Errorf("failed to decompress backup: %w", err)
+		}
+		
+		finalBackupPath = decompressedPath
+		cleanupPath = decompressedPath // Will be cleaned up after restore
+		
+		log.WithField("decompressed_path", decompressedPath).Info("✅ Backup decompressed successfully")
+	}
+	
+	// Ensure cleanup happens after restore
+	if cleanupPath != "" {
+		defer func() {
+			if err := os.RemoveAll(cleanupPath); err != nil {
+				log.WithError(err).Warn("Failed to cleanup decompressed backup")
+			} else {
+				log.WithField("path", cleanupPath).Info("🗑️ Cleaned up decompressed backup")
+			}
+		}()
+	}
+	
 	// Check if myloader is enabled and backup is from mydumper
 	if c.config.Mydumper != nil && c.config.Mydumper.Enabled &&
 		c.config.Mydumper.Myloader != nil && c.config.Mydumper.Myloader.Enabled {
 
 		// Check if backup path is a directory (mydumper backup)
-		if info, err := os.Stat(backupPath); err == nil && info.IsDir() {
-			return c.restoreWithMyloader(ctx, backupPath, dbName)
+		if info, err := os.Stat(finalBackupPath); err == nil && info.IsDir() {
+			return c.restoreWithMyloader(ctx, finalBackupPath, dbName)
 		}
 	}
 
 	// Fallback to mysql restore for .sql files
-	return c.restoreWithMysql(ctx, backupPath, dbName)
+	return c.restoreWithMysql(ctx, finalBackupPath, dbName)
 }
 
 func (c *Client) restoreWithMyloader(ctx context.Context, backupDir, dbName string) error {
@@ -427,6 +470,36 @@ func (c *Client) Close() error {
 	return nil
 }
 
+// ListDatabases returns a list of database names
+func (c *Client) ListDatabases(ctx context.Context) ([]string, error) {
+	query := "SHOW DATABASES"
+	rows, err := c.db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute SHOW DATABASES: %w", err)
+	}
+	defer rows.Close()
+	
+	var databases []string
+	for rows.Next() {
+		var dbName string
+		if err := rows.Scan(&dbName); err != nil {
+			return nil, fmt.Errorf("failed to scan database name: %w", err)
+		}
+		
+		// Skip system databases
+		if dbName != "information_schema" && dbName != "performance_schema" && 
+		   dbName != "mysql" && dbName != "sys" {
+			databases = append(databases, dbName)
+		}
+	}
+	
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating over database results: %w", err)
+	}
+	
+	return databases, nil
+}
+
 // isCommonWarning checks if a stderr line is a common warning that can be safely ignored
 func isCommonWarning(line string) bool {
 	commonWarnings := []string{
@@ -442,4 +515,13 @@ func isCommonWarning(line string) bool {
 		}
 	}
 	return false
+}
+
+// isCompressedBackup checks if backup is compressed
+func (c *Client) isCompressedBackup(backupPath string) bool {
+	ext := strings.ToLower(filepath.Ext(backupPath))
+	return ext == ".gz" || ext == ".zst" || ext == ".xz" || 
+		   strings.HasSuffix(strings.ToLower(backupPath), ".tar.gz") ||
+		   strings.HasSuffix(strings.ToLower(backupPath), ".tar.zst") ||
+		   strings.HasSuffix(strings.ToLower(backupPath), ".tar.xz")
 }

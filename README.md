@@ -57,6 +57,12 @@ backup:
     - your_database1
     - your_database2
   skip_confirmation: false  # Set to true for automated mode
+  compression:
+    enabled: true           # Enable backup compression
+    format: "tar.gz"        # Compression format: tar.gz, tar.zst, tar.xz
+    level: 6                # Compression level 1-9
+    keep_original: true     # Keep uncompressed backup locally
+    compress_upload: true   # Compress before upload to cloud
 
 # Optional: Cloud upload
 upload:
