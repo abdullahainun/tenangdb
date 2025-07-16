@@ -3,9 +3,12 @@
 ## 🐳 Docker Installation (Recommended)
 
 ```bash
-# Pull and run
+# Setup (one-time)
 docker pull ghcr.io/abdullahainun/tenangdb:latest
-docker run -v $(pwd)/config.yaml:/config.yaml ghcr.io/abdullahainun/tenangdb:latest backup
+mkdir -p backups && sudo chown $(id -u):$(id -g) backups
+
+# Run backup
+docker run --user $(id -u):$(id -g) -v $(pwd)/config.yaml:/config.yaml -v $(pwd)/backups:/backups ghcr.io/abdullahainun/tenangdb:latest backup
 
 # Or use docker-compose
 curl -L https://go.ainun.cloud/tenangdb-docker-compose.yml -o docker-compose.yml

@@ -19,18 +19,20 @@ COPY . .
 # Build the application with static linking
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -ldflags '-extldflags "-static"' -o tenangdb cmd/main.go
 
-# Runtime stage with mydumper
-FROM mydumper/mydumper:latest
+# Runtime stage - use stable Ubuntu base
+FROM ubuntu:22.04
 
-# Install additional dependencies
-RUN dnf update -y && \
-    dnf install -y --allowerasing \
-    mysql \
+# Install dependencies including mydumper
+RUN apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y \
+    mydumper \
+    mysql-client \
     ca-certificates \
     tzdata \
     unzip \
     curl \
-    && dnf clean all
+    bash \
+    && rm -rf /var/lib/apt/lists/*
 
 # Install rclone
 RUN curl -O https://downloads.rclone.org/rclone-current-linux-amd64.zip && \
@@ -46,15 +48,17 @@ COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
 # Copy the binary
 COPY --from=builder /app/tenangdb /tenangdb
 
-# Create non-root user and required directories
-RUN useradd -u 1001 -m tenangdb && \
-    mkdir -p /backups /logs /config && \
-    chown -R 1001:1001 /backups /logs /config
+# Create non-root user for security
+RUN useradd -u 1001 -m -s /bin/bash tenangdb
 
+# Create simple entrypoint script
+RUN echo '#!/bin/bash\nexec /tenangdb "$@"' > /entrypoint.sh && chmod +x /entrypoint.sh
+
+# Run as non-root by default, but can be overridden with --user
 USER 1001:1001
 
 # Expose port if needed (adjust according to your app)
 EXPOSE 8080
 
 # Set entrypoint
-ENTRYPOINT ["/tenangdb"]
+ENTRYPOINT ["/entrypoint.sh"]

@@ -10,16 +10,14 @@ TenangDB provides multi-platform Docker images via GitHub Container Registry:
 
 ## 🚀 Quick Start
 
-### Pull and Run
+### Quick Start
 ```bash
-# Pull latest image
+# Setup (one-time)
 docker pull ghcr.io/abdullahainun/tenangdb:latest
+mkdir -p backups && sudo chown $(id -u):$(id -g) backups
 
-# Basic backup
-docker run --rm -v $(pwd)/config.yaml:/config.yaml ghcr.io/abdullahainun/tenangdb:latest backup
-
-# Interactive mode
-docker run --rm -it -v $(pwd)/config.yaml:/config.yaml ghcr.io/abdullahainun/tenangdb:latest --help
+# Run backup
+docker run --rm --user $(id -u):$(id -g) -v $(pwd)/config.yaml:/config.yaml -v $(pwd)/backups:/backups ghcr.io/abdullahainun/tenangdb:latest backup
 ```
 
 ### Using Docker Compose
@@ -194,8 +192,8 @@ docker run --rm \
 
 **1. Permission Denied**
 ```bash
-# Fix volume permissions
-sudo chown -R 1001:1001 ./backups ./logs
+# Fix: Setup permissions first
+mkdir -p backups && sudo chown $(id -u):$(id -g) backups
 ```
 
 **2. Config Not Found**
