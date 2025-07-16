@@ -362,19 +362,21 @@ func runCleanup(configFile, logLevel string, dryRun bool, force bool, databases 
 		os.Exit(1)
 	}
 
-	// Perform age-based cleanup if enabled
-	if cfg.Cleanup.AgeBasedCleanup {
-		cleanupService := backup.NewCleanupService(&cfg.Cleanup, &cfg.Upload, log)
-		if err := cleanupService.CleanupAgeBasedFiles(ctx, cfg.Backup.Directory, selectedDatabases); err != nil {
-			log.WithError(err).Error("Age-based cleanup failed")
-			cleanupDuration := time.Since(cleanupStartTime)
-			if cfg.Metrics.Enabled && metricsStorage != nil {
-				if err := metricsStorage.UpdateCleanupMetrics(cleanupDuration, false, totalFilesRemoved, totalBytesFreed); err != nil {
-					log.WithError(err).Warn("Failed to update cleanup metrics")
-				}
+	// Perform age-based cleanup (always enabled for cleanup command)
+	maxAgeDays := cfg.Cleanup.MaxAgeDays
+	if maxAgeDays == 0 {
+		maxAgeDays = 7 // Safe default: 7 days
+	}
+	
+	if err := cleanupOldBackupFiles(cfg.Backup.Directory, selectedDatabases, maxAgeDays, log); err != nil {
+		log.WithError(err).Error("Age-based cleanup failed")
+		cleanupDuration := time.Since(cleanupStartTime)
+		if cfg.Metrics.Enabled && metricsStorage != nil {
+			if err := metricsStorage.UpdateCleanupMetrics(cleanupDuration, false, totalFilesRemoved, totalBytesFreed); err != nil {
+				log.WithError(err).Warn("Failed to update cleanup metrics")
 			}
-			os.Exit(1)
 		}
+		os.Exit(1)
 	}
 
 	// Record successful cleanup
@@ -866,67 +868,61 @@ func showCleanupConfirmation(backupService *backup.Service, cleanupCfg *config.C
 	fmt.Printf("\n📋 Cleanup Summary\n")
 	fmt.Printf("=================\n\n")
 	
-	// Get files to cleanup
-	uploadedFiles := backupService.GetUploadedFiles()
-	var filesToCleanup []string
-	var totalSize int64
-	
-	// Check uploaded files
-	for filePath, uploadTime := range uploadedFiles {
-		if time.Since(uploadTime) >= time.Hour {
-			if shouldCleanupFile(filePath, selectedDatabases) {
-				filesToCleanup = append(filesToCleanup, filePath)
-				if fileInfo, err := os.Stat(filePath); err == nil {
-					totalSize += fileInfo.Size()
-				}
-			}
-		}
+	// Set safe defaults for cleanup command
+	maxAgeDays := cleanupCfg.MaxAgeDays
+	if maxAgeDays == 0 {
+		maxAgeDays = 7 // Safe default: 7 days
 	}
 	
-	// Check age-based cleanup files if enabled
-	var ageBasedFiles []string
-	if cleanupCfg.AgeBasedCleanup {
-		cleanupService := backup.NewCleanupService(cleanupCfg, &config.UploadConfig{}, log)
-		if oldFiles, err := cleanupService.GetOldFiles(backupDir, cleanupCfg.MaxAgeDays); err == nil {
-			for _, file := range oldFiles {
-				if shouldCleanupFile(file, selectedDatabases) {
-					ageBasedFiles = append(ageBasedFiles, file)
-					if fileInfo, err := os.Stat(file); err == nil {
-						totalSize += fileInfo.Size()
-					}
-				}
-			}
-		}
-	}
+	// Get all backup files in directory
+	allBackupFiles := getBackupFiles(backupDir, selectedDatabases)
 	
-	// Display files to cleanup
-	allFilesToCleanup := append(filesToCleanup, ageBasedFiles...)
-	
-	if len(allFilesToCleanup) == 0 {
-		fmt.Printf("✅ No files to cleanup\n")
+	if len(allBackupFiles) == 0 {
+		fmt.Printf("✅ No backup files found in %s\n", backupDir)
 		return false
 	}
 	
-	fmt.Printf("🗂️ Files to delete:\n")
-	for i, file := range allFilesToCleanup {
-		if i >= 10 {
-			fmt.Printf("   ... and %d more files\n", len(allFilesToCleanup)-10)
+	// Categorize files by age
+	var filesToKeep []BackupFileInfo
+	var filesToDelete []BackupFileInfo
+	var totalSizeToDelete int64
+	
+	for _, fileInfo := range allBackupFiles {
+		ageDays := int(time.Since(fileInfo.ModTime).Hours() / 24)
+		
+		if ageDays >= maxAgeDays {
+			filesToDelete = append(filesToDelete, fileInfo)
+			totalSizeToDelete += fileInfo.Size
+		} else {
+			filesToKeep = append(filesToKeep, fileInfo)
+		}
+	}
+	
+	// Display all files with age info
+	fmt.Printf("📁 Backup files found:\n")
+	for i, fileInfo := range allBackupFiles {
+		if i >= 15 { // Show max 15 files
+			fmt.Printf("   ... and %d more files\n", len(allBackupFiles)-15)
 			break
 		}
 		
-		size := "unknown size"
-		if fileInfo, err := os.Stat(file); err == nil {
-			size = formatFileSize(fileInfo.Size())
+		ageDays := int(time.Since(fileInfo.ModTime).Hours() / 24)
+		status := "✅ Keep"
+		if ageDays >= maxAgeDays {
+			status = "⚠️  Will delete"
 		}
 		
-		fmt.Printf("  %d. %s (%s)\n", i+1, file, size)
+		fmt.Printf("  %d. %s (%d days old, %s) %s\n", 
+			i+1, fileInfo.Name, ageDays, formatFileSize(fileInfo.Size), status)
 	}
 	
-	fmt.Printf("\n📁 Total files: %d\n", len(allFilesToCleanup))
-	fmt.Printf("📊 Total space to free: %s\n", formatFileSize(totalSize))
+	fmt.Printf("\n📊 Files to delete: %d (%d+ days old)\n", len(filesToDelete), maxAgeDays)
+	fmt.Printf("📊 Total space to free: %s\n", formatFileSize(totalSizeToDelete))
+	fmt.Printf("⏰ Age threshold: %d days (configurable)\n", maxAgeDays)
 	
-	if cleanupCfg.AgeBasedCleanup {
-		fmt.Printf("⏰ Max age: %d days\n", cleanupCfg.MaxAgeDays)
+	if len(filesToDelete) == 0 {
+		fmt.Printf("\n✅ No files old enough to cleanup (all files are < %d days old)\n", maxAgeDays)
+		return false
 	}
 	
 	fmt.Printf("\n⚠️  WARNING: This action cannot be undone!\n")
@@ -942,6 +938,92 @@ func showCleanupConfirmation(backupService *backup.Service, cleanupCfg *config.C
 	}
 	
 	return false
+}
+
+// BackupFileInfo holds information about a backup file
+type BackupFileInfo struct {
+	Name    string
+	Path    string
+	Size    int64
+	ModTime time.Time
+}
+
+// getBackupFiles scans backup directory and returns backup file information
+func getBackupFiles(backupDir string, selectedDatabases []string) []BackupFileInfo {
+	var backupFiles []BackupFileInfo
+	
+	// Read backup directory
+	entries, err := os.ReadDir(backupDir)
+	if err != nil {
+		return backupFiles
+	}
+	
+	for _, entry := range entries {
+		// Skip non-directories and non-backup files
+		if !entry.IsDir() && !strings.HasSuffix(entry.Name(), ".tar.gz") && 
+		   !strings.HasSuffix(entry.Name(), ".tar.zst") && 
+		   !strings.HasSuffix(entry.Name(), ".tar.xz") {
+			continue
+		}
+		
+		// Check if file should be included based on database filter
+		if len(selectedDatabases) > 0 && !shouldCleanupFile(entry.Name(), selectedDatabases) {
+			continue
+		}
+		
+		// Get file info
+		fullPath := filepath.Join(backupDir, entry.Name())
+		info, err := os.Stat(fullPath)
+		if err != nil {
+			continue
+		}
+		
+		// Calculate size (for directories, get total size)
+		var size int64
+		if info.IsDir() {
+			size, _ = getDirSize(fullPath)
+		} else {
+			size = info.Size()
+		}
+		
+		backupFiles = append(backupFiles, BackupFileInfo{
+			Name:    entry.Name(),
+			Path:    fullPath,
+			Size:    size,
+			ModTime: info.ModTime(),
+		})
+	}
+	
+	return backupFiles
+}
+
+// cleanupOldBackupFiles removes backup files older than specified days
+func cleanupOldBackupFiles(backupDir string, selectedDatabases []string, maxAgeDays int, log *logger.Logger) error {
+	// Get all backup files
+	allBackupFiles := getBackupFiles(backupDir, selectedDatabases)
+	
+	var filesToDelete []BackupFileInfo
+	for _, fileInfo := range allBackupFiles {
+		ageDays := int(time.Since(fileInfo.ModTime).Hours() / 24)
+		if ageDays >= maxAgeDays {
+			filesToDelete = append(filesToDelete, fileInfo)
+		}
+	}
+	
+	// Delete old files
+	for _, fileInfo := range filesToDelete {
+		log.WithField("file", fileInfo.Name).
+			WithField("age_days", int(time.Since(fileInfo.ModTime).Hours()/24)).
+			Info("🗑️ Deleting old backup file")
+		
+		if err := os.RemoveAll(fileInfo.Path); err != nil {
+			log.WithError(err).WithField("file", fileInfo.Path).Error("Failed to delete backup file")
+			return fmt.Errorf("failed to delete %s: %w", fileInfo.Path, err)
+		}
+	}
+	
+	log.WithField("deleted_files", len(filesToDelete)).Info("✅ Age-based cleanup completed")
+	return nil
 }
 
 // formatFileSize formats file size in human readable format
