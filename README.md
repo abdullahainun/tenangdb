@@ -4,6 +4,12 @@
 
 *Zero-configuration backup system with smart confirmations and cloud integration.*
 
+## 🎬 Live Demo
+
+[![TenangDB Demo](https://asciinema.org/a/728588.svg)](https://asciinema.org/a/728588)
+
+*Note: The "analytics" database backup error in the demo is expected - it shows how TenangDB handles insufficient privileges gracefully while continuing with other databases.*
+
 ## ⚡ Quick Start
 
 ```bash
@@ -95,8 +101,8 @@ upload:
   enabled: true
   destination: "your-remote:database-backups"
 
-# Production deployment
-docker-compose up -d  # See docker-compose.yml
+# Production deployment with MySQL demo
+docker-compose up -d  # Includes MySQL 8.0 + TenangDB
 
 # MySQL user setup (MySQL 8.0+)
 CREATE USER 'tenangdb'@'%' IDENTIFIED BY 'secure_password';
