@@ -1,0 +1,86 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: tenangdb
+  namespace: tenangdb
+  labels:
+    app: tenangdb
+
+---
+# ClusterRole for TenangDB (if needed for cluster-wide monitoring)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: tenangdb-cluster-role
+  labels:
+    app: tenangdb
+rules:
+  # Allow reading cluster information (optional, for monitoring)
+  - apiGroups: [""]
+    resources: ["nodes", "pods", "services"]
+    verbs: ["get", "list", "watch"]
+  
+  # Allow reading metrics (optional, for Prometheus integration)
+  - apiGroups: ["metrics.k8s.io"]
+    resources: ["nodes", "pods"]
+    verbs: ["get", "list"]
+
+---
+# Role for namespace-specific permissions
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: tenangdb-role
+  namespace: tenangdb
+  labels:
+    app: tenangdb
+rules:
+  # Allow managing own resources
+  - apiGroups: [""]
+    resources: ["pods", "pods/log", "configmaps", "secrets"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+  
+  # Allow managing persistent volumes
+  - apiGroups: [""]
+    resources: ["persistentvolumeclaims"]
+    verbs: ["get", "list", "watch"]
+  
+  # Allow managing jobs (for manual backup jobs)
+  - apiGroups: ["batch"]
+    resources: ["jobs", "cronjobs"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+
+---
+# ClusterRoleBinding (optional, only if cluster-wide access is needed)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: tenangdb-cluster-binding
+  labels:
+    app: tenangdb
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: tenangdb-cluster-role
+subjects:
+  - kind: ServiceAccount
+    name: tenangdb
+    namespace: tenangdb
+
+---
+# RoleBinding for namespace permissions
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: tenangdb-binding
+  namespace: tenangdb
+  labels:
+    app: tenangdb
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: tenangdb-role
+subjects:
+  - kind: ServiceAccount
+    name: tenangdb
+    namespace: tenangdb
