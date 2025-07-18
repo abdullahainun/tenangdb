@@ -1,0 +1,196 @@
+version: '3.8'
+
+services:
+  # TenangDB Backup Service - Scheduled backup job
+  tenangdb-backup:
+    image: ghcr.io/abdullahainun/tenangdb:latest
+    container_name: tenangdb-backup
+    restart: unless-stopped
+    command: ["backup", "--yes"]  # Auto-confirm for cron mode
+    volumes:
+      - ./config.yaml:/config.yaml:ro
+      - ./backups:/backups
+      - ./logs:/var/log/tenangdb
+      - tenangdb-tracking:/tmp/tenangdb  # Critical: for frequency tracking
+    environment:
+      - TZ=Asia/Jakarta
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      - RCLONE_CONFIG_PATH=/etc/rclone/rclone.conf
+    profiles:
+      - backup
+    healthcheck:
+      test: ["CMD", "/app/tenangdb", "version"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+
+  # TenangDB Metrics Exporter - Continuous metrics server
+  tenangdb-exporter:
+    image: ghcr.io/abdullahainun/tenangdb:latest
+    container_name: tenangdb-exporter
+    restart: unless-stopped
+    command: ["exporter", "--port", "9090"]
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./config.yaml:/config.yaml:ro
+      - ./logs:/var/log/tenangdb
+      - tenangdb-tracking:/tmp/tenangdb  # Share tracking data with backup
+      - tenangdb-metrics:/var/lib/tenangdb  # Metrics storage
+    environment:
+      - TZ=Asia/Jakarta
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9090/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
+
+  # Optional: Cron scheduler for backup service
+  tenangdb-scheduler:
+    image: ghcr.io/abdullahainun/tenangdb:latest
+    container_name: tenangdb-scheduler
+    restart: unless-stopped
+    entrypoint: ["/bin/sh"]
+    command: 
+      - -c
+      - |
+        # Install cron if not present
+        if ! command -v cron >/dev/null 2>&1; then
+          echo "Installing cron..."
+          apt-get update && apt-get install -y cron
+        fi
+        
+        # Create cron job for backup
+        echo "0 2 * * * /app/tenangdb backup --config /config.yaml --yes >> /var/log/tenangdb/cron.log 2>&1" > /etc/cron.d/tenangdb-backup
+        chmod 0644 /etc/cron.d/tenangdb-backup
+        crontab /etc/cron.d/tenangdb-backup
+        
+        # Start cron in foreground
+        echo "Starting cron scheduler..."
+        cron -f
+    volumes:
+      - ./config.yaml:/config.yaml:ro
+      - ./backups:/backups
+      - ./logs:/var/log/tenangdb
+      - tenangdb-tracking:/tmp/tenangdb
+    environment:
+      - TZ=Asia/Jakarta
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+    profiles:
+      - scheduler
+    deploy:
+      resources:
+        limits:
+          cpus: '0.1'
+          memory: 128M
+
+  # Optional: MySQL service for testing
+  mysql:
+    image: mysql:8.0
+    container_name: tenangdb-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpass}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-testdb}
+      MYSQL_USER: ${MYSQL_USER:-backup-user}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-secure-password}
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./mysql-init:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "3306:3306"
+    profiles:
+      - mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+
+  # Optional: Grafana for monitoring
+  grafana:
+    image: grafana/grafana:latest
+    container_name: tenangdb-grafana
+    restart: unless-stopped
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "3000:3000"
+    depends_on:
+      - tenangdb-exporter
+    profiles:
+      - monitoring
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+  # Optional: Prometheus for metrics collection
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: tenangdb-prometheus
+    restart: unless-stopped
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "9091:9090"
+    depends_on:
+      - tenangdb-exporter
+    profiles:
+      - monitoring
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+volumes:
+  mysql_data:
+    driver: local
+  grafana_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  tenangdb-tracking:
+    driver: local
+  tenangdb-metrics:
+    driver: local

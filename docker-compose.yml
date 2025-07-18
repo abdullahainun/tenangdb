@@ -1,8 +1,8 @@
 version: '3.8'
 
 services:
+  # TenangDB - Development/Testing mode
   tenangdb:
-    # Use GitHub Container Registry image
     image: ghcr.io/abdullahainun/tenangdb:latest
     # Or build locally:
     # build:
@@ -10,13 +10,17 @@ services:
     #   dockerfile: Dockerfile
     container_name: tenangdb
     restart: unless-stopped
+    # Default command for development/testing
+    command: ["backup", "--dry-run"]
     volumes:
       # Mount config file
       - ./config.yaml:/config.yaml:ro
       # Mount backup destination
       - ./backups:/backups
       # Mount logs directory
-      - ./logs:/logs
+      - ./logs:/var/log/tenangdb
+      # Critical: Mount tracking directory for frequency checking
+      - tenangdb-tracking:/tmp/tenangdb
     environment:
       - TZ=Asia/Jakarta
     # Uncomment if your app needs network access
@@ -25,9 +29,9 @@ services:
     # ports:
     #   - "8080:8080"
     
-    # Health check example
+    # Health check
     healthcheck:
-      test: ["CMD", "/tenangdb", "version"]
+      test: ["CMD", "/app/tenangdb", "version"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -43,7 +47,7 @@ services:
           cpus: '0.25'
           memory: 128M
 
-  # Optional: Add MySQL service for testing
+  # Optional: MySQL service for testing
   mysql:
     image: mysql:8.0
     container_name: tenangdb-mysql
@@ -68,4 +72,6 @@ services:
 
 volumes:
   mysql_data:
+    driver: local
+  tenangdb-tracking:
     driver: local
