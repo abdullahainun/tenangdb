@@ -35,7 +35,9 @@
                 </div>
             </div>
             <div class="nav-links">
+                <a href="#demo" class="nav-link">Live Demo</a>
                 <a href="#features" class="nav-link">Features</a>
+                <a href="#monitoring" class="nav-link">Monitoring</a>
                 <a href="#get-started" class="nav-link">Quick Start</a>
                 <a href="https://github.com/abdullahainun/tenangdb" class="nav-link" target="_blank">GitHub</a>
                 <a href="#get-started" class="btn btn-primary">Get Started</a>
@@ -59,8 +61,44 @@
                     <span class="gradient-text">Backup yang Bikin Tenang</span>
                 </h1>
                 <p class="hero-subtitle">
-                    Automated MySQL backup solution. Simple Docker deployment, instant restore, cloud storage support.
+                    Automated MySQL backup solution with intelligent automation, smart confirmations, and seamless cloud integration. Deploy in seconds with Docker.
                 </p>
+                <div class="hero-features">
+                    <div class="feature-item">
+                        <span class="feature-icon">🐳</span>
+                        <span>Docker Ready</span>
+                    </div>
+                    <div class="feature-item">
+                        <span class="feature-icon">⚡</span>
+                        <span>Fast Parallel</span>
+                    </div>
+                    <div class="feature-item">
+                        <span class="feature-icon">☁️</span>
+                        <span>Cloud Upload</span>
+                    </div>
+                    <div class="feature-item">
+                        <span class="feature-icon">🔧</span>
+                        <span>Zero Config</span>
+                    </div>
+                    <div class="feature-item">
+                        <span class="feature-icon">🛡️</span>
+                        <span>Smart Safety</span>
+                    </div>
+                </div>
+                <div class="hero-stats">
+                    <div class="stat-item">
+                        <span class="stat-number">40+</span>
+                        <span class="stat-label">Cloud Providers</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-number">Zero</span>
+                        <span class="stat-label">Configuration</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-number">MIT</span>
+                        <span class="stat-label">License</span>
+                    </div>
+                </div>
                 <div class="hero-actions">
                     <a href="#get-started" class="btn btn-primary btn-large">
                         <span>Get Started</span>
@@ -72,46 +110,36 @@
                     </a>
                 </div>
             </div>
-            <div class="hero-visual">
-                <div class="terminal-window">
-                    <div class="terminal-header">
-                        <div class="terminal-controls">
-                            <span class="control red"></span>
-                            <span class="control yellow"></span>
-                            <span class="control green"></span>
-                        </div>
-                        <div class="terminal-title">TenangDB</div>
+        </div>
+    </section>
+
+    <!-- Live Demo Section -->
+    <section class="demo">
+        <div class="container">
+            <div class="section-header">
+                <h2>🎬 See TenangDB in Action</h2>
+                <p>Watch a real backup session with multiple databases, smart confirmations, and error handling</p>
+            </div>
+            <div class="demo-showcase">
+                <div class="asciinema-container">
+                    <script id="asciicast-728588" src="https://asciinema.org/a/728588.js" async></script>
+                </div>
+                <div class="demo-highlights">
+                    <div class="highlight-item">
+                        <span class="highlight-icon">✅</span>
+                        <span>Smart confirmations with backup summary</span>
                     </div>
-                    <div class="terminal-body">
-                        <div class="terminal-line">
-                            <span class="prompt">$</span>
-                            <span class="command">docker run ghcr.io/abdullahainun/tenangdb backup</span>
-                        </div>
-                        <div class="terminal-line">
-                            <span class="output">🚀 Starting backup process - 12 databases detected</span>
-                        </div>
-                        <div class="terminal-line">
-                            <span class="output success">✅ production_app backup completed (156 MB in 4.2s)</span>
-                        </div>
-                        <div class="terminal-line">
-                            <span class="output success">✅ user_accounts backup completed (89 MB in 2.8s)</span>
-                        </div>
-                        <div class="terminal-line">
-                            <span class="output success">✅ analytics_data backup completed (234 MB in 6.1s)</span>
-                        </div>
-                        <div class="terminal-line">
-                            <span class="output success">✅ inventory backup completed (45 MB in 1.5s)</span>
-                        </div>
-                        <div class="terminal-line">
-                            <span class="output">... 8 more databases ...</span>
-                        </div>
-                        <div class="terminal-line">
-                            <span class="output">🗂️ 12 databases backed up in 45s</span>
-                        </div>
-                        <div class="terminal-line">
-                            <span class="prompt">$</span>
-                            <span class="cursor">|</span>
-                        </div>
+                    <div class="highlight-item">
+                        <span class="highlight-icon">⚠️</span>
+                        <span>Graceful error handling for insufficient privileges</span>
+                    </div>
+                    <div class="highlight-item">
+                        <span class="highlight-icon">🔄</span>
+                        <span>Backup frequency checking prevents redundant runs</span>
+                    </div>
+                    <div class="highlight-item">
+                        <span class="highlight-icon">🚀</span>
+                        <span>Fast parallel processing with mydumper</span>
                     </div>
                 </div>
             </div>
@@ -122,28 +150,106 @@
     <section id="features" class="features">
         <div class="container">
             <div class="section-header">
-                <h2>Key Features</h2>
+                <h2>Powerful Features</h2>
+                <p>Everything you need for production-ready database backups</p>
             </div>
             <div class="features-grid">
                 <div class="feature-card">
                     <div class="feature-icon">🐳</div>
                     <h3>Docker Ready</h3>
-                    <p>Production container with mydumper included. Deploy in seconds.</p>
+                    <p>Production container with mydumper included. Deploy in seconds with persistent volume support.</p>
                 </div>
                 <div class="feature-card">
                     <div class="feature-icon">⚡</div>
-                    <h3>Fast Backups</h3>
-                    <p>Parallel processing with mydumper. Efficient backup of multiple databases.</p>
+                    <h3>Fast Parallel Backups</h3>
+                    <p>Lightning-fast parallel processing with mydumper. Backup multiple databases simultaneously.</p>
                 </div>
                 <div class="feature-card">
                     <div class="feature-icon">☁️</div>
-                    <h3>Cloud Storage</h3>
-                    <p>Upload to AWS S3, Google Cloud, Azure, or 40+ providers via rclone.</p>
+                    <h3>Multi-Cloud Support</h3>
+                    <p>Upload to AWS S3, Google Cloud, Azure, or 40+ providers via rclone integration.</p>
                 </div>
                 <div class="feature-card">
                     <div class="feature-icon">🔧</div>
-                    <h3>Zero Config</h3>
-                    <p>One YAML file. Automated scheduling. Intelligent cleanup.</p>
+                    <h3>Zero Configuration</h3>
+                    <p>One YAML file setup. Automated scheduling with cron. Intelligent cleanup policies.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🔄</div>
+                    <h3>Smart Restore</h3>
+                    <p>Restore databases to new names with confirmation prompts. Prevent accidental overwrites.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">📦</div>
+                    <h3>Compression & Encryption</h3>
+                    <p>Built-in compression support. Secure your backups with encryption before cloud upload.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">⏰</div>
+                    <h3>Frequency Control</h3>
+                    <p>Smart frequency checking prevents redundant backups. Configurable backup intervals.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🛡️</div>
+                    <h3>Production Ready</h3>
+                    <p>Graceful error handling. Privilege checking. Comprehensive logging and monitoring.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Monitoring Section -->
+    <section id="monitoring" class="monitoring">
+        <div class="container">
+            <div class="section-header">
+                <h2>📊 Production Monitoring</h2>
+                <p>Built-in Grafana dashboard for comprehensive backup monitoring and alerting</p>
+            </div>
+            <div class="monitoring-showcase">
+                <div class="dashboard-preview">
+                    <div class="dashboard-container">
+                        <img src="https://github.com/abdullahainun/tenangdb/blob/main/grafana/dashboard.png?raw=true" alt="TenangDB Grafana Dashboard" class="dashboard-image">
+                        <div class="dashboard-overlay">
+                            <div class="dashboard-info">
+                                <h3>Real-time Metrics</h3>
+                                <p>Monitor backup performance, success rates, and storage usage</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="monitoring-features">
+                    <div class="monitoring-grid">
+                        <div class="metric-card">
+                            <div class="metric-icon">📈</div>
+                            <h4>Backup Success Rate</h4>
+                            <p>Track backup success/failure rates with detailed error analysis</p>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-icon">⏱️</div>
+                            <h4>Performance Metrics</h4>
+                            <p>Monitor backup duration, compression ratios, and throughput</p>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-icon">💾</div>
+                            <h4>Storage Analytics</h4>
+                            <p>Track storage usage, retention policies, and cost optimization</p>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-icon">🔔</div>
+                            <h4>Smart Alerts</h4>
+                            <p>Proactive notifications for backup failures and anomalies</p>
+                        </div>
+                    </div>
+                    <div class="monitoring-actions">
+                        <a href="https://github.com/abdullahainun/tenangdb/blob/main/grafana/dashboard.json" class="btn btn-primary" target="_blank">
+                            <span>📊</span>
+                            <span>Download Dashboard</span>
+                        </a>
+                        <a href="https://github.com/abdullahainun/tenangdb/tree/main/grafana" class="btn btn-secondary" target="_blank">
+                            <span>📚</span>
+                            <span>Setup Guide</span>
+                        </a>
+                    </div>
                 </div>
             </div>
         </div>
@@ -195,27 +301,48 @@
         </div>
     </section>
 
-    <!-- Installation Section -->
-    <section id="installation" class="installation">
+    <!-- Production Section -->
+    <section id="production" class="installation">
         <div class="container">
             <div class="installation-content">
                 <div class="installation-text">
-                    <h2>Production</h2>
-                    <p>Schedule automated backups with cron or systemd timers.</p>
+                    <h2>Production Deployment</h2>
+                    <p>Deploy TenangDB in production with automated scheduling, monitoring, and cloud integration. Perfect for mission-critical database backup workflows.</p>
+                    <div class="installation-features">
+                        <div class="feature-highlight">
+                            <span class="feature-icon">⏰</span>
+                            <span>Automated cron scheduling</span>
+                        </div>
+                        <div class="feature-highlight">
+                            <span class="feature-icon">🔄</span>
+                            <span>Volume persistence for tracking</span>
+                        </div>
+                        <div class="feature-highlight">
+                            <span class="feature-icon">📊</span>
+                            <span>Comprehensive logging</span>
+                        </div>
+                        <div class="feature-highlight">
+                            <span class="feature-icon">🔒</span>
+                            <span>Secure credential management</span>
+                        </div>
+                    </div>
                     <div class="installation-actions">
                         <a href="https://github.com/abdullahainun/tenangdb" class="btn btn-primary" target="_blank">
                             View Documentation
+                        </a>
+                        <a href="#demo" class="btn btn-secondary">
+                            See Demo
                         </a>
                     </div>
                 </div>
                 <div class="installation-visual">
                     <div class="code-showcase">
                         <div class="code-header">
-                            <span>Cron Schedule</span>
+                            <span>Production Cron Schedule</span>
                         </div>
                         <div class="code-content">
                             <div class="code-line">
-                                <span class="comment"># Daily backup at 2 AM</span>
+                                <span class="comment"># Daily backup at 2 AM with persistence</span>
                             </div>
                             <div class="code-line">
                                 <span class="command">0 2 * * * docker run --rm \</span>
@@ -228,6 +355,9 @@
                             </div>
                             <div class="code-line">
                                 <span class="command">  -v /var/backups/tenangdb:/backups \</span>
+                            </div>
+                            <div class="code-line">
+                                <span class="command">  -v /tmp/tenangdb:/tmp/tenangdb \</span>
                             </div>
                             <div class="code-line">
                                 <span class="command">  ghcr.io/abdullahainun/tenangdb:latest backup</span>
