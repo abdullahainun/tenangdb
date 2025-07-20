@@ -23,11 +23,11 @@ COPY . .
 # Build both applications with static linking and version info
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo \
     -ldflags "-extldflags '-static' -X main.version=${VERSION} -X main.buildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-    -o tenangdb cmd/main.go
+    -o tenangdb ./cmd
 
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo \
     -ldflags "-extldflags '-static' -X main.version=${VERSION} -X main.buildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-    -o tenangdb-exporter cmd/tenangdb-exporter/main.go
+    -o tenangdb-exporter ./cmd/tenangdb-exporter
 
 # Runtime stage - use stable Ubuntu base
 FROM ubuntu:22.04
@@ -58,9 +58,11 @@ RUN apt-get update && \
     bash \
     && rm -rf /var/lib/apt/lists/*
 
-# Install rclone
-RUN curl -O https://downloads.rclone.org/rclone-current-linux-amd64.zip && \
-    unzip rclone-current-linux-amd64.zip && \
+# Install rclone with multi-arch support
+RUN ARCH=$(dpkg --print-architecture) && \
+    if [ "$ARCH" = "arm64" ]; then RCLONE_ARCH="arm64"; else RCLONE_ARCH="amd64"; fi && \
+    curl -O https://downloads.rclone.org/rclone-current-linux-${RCLONE_ARCH}.zip && \
+    unzip rclone-current-linux-${RCLONE_ARCH}.zip && \
     cp rclone-*/rclone /usr/bin/ && \
     chown root:root /usr/bin/rclone && \
     chmod 755 /usr/bin/rclone && \

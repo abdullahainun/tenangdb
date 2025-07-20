@@ -32,9 +32,8 @@ spec:
         image: ghcr.io/abdullahainun/tenangdb:latest
         imagePullPolicy: Always
         
-        # Use the exporter binary
-        command: ["/tenangdb-exporter"]
-        args: ["--port=9090", "--metrics-file=/tmp/tenangdb/metrics.json"]
+        # Use the exporter binary via entrypoint
+        args: ["tenangdb-exporter", "--port=9090", "--metrics-file=/tmp/tenangdb/metrics.json"]
         
         # Environment variables (alternative to config file)
         env:
@@ -43,7 +42,7 @@ spec:
         - name: TENANGDB_METRICS_FILE
           value: "/tmp/tenangdb/metrics.json"
         - name: TENANGDB_LOG_LEVEL
-          value: "info"
+          value: "debug"
         
         # Ports
         ports:
