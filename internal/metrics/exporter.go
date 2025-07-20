@@ -354,7 +354,7 @@ func StartMetricsExporter(ctx context.Context, port, metricsFile string, log *lo
 		_, _ = w.Write([]byte(`{"status":"ready","service":"tenangdb-exporter"}`))
 	})
 	
-	// Add root endpoint with user-friendly dashboard
+	// Add root endpoint with node exporter style dashboard
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/" {
 			http.NotFound(w, r)
@@ -369,28 +369,25 @@ func StartMetricsExporter(ctx context.Context, port, metricsFile string, log *lo
 <head>
     <title>TenangDB Exporter</title>
     <style>
-        body { font-family: monospace; margin: 40px auto; max-width: 600px; line-height: 1.6; }
-        h1 { color: #333; }
-        a { color: #0066cc; text-decoration: none; }
+        body { font-family: Arial, sans-serif; margin: 40px; line-height: 1.6; }
+        h1 { color: #333; margin-bottom: 10px; }
+        p { color: #666; margin-bottom: 20px; }
+        ul { list-style: none; padding: 0; }
+        li { margin: 8px 0; }
+        a { color: #337ab7; text-decoration: none; }
         a:hover { text-decoration: underline; }
-        .endpoint { margin: 10px 0; padding: 10px; background: #f5f5f5; border-radius: 4px; }
-        .footer { margin-top: 30px; font-size: 12px; color: #666; }
+        .footer { margin-top: 40px; color: #999; font-size: 12px; }
     </style>
 </head>
 <body>
     <h1>TenangDB Exporter</h1>
+    <p>MySQL Backup Metrics Exporter for Prometheus</p>
     
-    <div class="endpoint">
-        <strong><a href="/metrics">/metrics</a></strong> - Prometheus metrics
-    </div>
-    
-    <div class="endpoint">
-        <strong><a href="/health">/health</a></strong> - Health check
-    </div>
-    
-    <div class="endpoint">
-        <strong><a href="/ready">/ready</a></strong> - Readiness probe
-    </div>
+    <ul>
+        <li><a href="/metrics">Metrics</a></li>
+        <li><a href="/health">Health</a></li>
+        <li><a href="/ready">Ready</a></li>
+    </ul>
     
     <div class="footer">
         TenangDB ` + getCurrentVersion() + `
