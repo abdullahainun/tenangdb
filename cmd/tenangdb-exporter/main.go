@@ -69,33 +69,62 @@ func runExporter(cmd *cobra.Command, args []string) {
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
-	// Load configuration first to get log file path
-	cfg, err := config.LoadConfig(configFile)
-	if err != nil {
-		// Use basic logger if config fails
-		log := logger.NewLogger(logLevel)
-		log.WithError(err).Fatal("Failed to load configuration")
+	// Try to load configuration (optional for exporter)
+	var cfg *config.Config
+	var log *logger.Logger
+	
+	if configFile != "" {
+		// Config file explicitly specified, load it
+		var err error
+		cfg, err = config.LoadConfig(configFile)
+		if err != nil {
+			// Use basic logger if config fails
+			log = logger.NewLogger(logLevel)
+			log.WithError(err).Fatal("Failed to load configuration")
+		}
+	} else {
+		// No config file specified, try auto-discovery (but don't fail if not found)
+		var err error
+		cfg, err = config.LoadConfig("")
+		if err != nil {
+			// Config not found or invalid, use defaults - this is OK for exporter
+			cfg = nil
+		}
 	}
 
 	// Determine effective log level: CLI flag overrides config
 	effectiveLogLevel := logLevel
-	if logLevel == "info" && cfg.Logging.Level != "" {
-		// If CLI uses default "info" and config has a level set, use config
-		effectiveLogLevel = cfg.Logging.Level
+	var logFilePath, logFormat, logFileFormat string
+	
+	if cfg != nil {
+		if logLevel == "info" && cfg.Logging.Level != "" {
+			// If CLI uses default "info" and config has a level set, use config
+			effectiveLogLevel = cfg.Logging.Level
+		}
+		logFilePath = cfg.Logging.FilePath
+		logFormat = cfg.Logging.Format
+		logFileFormat = cfg.Logging.FileFormat
 	}
 
 	// Initialize file logger with separate formats for stdout and file
-	log, err := logger.NewFileLoggerWithSeparateFormats(effectiveLogLevel, cfg.Logging.FilePath, cfg.Logging.Format, cfg.Logging.FileFormat)
-	if err != nil {
-		// Fallback to stdout logger
+	if logFilePath != "" {
+		var err error
+		log, err = logger.NewFileLoggerWithSeparateFormats(effectiveLogLevel, logFilePath, logFormat, logFileFormat)
+		if err != nil {
+			// Fallback to stdout logger
+			log = logger.NewLogger(effectiveLogLevel)
+			log.WithError(err).Warn("Failed to initialize file logger, using stdout")
+		}
+	} else {
+		// No file logging configured, use stdout logger
 		log = logger.NewLogger(effectiveLogLevel)
-		log.WithError(err).Warn("Failed to initialize file logger, using stdout")
 	}
 
 	// Use config-based metrics file path if not specified
 	if metricsFile == "" {
-		metricsFile = cfg.Metrics.StoragePath
-		if metricsFile == "" {
+		if cfg != nil && cfg.Metrics.StoragePath != "" {
+			metricsFile = cfg.Metrics.StoragePath
+		} else {
 			metricsFile = "/var/lib/tenangdb/metrics.json" // fallback
 		}
 	}
