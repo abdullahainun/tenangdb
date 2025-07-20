@@ -59,28 +59,21 @@ jobs:
           local file="$1"
           echo "Checking $file..."
           
-          # Use kubectl for K8s files (supports multi-document YAML)
-          if [[ "$file" == *"/k8s/"* ]] && command -v kubectl >/dev/null 2>&1; then
-            if kubectl apply --dry-run=client -f "$file" >/dev/null 2>&1; then
-              echo "✅ $file: Valid YAML syntax (kubectl validated)"
-            else
-              echo "❌ $file: Invalid YAML syntax (kubectl validation failed)"
-              return 1
-            fi
-          else
-            # Use Ruby for other YAML files (available on GitHub Actions)
-            if ruby -e "
-              require 'yaml'
+          # Use Ruby for consistent validation (works for both single and multi-document)
+          ruby -e "
+            require 'yaml'
+            begin
               # Load all documents for multi-document YAML support
               docs = YAML.load_stream(File.read('$file'))
-              puts '✅ $file: Valid YAML syntax (' + docs.length.to_s + ' document(s))'
-            " 2>/dev/null; then
-              :  # Success, do nothing
-            else
-              echo "❌ $file: Invalid YAML syntax (ruby validation failed)"
-              return 1
-            fi
-          fi
+              # Filter out nil documents
+              valid_docs = docs.compact
+              puts '✅ $file: Valid YAML syntax (' + valid_docs.length.to_s + ' document(s))'
+            rescue => e
+              puts '❌ $file: Invalid YAML syntax'
+              puts 'Error: ' + e.message
+              exit 1
+            end
+          " || return 1
         }
         
         # Check config.yaml.example
