@@ -237,7 +237,7 @@ jobs:
         if gh issue create \
           --title "Dependency Update Available - $(date +%Y-%m-%d)" \
           --body-file issue-body.md \
-          --label "enhancement,dependencies,automated"; then
+          --label "enhancement"; then
           echo "✅ Issue created successfully"
         else
           echo "❌ Failed to create issue, but continuing workflow"
