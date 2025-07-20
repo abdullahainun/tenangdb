@@ -60,8 +60,6 @@ func main() {
 	// Add restore subcommand
 	rootCmd.AddCommand(newRestoreCommand())
 
-	// Add exporter subcommand
-	rootCmd.AddCommand(newExporterCommand())
 
 	// Add version command
 	rootCmd.AddCommand(newVersionCommand())
@@ -632,100 +630,6 @@ func runRestore(configFile, logLevel, backupPath, targetDatabase string, yes boo
 	log.WithField("target_database", targetDatabase).Info("Database restore completed successfully")
 }
 
-func newExporterCommand() *cobra.Command {
-	var configFile string
-	var logLevel string
-	var port string
-	var metricsFile string
-
-	cmd := &cobra.Command{
-		Use:   "exporter",
-		Short: "Start Prometheus metrics exporter",
-		Long:  `Start HTTP server to expose tenangdb metrics for Prometheus scraping.`,
-		Run: func(cmd *cobra.Command, args []string) {
-			runExporter(configFile, logLevel, port, metricsFile)
-		},
-	}
-
-	cmd.Flags().StringVar(&configFile, "config", "", "config file path (auto-discovery if not specified)")
-	cmd.Flags().StringVar(&logLevel, "log-level", "info", "log level (debug, info, warn, error)")
-	cmd.Flags().StringVar(&port, "port", "9090", "HTTP server port for metrics")
-	cmd.Flags().StringVar(&metricsFile, "metrics-file", "", "path to metrics storage file (auto-discovery if not specified)")
-
-	return cmd
-}
-
-func runExporter(configFile, logLevel, port, metricsFile string) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	// Handle graceful shutdown
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
-
-	// Load configuration first to get log file path
-	cfg, err := config.LoadConfig(configFile)
-	if err != nil {
-		// Use basic logger if config fails
-		log := logger.NewLogger(logLevel)
-		log.WithError(err).Fatal("Failed to load configuration")
-	}
-
-	// Determine effective log level: CLI flag overrides config
-	effectiveLogLevel := logLevel
-	if logLevel == "info" && cfg.Logging.Level != "" {
-		// If CLI uses default "info" and config has a level set, use config
-		effectiveLogLevel = cfg.Logging.Level
-	}
-
-	// Initialize file logger with separate formats for stdout and file
-	log, err := logger.NewFileLoggerWithSeparateFormats(effectiveLogLevel, cfg.Logging.FilePath, cfg.Logging.Format, cfg.Logging.FileFormat)
-	if err != nil {
-		// Fallback to stdout logger
-		log = logger.NewLogger(effectiveLogLevel)
-		log.WithError(err).Warn("Failed to initialize file logger, using stdout")
-	}
-
-	// Use config-based metrics file path if not specified
-	if metricsFile == "" {
-		metricsFile = cfg.Metrics.StoragePath
-		if metricsFile == "" {
-			metricsFile = "/var/lib/tenangdb/metrics.json" // fallback
-		}
-	}
-
-	log.WithField("port", port).WithField("metrics_file", metricsFile).Info("Starting tenangdb metrics exporter")
-
-	// Start metrics exporter
-	done := make(chan error, 1)
-	go func() {
-		done <- startMetricsExporter(ctx, port, metricsFile, log)
-	}()
-
-	// Wait for shutdown signal
-	select {
-	case err := <-done:
-		if err != nil {
-			log.WithError(err).Error("Metrics exporter failed")
-			os.Exit(1)
-		}
-	case <-sigChan:
-		log.Info("Received shutdown signal, gracefully shutting down...")
-		cancel()
-		// Wait for exporter to finish gracefully
-		select {
-		case <-done:
-		case <-time.After(10 * time.Second):
-			log.Warn("Metrics exporter did not finish within 10 seconds, forcing exit")
-		}
-	}
-
-	log.Info("Metrics exporter stopped")
-}
-
-func startMetricsExporter(ctx context.Context, port, metricsFile string, log *logger.Logger) error {
-	return metrics.StartMetricsExporter(ctx, port, metricsFile, log)
-}
 
 func newVersionCommand() *cobra.Command {
 	cmd := &cobra.Command{

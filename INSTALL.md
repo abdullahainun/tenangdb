@@ -10,6 +10,9 @@ mkdir -p backups && sudo chown $(id -u):$(id -g) backups
 # Run backup
 docker run --user $(id -u):$(id -g) -v $(pwd)/config.yaml:/config.yaml -v $(pwd)/backups:/backups ghcr.io/abdullahainun/tenangdb:latest backup
 
+# Run metrics exporter  
+docker run -d --name tenangdb-exporter -p 9090:9090 -v $(pwd)/config.yaml:/config.yaml ghcr.io/abdullahainun/tenangdb:latest tenangdb-exporter
+
 # Or use docker-compose
 curl -L https://go.ainun.cloud/tenangdb-docker-compose.yml -o docker-compose.yml
 docker-compose up -d
@@ -22,9 +25,11 @@ docker-compose up -d
 # One-liner install
 curl -sSL https://go.ainun.cloud/tenangdb-install.sh | bash
 
-# Or manual download
+# Or manual download (both binaries)
 curl -L https://github.com/abdullahainun/tenangdb/releases/latest/download/tenangdb-linux-amd64 -o tenangdb
-chmod +x tenangdb && sudo mv tenangdb /usr/local/bin/
+curl -L https://github.com/abdullahainun/tenangdb/releases/latest/download/tenangdb-exporter-linux-amd64 -o tenangdb-exporter
+chmod +x tenangdb tenangdb-exporter
+sudo mv tenangdb tenangdb-exporter /usr/local/bin/
 ```
 
 ### Dependencies (Binary Only)

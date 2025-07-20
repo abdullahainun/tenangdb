@@ -72,8 +72,11 @@ jobs:
         flags: unittests
         name: codecov-umbrella
     
-    - name: Build
+    - name: Build main binary
       run: CGO_ENABLED=0 go build -a -installsuffix cgo -ldflags '-extldflags "-static"' -v -o tenangdb ./cmd
+    
+    - name: Build exporter binary
+      run: CGO_ENABLED=0 go build -a -installsuffix cgo -ldflags '-extldflags "-static"' -v -o tenangdb-exporter ./cmd/tenangdb-exporter
 
 
   security-and-lint:
@@ -149,16 +152,22 @@ jobs:
       run: |
         echo "🧪 Testing basic functionality with Docker..."
         
-        # Test version command
+        # Test main binary version command
         docker run --rm tenangdb:test version
         
-        # Test help command
+        # Test main binary help command
         docker run --rm tenangdb:test --help
         
         # Test backup command help
         docker run --rm tenangdb:test backup --help
         
-        # Test invalid config handling
+        # Test exporter binary version command
+        docker run --rm tenangdb:test tenangdb-exporter version
+        
+        # Test exporter binary help command
+        docker run --rm tenangdb:test tenangdb-exporter --help
+        
+        # Test invalid config handling for main binary
         if docker run --rm tenangdb:test backup --config non-existent-config.yaml --dry-run 2>/dev/null; then
           echo "❌ Should fail with non-existent config"
           exit 1

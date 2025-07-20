@@ -15,6 +15,7 @@ NC='\033[0m' # No Color
 # GitHub repository
 REPO="abdullahainun/tenangdb"
 BINARY_NAME="tenangdb"
+EXPORTER_BINARY_NAME="tenangdb-exporter"
 INSTALL_DIR="/usr/local/bin"
 
 # Print colored output
@@ -111,9 +112,11 @@ get_latest_version() {
     print_status "Latest version: $VERSION"
 }
 
-# Download and install binary
-download_and_install() {
-    local binary_name="${BINARY_NAME}-${PLATFORM}"
+# Download and install a single binary
+download_binary() {
+    local bin_name="$1"
+    local install_name="$2"
+    local binary_name="${bin_name}-${PLATFORM}"
     local download_url="https://github.com/$REPO/releases/download/$VERSION/$binary_name"
     local temp_file="/tmp/$binary_name"
     
@@ -140,13 +143,19 @@ download_and_install() {
     
     # Move to install directory
     if [ "$EUID" -eq 0 ] || [ -w "$(dirname "$INSTALL_DIR")" ]; then
-        mv "$temp_file" "$INSTALL_DIR/$BINARY_NAME"
+        mv "$temp_file" "$INSTALL_DIR/$install_name"
     else
         print_status "Moving binary requires sudo permissions..."
-        sudo mv "$temp_file" "$INSTALL_DIR/$BINARY_NAME"
+        sudo mv "$temp_file" "$INSTALL_DIR/$install_name"
     fi
     
-    print_success "TenangDB installed successfully to $INSTALL_DIR/$BINARY_NAME"
+    print_success "$install_name installed successfully to $INSTALL_DIR/$install_name"
+}
+
+# Download and install both binaries
+download_and_install() {
+    download_binary "$BINARY_NAME" "$BINARY_NAME"
+    download_binary "$EXPORTER_BINARY_NAME" "$EXPORTER_BINARY_NAME"
 }
 
 # Add to PATH if needed
@@ -206,13 +215,30 @@ add_to_path() {
 
 # Verify installation
 verify_installation() {
+    local verified_main=false
+    local verified_exporter=false
+    
     if command -v "$BINARY_NAME" >/dev/null 2>&1; then
         local installed_version=$($BINARY_NAME version 2>/dev/null | head -n1 || echo "unknown")
-        print_success "Installation verified: $installed_version"
+        print_success "Main binary verified: $installed_version"
+        verified_main=true
     else
-        print_warning "Binary installed but not found in PATH"
+        print_warning "Main binary installed but not found in PATH"
+    fi
+    
+    if command -v "$EXPORTER_BINARY_NAME" >/dev/null 2>&1; then
+        local exporter_version=$($EXPORTER_BINARY_NAME version 2>/dev/null | head -n1 || echo "unknown")
+        print_success "Exporter binary verified: $exporter_version"
+        verified_exporter=true
+    else
+        print_warning "Exporter binary installed but not found in PATH"
+    fi
+    
+    if [ "$verified_main" = false ] || [ "$verified_exporter" = false ]; then
         if [ "$INSTALL_DIR" != "$HOME/.local/bin" ]; then
-            print_warning "Add $INSTALL_DIR to your PATH or use full path: $INSTALL_DIR/$BINARY_NAME"
+            print_warning "Add $INSTALL_DIR to your PATH or use full paths:"
+            print_warning "  Main: $INSTALL_DIR/$BINARY_NAME"
+            print_warning "  Exporter: $INSTALL_DIR/$EXPORTER_BINARY_NAME"
         fi
     fi
 }
@@ -242,8 +268,13 @@ show_next_steps() {
     echo "4. Run your first backup:"
     echo "   $BINARY_NAME backup"
     echo
-    echo "5. Get help:"
+    echo "5. Start metrics exporter (optional):"
+    echo "   $EXPORTER_BINARY_NAME &"
+    echo "   curl http://localhost:9090/metrics"
+    echo
+    echo "6. Get help:"
     echo "   $BINARY_NAME --help"
+    echo "   $EXPORTER_BINARY_NAME --help"
     echo
     print_success "Documentation: https://github.com/$REPO"
 }

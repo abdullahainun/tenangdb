@@ -1,0 +1,48 @@
+[Unit]
+Description=TenangDB Metrics Exporter
+Documentation=https://tenangdb.ainun.cloud
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=tenangdb
+Group=tenangdb
+WorkingDirectory=/opt/tenangdb
+ExecStart=/opt/tenangdb/tenangdb-exporter --config /etc/tenangdb/config.yaml --port 9090
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=always
+RestartSec=5
+KillMode=mixed
+KillSignal=SIGTERM
+TimeoutStopSec=30
+
+# Output to journal
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=tenangdb-exporter
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/tenangdb /var/log/tenangdb
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+MemoryDenyWriteExecute=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+RemoveIPC=true
+PrivateDevices=true
+
+# Network restrictions
+RestrictAddressFamilies=AF_INET AF_INET6
+IPAddressDeny=any
+IPAddressAllow=localhost 
+IPAddressAllow=127.0.0.0/8
+IPAddressAllow=::1/128
+
+[Install]
+WantedBy=multi-user.target

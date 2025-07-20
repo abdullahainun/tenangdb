@@ -18,6 +18,9 @@ mkdir -p backups && sudo chown $(id -u):$(id -g) backups
 
 # Run backup
 docker run --rm --user $(id -u):$(id -g) -v $(pwd)/config.yaml:/config.yaml -v $(pwd)/backups:/backups ghcr.io/abdullahainun/tenangdb:latest backup
+
+# Run metrics exporter
+docker run -d --name tenangdb-exporter -p 9090:9090 -v $(pwd)/config.yaml:/config.yaml ghcr.io/abdullahainun/tenangdb:latest tenangdb-exporter
 ```
 
 ### Using Docker Compose
