@@ -1,0 +1,37 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: tenangdb
+  
+namespace: tenangdb
+
+resources:
+- namespace.yaml
+- rbac.yaml
+- configmap.yaml
+- secret.yaml
+- pv.yaml
+- pvc.yaml
+- cronjob.yaml
+- metrics-deployment.yaml
+
+commonLabels:
+  app: tenangdb
+  version: v1.0.0
+
+images:
+- name: ghcr.io/abdullahainun/tenangdb
+  newTag: latest
+
+# Optional: ConfigMap generator for environment-specific configs
+# configMapGenerator:
+# - name: tenangdb-config
+#   files:
+#   - config.yaml
+
+# Optional: Secret generator (use for non-sensitive config)
+# secretGenerator:
+# - name: tenangdb-secrets
+#   envs:
+#   - .env
