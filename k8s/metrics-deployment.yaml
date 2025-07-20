@@ -36,6 +36,15 @@ spec:
         command: ["/tenangdb-exporter"]
         args: ["--port=9090", "--metrics-file=/tmp/tenangdb/metrics.json"]
         
+        # Environment variables (alternative to config file)
+        env:
+        - name: TENANGDB_METRICS_PORT
+          value: "9090"
+        - name: TENANGDB_METRICS_FILE
+          value: "/tmp/tenangdb/metrics.json"
+        - name: TENANGDB_LOG_LEVEL
+          value: "info"
+        
         # Ports
         ports:
         - name: metrics
