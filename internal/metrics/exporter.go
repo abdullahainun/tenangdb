@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"runtime"
 	"time"
 
 	"github.com/abdullahainun/tenangdb/internal/logger"
@@ -313,6 +314,11 @@ func (e *ExporterMetrics) UpdateMetrics() error {
 	return nil
 }
 
+// getCurrentVersion returns version information for display
+func getCurrentVersion() string {
+	return "v1.1.3 (" + runtime.Version() + ")"
+}
+
 // StartMetricsExporter starts the metrics exporter HTTP server
 func StartMetricsExporter(ctx context.Context, port, metricsFile string, log *logger.Logger) error {
 	// Create metrics storage
@@ -328,8 +334,71 @@ func StartMetricsExporter(ctx context.Context, port, metricsFile string, log *lo
 	
 	// Add health check endpoint
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		// Try to load metrics to verify health
+		_, err := storage.LoadMetrics()
+		if err != nil {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			_, _ = w.Write([]byte("UNHEALTHY: Cannot load metrics"))
+			return
+		}
+		
+		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("OK"))
+		_, _ = w.Write([]byte(`{"status":"healthy","service":"tenangdb-exporter"}`))
+	})
+	
+	// Add readiness check endpoint
+	mux.HandleFunc("/ready", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"status":"ready","service":"tenangdb-exporter"}`))
+	})
+	
+	// Add root endpoint with user-friendly dashboard
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/" {
+			http.NotFound(w, r)
+			return
+		}
+		
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.WriteHeader(http.StatusOK)
+		
+		html := `<!DOCTYPE html>
+<html>
+<head>
+    <title>TenangDB Exporter</title>
+    <style>
+        body { font-family: monospace; margin: 40px auto; max-width: 600px; line-height: 1.6; }
+        h1 { color: #333; }
+        a { color: #0066cc; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        .endpoint { margin: 10px 0; padding: 10px; background: #f5f5f5; border-radius: 4px; }
+        .footer { margin-top: 30px; font-size: 12px; color: #666; }
+    </style>
+</head>
+<body>
+    <h1>TenangDB Exporter</h1>
+    
+    <div class="endpoint">
+        <strong><a href="/metrics">/metrics</a></strong> - Prometheus metrics
+    </div>
+    
+    <div class="endpoint">
+        <strong><a href="/health">/health</a></strong> - Health check
+    </div>
+    
+    <div class="endpoint">
+        <strong><a href="/ready">/ready</a></strong> - Readiness probe
+    </div>
+    
+    <div class="footer">
+        TenangDB ` + getCurrentVersion() + `
+    </div>
+</body>
+</html>`
+		
+		_, _ = w.Write([]byte(html))
 	})
 	
 	server := &http.Server{

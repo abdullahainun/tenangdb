@@ -54,29 +54,26 @@ jobs:
       run: |
         echo "🔍 Validating YAML files..."
         
-        # Function to check YAML syntax without strict style rules
+        # Function to check YAML syntax
         check_yaml_syntax() {
           local file="$1"
           echo "Checking $file..."
           
-          # Use Python to check basic YAML syntax
-          python3 -c "
-        import yaml
-        import sys
-        
-        try:
-            with open('$file', 'r') as f:
-                yaml.safe_load(f)
-            print('✅ $file: Valid YAML syntax')
-        except yaml.YAMLError as e:
-            print('❌ $file: Invalid YAML syntax')
-            print(f'Error: {e}')
-            sys.exit(1)
-        except Exception as e:
-            print('❌ $file: Error reading file')
-            print(f'Error: {e}')
-            sys.exit(1)
-          "
+          # Use Ruby for consistent validation (works for both single and multi-document)
+          ruby -e "
+            require 'yaml'
+            begin
+              # Load all documents for multi-document YAML support
+              docs = YAML.load_stream(File.read('$file'))
+              # Filter out nil documents
+              valid_docs = docs.compact
+              puts '✅ $file: Valid YAML syntax (' + valid_docs.length.to_s + ' document(s))'
+            rescue => e
+              puts '❌ $file: Invalid YAML syntax'
+              puts 'Error: ' + e.message
+              exit 1
+            end
+          " || return 1
         }
         
         # Check config.yaml.example
