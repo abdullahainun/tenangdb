@@ -20,10 +20,14 @@ RUN go mod download
 # Copy source code
 COPY . .
 
-# Build the application with static linking and version info
+# Build both applications with static linking and version info
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo \
-    -ldflags "-extldflags '-static' -X main.Version=${VERSION} -X main.CommitSHA=${COMMIT_SHA}" \
+    -ldflags "-extldflags '-static' -X main.version=${VERSION} -X main.buildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
     -o tenangdb cmd/main.go
+
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo \
+    -ldflags "-extldflags '-static' -X main.version=${VERSION} -X main.buildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+    -o tenangdb-exporter cmd/tenangdb-exporter/main.go
 
 # Runtime stage - use stable Ubuntu base
 FROM ubuntu:22.04
@@ -65,20 +69,30 @@ RUN curl -O https://downloads.rclone.org/rclone-current-linux-amd64.zip && \
 # Copy timezone data
 COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
 
-# Copy the binary
+# Copy both binaries
 COPY --from=builder /app/tenangdb /tenangdb
+COPY --from=builder /app/tenangdb-exporter /tenangdb-exporter
 
 # Create non-root user for security
 RUN useradd -u 1001 -m -s /bin/bash tenangdb
 
-# Create simple entrypoint script
-RUN echo '#!/bin/bash\nexec /tenangdb "$@"' > /entrypoint.sh && chmod +x /entrypoint.sh
+# Create intelligent entrypoint script that handles both binaries
+RUN echo '#!/bin/bash\n\
+if [ "$1" = "tenangdb-exporter" ] || [ "$1" = "exporter" ]; then\n\
+    shift\n\
+    exec /tenangdb-exporter "$@"\n\
+elif [ "$1" = "tenangdb" ]; then\n\
+    shift\n\
+    exec /tenangdb "$@"\n\
+else\n\
+    exec /tenangdb "$@"\n\
+fi' > /entrypoint.sh && chmod +x /entrypoint.sh
 
 # Run as non-root by default, but can be overridden with --user
 USER 1001:1001
 
-# Expose port if needed (adjust according to your app)
-EXPOSE 8080
+# Expose metrics port for exporter
+EXPOSE 9090
 
 # Set entrypoint
 ENTRYPOINT ["/entrypoint.sh"]

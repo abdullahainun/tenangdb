@@ -1,6 +1,7 @@
 version: '3.8'
 
 services:
+  # TenangDB main backup service
   tenangdb:
     # Use GitHub Container Registry image
     image: ghcr.io/abdullahainun/tenangdb:latest
@@ -17,13 +18,10 @@ services:
       - ./backups:/backups
       # Mount logs directory
       - ./logs:/logs
+      # Mount metrics storage (shared with exporter)
+      - ./metrics:/var/lib/tenangdb
     environment:
       - TZ=Asia/Jakarta
-    # Uncomment if your app needs network access
-    # network_mode: host
-    # Or use specific ports:
-    # ports:
-    #   - "8080:8080"
     
     # Health check example
     healthcheck:
@@ -42,6 +40,48 @@ services:
         reservations:
           cpus: '0.25'
           memory: 128M
+    
+    # Run backup once (for scheduled runs, use cron or systemd timers)
+    command: ["backup"]
+
+  # TenangDB metrics exporter service
+  tenangdb-exporter:
+    # Use the same image but run exporter binary
+    image: ghcr.io/abdullahainun/tenangdb:latest
+    container_name: tenangdb-exporter
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      # Mount config file
+      - ./config.yaml:/config.yaml:ro
+      # Mount metrics storage (shared with main service)
+      - ./metrics:/var/lib/tenangdb
+      # Mount logs directory
+      - ./logs:/logs
+    environment:
+      - TZ=Asia/Jakarta
+    
+    # Run metrics exporter
+    command: ["tenangdb-exporter", "--port", "9090"]
+    
+    # Health check for exporter
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9090/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    
+    # Resource limits (lighter for exporter)
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
 
   # Optional: Add MySQL service for testing
   mysql:

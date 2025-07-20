@@ -1,16 +1,28 @@
 BINARY_NAME=tenangdb
+EXPORTER_BINARY_NAME=tenangdb-exporter
 VERSION=$(shell git describe --tags --abbrev=0 2>/dev/null || echo "v0.1.0")
 BUILD_TIME=$(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 LDFLAGS=-ldflags "-X main.version=${VERSION} -X main.buildTime=${BUILD_TIME}"
 
-.PHONY: build clean test install uninstall deps install-deps check-deps setup-ubuntu-18.04
+.PHONY: build build-exporter build-all clean test install uninstall deps install-deps check-deps setup-ubuntu-18.04
 
-# Build the application
+# Build the main application
 build:
 	@echo "🔍 Checking Go version compatibility..."
 	@go version
 	@echo "📦 Building TenangDB with Go modules..."
 	GO111MODULE=on go build ${LDFLAGS} -o ${BINARY_NAME} ./cmd
+
+# Build the exporter application
+build-exporter:
+	@echo "🔍 Checking Go version compatibility..."
+	@go version
+	@echo "📦 Building TenangDB Exporter with Go modules..."
+	GO111MODULE=on go build ${LDFLAGS} -o ${EXPORTER_BINARY_NAME} ./cmd/tenangdb-exporter
+
+# Build both applications
+build-all: build build-exporter
+	@echo "✅ Both binaries built successfully"
 
 # Build for production (with optimizations)
 build-prod:
@@ -18,11 +30,13 @@ build-prod:
 	@go version
 	@echo "📦 Building TenangDB for production with Go modules..."
 	GO111MODULE=on CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo ${LDFLAGS} -o ${BINARY_NAME} ./cmd
+	GO111MODULE=on CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo ${LDFLAGS} -o ${EXPORTER_BINARY_NAME} ./cmd/tenangdb-exporter
+	@echo "✅ Both production binaries built successfully"
 
 # Clean build artifacts
 clean:
 	go clean
-	rm -f ${BINARY_NAME}
+	rm -f ${BINARY_NAME} ${EXPORTER_BINARY_NAME}
 
 # Run tests
 test:
@@ -37,8 +51,9 @@ deps:
 	GO111MODULE=on go mod download
 
 # Install the application
-install: build
+install: build-all
 	sudo cp ${BINARY_NAME} /usr/local/bin/
+	sudo cp ${EXPORTER_BINARY_NAME} /usr/local/bin/
 	sudo mkdir -p /etc/tenangdb /var/log/tenangdb /var/backups
 	sudo cp configs/config.yaml /etc/tenangdb/config.yaml.example
 	sudo ./scripts/install.sh
@@ -94,12 +109,14 @@ docker-build:
 # Show help
 help:
 	@echo "Available targets:"
-	@echo "  build      - Build the application"
-	@echo "  build-prod - Build for production"
+	@echo "  build      - Build the main tenangdb application"
+	@echo "  build-exporter - Build the tenangdb-exporter application"
+	@echo "  build-all  - Build both applications"
+	@echo "  build-prod - Build both applications for production"
 	@echo "  clean      - Clean build artifacts"
 	@echo "  test       - Run tests"
 	@echo "  deps       - Install dependencies"
-	@echo "  install    - Install the application as systemd service"
+	@echo "  install    - Install both applications as systemd service"
 	@echo "  uninstall  - Uninstall the application"
 	@echo "  run        - Run the application"
 	@echo "  fmt        - Format code"

@@ -31,6 +31,10 @@ docker run -it --user $(id -u):$(id -g) \
 # Binary install
 curl -sSL https://go.ainun.cloud/tenangdb-install.sh | bash
 tenangdb backup
+
+# With metrics monitoring
+tenangdb-exporter &  # Start metrics server
+tenangdb backup      # Run backup with metrics
 ```
 
 ## ⚙️ Config
@@ -57,6 +61,11 @@ logging:
 upload:
   enabled: false
   destination: "your-remote:backup-folder"
+
+metrics:
+  enabled: true                        # Enable Prometheus metrics
+  port: 9090                          # Metrics server port
+  storage_path: /var/lib/tenangdb/metrics.json
 ```
 
 ## 🔧 Features
@@ -67,6 +76,7 @@ upload:
 - **Cloud Integration**: Seamless upload to any rclone-supported storage
 - **Compression**: tar.gz/zst/xz support with hybrid local/cloud approach
 - **Safety First**: Database overwrite warnings and confirmation prompts
+- **Metrics & Monitoring**: Prometheus metrics with dedicated exporter binary
 
 ## 📋 Commands
 
@@ -83,6 +93,11 @@ tenangdb restore -b /path -d target_db --yes  # Automated mode
 # Maintenance
 tenangdb cleanup --force           # Clean old backups
 tenangdb config                    # Show config paths
+
+# Metrics (separate binary)
+tenangdb-exporter                  # Start Prometheus metrics server on :9090
+tenangdb-exporter --port 8080      # Custom port
+tenangdb-exporter --config /path/to/config.yaml  # Custom config
 ```
 
 ## 🔧 Advanced
@@ -113,6 +128,42 @@ FLUSH PRIVILEGES;
 ```
 
 **💡 Docker Note:** Mount `/tmp` volume to persist backup frequency tracking between container restarts.
+
+## 📊 Metrics & Monitoring
+
+TenangDB provides Prometheus metrics via a dedicated exporter binary:
+
+```bash
+# Start metrics exporter
+tenangdb-exporter --port 9090
+
+# Metrics endpoints
+curl http://localhost:9090/metrics   # Prometheus metrics
+curl http://localhost:9090/health    # Health check
+```
+
+**Available Metrics:**
+- `tenangdb_backup_duration_seconds` - Backup execution time
+- `tenangdb_backup_success_total` - Total successful backups  
+- `tenangdb_backup_failure_total` - Total failed backups
+- `tenangdb_upload_duration_seconds` - Upload execution time
+- `tenangdb_restore_duration_seconds` - Restore execution time
+- `tenangdb_cleanup_files_removed_total` - Files removed during cleanup
+
+**Docker with Metrics:**
+```bash
+# Run both backup and exporter
+docker run -d --name tenangdb-exporter \
+  -p 9090:9090 \
+  -v $(pwd)/metrics:/var/lib/tenangdb \
+  ghcr.io/abdullahainun/tenangdb:latest tenangdb-exporter
+
+docker run --user $(id -u):$(id -g) \
+  -v $(pwd)/config.yaml:/config.yaml \
+  -v $(pwd)/backups:/backups \
+  -v $(pwd)/metrics:/var/lib/tenangdb \
+  ghcr.io/abdullahainun/tenangdb:latest backup
+```
 
 ## 📋 Compatibility
 

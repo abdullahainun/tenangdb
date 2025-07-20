@@ -41,18 +41,23 @@ jobs:
           
           # Linux AMD64
           GOOS=linux GOARCH=amd64 go build -ldflags "${LDFLAGS}" -o tenangdb-linux-amd64 cmd/main.go
+          GOOS=linux GOARCH=amd64 go build -ldflags "${LDFLAGS}" -o tenangdb-exporter-linux-amd64 cmd/tenangdb-exporter/main.go
           
           # Linux ARM64
           GOOS=linux GOARCH=arm64 go build -ldflags "${LDFLAGS}" -o tenangdb-linux-arm64 cmd/main.go
+          GOOS=linux GOARCH=arm64 go build -ldflags "${LDFLAGS}" -o tenangdb-exporter-linux-arm64 cmd/tenangdb-exporter/main.go
           
           # macOS AMD64
           GOOS=darwin GOARCH=amd64 go build -ldflags "${LDFLAGS}" -o tenangdb-darwin-amd64 cmd/main.go
+          GOOS=darwin GOARCH=amd64 go build -ldflags "${LDFLAGS}" -o tenangdb-exporter-darwin-amd64 cmd/tenangdb-exporter/main.go
           
           # macOS ARM64
           GOOS=darwin GOARCH=arm64 go build -ldflags "${LDFLAGS}" -o tenangdb-darwin-arm64 cmd/main.go
+          GOOS=darwin GOARCH=arm64 go build -ldflags "${LDFLAGS}" -o tenangdb-exporter-darwin-arm64 cmd/tenangdb-exporter/main.go
           
           # Windows AMD64
           GOOS=windows GOARCH=amd64 go build -ldflags "${LDFLAGS}" -o tenangdb-windows-amd64.exe cmd/main.go
+          GOOS=windows GOARCH=amd64 go build -ldflags "${LDFLAGS}" -o tenangdb-exporter-windows-amd64.exe cmd/tenangdb-exporter/main.go
       
       - name: Create checksums
         run: |
@@ -63,10 +68,15 @@ jobs:
         with:
           files: |
             tenangdb-linux-amd64
+            tenangdb-exporter-linux-amd64
             tenangdb-linux-arm64
+            tenangdb-exporter-linux-arm64
             tenangdb-darwin-amd64
+            tenangdb-exporter-darwin-amd64
             tenangdb-darwin-arm64
+            tenangdb-exporter-darwin-arm64
             tenangdb-windows-amd64.exe
+            tenangdb-exporter-windows-amd64.exe
             checksums.txt
           generate_release_notes: true
           draft: false
