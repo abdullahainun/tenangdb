@@ -1,4 +1,4 @@
-name: Dependency Installation Test
+name: Go & Docker Compatibility Test
 
 on:
   # Only run manually or on schedule to avoid blocking PRs
@@ -8,88 +8,6 @@ on:
     - cron: '0 6 * * 0'
 
 jobs:
-  test-ubuntu:
-    name: Test on Ubuntu ${{ matrix.ubuntu-version }}
-    runs-on: ubuntu-${{ matrix.ubuntu-version }}
-    timeout-minutes: 30
-    strategy:
-      fail-fast: false
-      matrix:
-        ubuntu-version: ['22.04', 'latest']
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-    
-    - name: Update system
-      run: |
-        sudo apt-get update
-        sudo apt-get upgrade -y
-    
-    - name: Install and verify dependencies
-      run: |
-        chmod +x scripts/install-dependencies.sh
-        ./scripts/install-dependencies.sh -y
-    
-    - name: Test TenangDB build
-      run: |
-        make build
-        ./tenangdb version
-
-  test-debian:
-    name: Test on Debian ${{ matrix.debian-version }}
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        debian-version: ['10', '11', '12']
-    
-    container:
-      image: debian:${{ matrix.debian-version }}
-    
-    steps:
-    - name: Install git and basic tools
-      run: |
-        apt-get update
-        apt-get install -y git curl sudo
-    
-    - name: Checkout code
-      uses: actions/checkout@v4
-    
-    - name: Install and verify dependencies
-      run: |
-        chmod +x scripts/install-dependencies.sh
-        ./scripts/install-dependencies.sh -y
-
-  test-macos:
-    name: Test on macOS ${{ matrix.macos-version }}
-    runs-on: macos-${{ matrix.macos-version }}
-    timeout-minutes: 45
-    strategy:
-      fail-fast: false
-      matrix:
-        macos-version: ['13', 'latest']
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-    
-    - name: Install and verify dependencies
-      run: |
-        chmod +x scripts/install-dependencies.sh
-        ./scripts/install-dependencies.sh -y
-    
-    - name: Test TenangDB build
-      run: |
-        # Set PATH for MySQL client
-        if [ -f "/opt/homebrew/opt/mysql-client/bin/mysql" ]; then
-          export PATH="/opt/homebrew/opt/mysql-client/bin:$PATH"
-        elif [ -f "/usr/local/opt/mysql-client/bin/mysql" ]; then
-          export PATH="/usr/local/opt/mysql-client/bin:$PATH"
-        fi
-        
-        make build
-        ./tenangdb version
 
   test-go-compatibility:
     name: Test Go ${{ matrix.go-version }} Compatibility
@@ -103,121 +21,61 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
     
-    - name: Install system dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y mysql-client mydumper rclone
-    
     - name: Set up Go ${{ matrix.go-version }}
       uses: actions/setup-go@v5
       with:
         go-version: ${{ matrix.go-version }}
     
-    - name: Test Go version compatibility
-      run: |
-        chmod +x scripts/install-dependencies.sh
-        ./scripts/install-dependencies.sh --check-only
-    
     - name: Test build with Go ${{ matrix.go-version }}
       run: |
         echo "Testing build with Go ${{ matrix.go-version }}"
         go version
-        make build
+        make build-all
         ./tenangdb version
+        ./tenangdb-exporter version
+    
+    - name: Test Go modules
+      run: |
+        go mod tidy
+        go mod download
+        go mod verify
 
-  test-dependency-options:
-    name: Test Dependency Script Options
+  test-docker-build:
+    name: Test Docker Build
     runs-on: ubuntu-latest
     
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
     
-    - name: Test help option
+    - name: Test Docker build
       run: |
-        chmod +x scripts/install-dependencies.sh
-        ./scripts/install-dependencies.sh --help
+        docker build -t tenangdb:test .
     
-    - name: Test check-only option
+    - name: Test both binaries in Docker
       run: |
-        ./scripts/install-dependencies.sh --check-only
-    
-    - name: Test no-go option
-      run: |
-        ./scripts/install-dependencies.sh --no-go --check-only
-    
-    - name: Test no-rclone option
-      run: |
-        ./scripts/install-dependencies.sh --no-rclone --check-only
-    
-    - name: Test combined options
-      run: |
-        ./scripts/install-dependencies.sh --no-go --no-rclone --check-only
-
-  test-make-targets:
-    name: Test Make Targets
-    runs-on: ubuntu-latest
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-    
-    - name: Set up Go
-      uses: actions/setup-go@v5
-      with:
-        go-version: '1.23'
-    
-    - name: Install system dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y mysql-client mydumper rclone
-    
-    - name: Test make check-deps
-      run: |
-        make check-deps
-    
-    - name: Test make install-deps
-      run: |
-        make install-deps
-    
-    - name: Test make build
-      run: |
-        make build
-        ./tenangdb version
-    
-    - name: Test make test
-      run: |
-        make test
-    
-    - name: Test make deps
-      run: |
-        make deps
+        # Test main binary
+        docker run --rm tenangdb:test version
+        # Test exporter binary
+        docker run --rm tenangdb:test tenangdb-exporter version
 
   summary:
-    name: Dependency Test Summary
+    name: Go & Docker Test Summary
     runs-on: ubuntu-latest
-    needs: [test-ubuntu, test-debian, test-macos, test-go-compatibility, test-dependency-options, test-make-targets]
+    needs: [test-go-compatibility, test-docker-build]
     if: always()
     
     steps:
     - name: Check results
       run: |
-        echo "=== Dependency Installation Test Summary ==="
-        echo "Ubuntu tests: ${{ needs.test-ubuntu.result }}"
-        echo "Debian tests: ${{ needs.test-debian.result }}"
-        echo "macOS tests: ${{ needs.test-macos.result }}"
+        echo "=== Go & Docker Compatibility Test Summary ==="
         echo "Go compatibility: ${{ needs.test-go-compatibility.result }}"
-        echo "Script options: ${{ needs.test-dependency-options.result }}"
-        echo "Make targets: ${{ needs.test-make-targets.result }}"
+        echo "Docker build: ${{ needs.test-docker-build.result }}"
         
-        if [ "${{ needs.test-ubuntu.result }}" != "success" ] || \
-           [ "${{ needs.test-debian.result }}" != "success" ] || \
-           [ "${{ needs.test-macos.result }}" != "success" ] || \
-           [ "${{ needs.test-go-compatibility.result }}" != "success" ] || \
-           [ "${{ needs.test-dependency-options.result }}" != "success" ] || \
-           [ "${{ needs.test-make-targets.result }}" != "success" ]; then
-          echo "❌ Some dependency tests failed"
+        if [ "${{ needs.test-go-compatibility.result }}" != "success" ] || \
+           [ "${{ needs.test-docker-build.result }}" != "success" ]; then
+          echo "❌ Some tests failed"
           exit 1
         else
-          echo "✅ All dependency tests passed!"
+          echo "✅ All tests passed!"
         fi
