@@ -74,32 +74,48 @@ jobs:
         LDFLAGS="-X main.version=${VERSION} -X main.buildTime=${BUILD_TIME}"
         
         if [ "${{ matrix.platform }}" = "windows" ]; then
-          BINARY_NAME="tenangdb-nightly-${{ matrix.platform }}.exe"
+          MAIN_BINARY="tenangdb-nightly-${{ matrix.platform }}.exe"
+          EXPORTER_BINARY="tenangdb-exporter-nightly-${{ matrix.platform }}.exe"
         else
-          BINARY_NAME="tenangdb-nightly-${{ matrix.platform }}"
+          MAIN_BINARY="tenangdb-nightly-${{ matrix.platform }}"
+          EXPORTER_BINARY="tenangdb-exporter-nightly-${{ matrix.platform }}"
         fi
         
-        go build -ldflags "${LDFLAGS}" -o "$BINARY_NAME" ./cmd
+        # Build main binary
+        go build -ldflags "${LDFLAGS}" -o "$MAIN_BINARY" ./cmd
+        
+        # Build exporter binary
+        go build -ldflags "${LDFLAGS}" -o "$EXPORTER_BINARY" ./cmd/tenangdb-exporter
       shell: bash
     
     - name: Test nightly build
       run: |
         if [ "${{ matrix.platform }}" = "windows" ]; then
-          BINARY_NAME="tenangdb-nightly-${{ matrix.platform }}.exe"
+          MAIN_BINARY="tenangdb-nightly-${{ matrix.platform }}.exe"
+          EXPORTER_BINARY="tenangdb-exporter-nightly-${{ matrix.platform }}.exe"
         else
-          BINARY_NAME="tenangdb-nightly-${{ matrix.platform }}"
+          MAIN_BINARY="tenangdb-nightly-${{ matrix.platform }}"
+          EXPORTER_BINARY="tenangdb-exporter-nightly-${{ matrix.platform }}"
         fi
         
-        chmod +x "$BINARY_NAME"
-        ./"$BINARY_NAME" version
-        ./"$BINARY_NAME" --help
+        # Test main binary
+        chmod +x "$MAIN_BINARY"
+        ./"$MAIN_BINARY" version
+        ./"$MAIN_BINARY" --help
+        
+        # Test exporter binary
+        chmod +x "$EXPORTER_BINARY"
+        ./"$EXPORTER_BINARY" version
+        ./"$EXPORTER_BINARY" --help
       shell: bash
     
     - name: Upload nightly artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: nightly-${{ matrix.platform }}
-        path: tenangdb-nightly-*
+        name: nightly-${{ matrix.platform }}-${{ matrix.os }}
+        path: |
+          tenangdb-nightly-*
+          tenangdb-exporter-nightly-*
         retention-days: 7
 
   performance-test:
@@ -156,7 +172,7 @@ jobs:
         done
     
     - name: Build TenangDB
-      run: make build
+      run: make build-all
     
     - name: Create performance test config
       run: |
@@ -218,7 +234,7 @@ jobs:
         echo "=== Running Security Scans ==="
         
         # Install security tools
-        go install github.com/securecodewarrior/gosec/v2/cmd/gosec@latest
+        go install github.com/securecodewarrior/gosec/v2/cmd/gosec@latest || go install github.com/securecodewarrior/gosec/cmd/gosec@latest
         go install golang.org/x/vuln/cmd/govulncheck@latest
         
         # Run gosec
@@ -272,10 +288,31 @@ jobs:
           echo "✅ Go modules are tidy"
         fi
 
+  docker-build:
+    name: Docker Build Test
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Test Docker build
+      run: |
+        echo "=== Testing Docker Build ==="
+        docker build -t tenangdb:nightly .
+    
+    - name: Test Docker run
+      run: |
+        echo "=== Testing Docker Run ==="
+        # Test main binary
+        docker run --rm tenangdb:nightly version
+        # Test exporter binary  
+        docker run --rm tenangdb:nightly tenangdb-exporter version
+
   notify-results:
     name: Notify Results
     runs-on: ubuntu-latest
-    needs: [nightly-build, performance-test, security-nightly, dependency-update-check]
+    needs: [nightly-build, performance-test, security-nightly, dependency-update-check, docker-build]
     if: always()
     
     steps:
@@ -286,11 +323,13 @@ jobs:
         echo "Performance Test: ${{ needs.performance-test.result }}"
         echo "Security Scan: ${{ needs.security-nightly.result }}"
         echo "Dependency Check: ${{ needs.dependency-update-check.result }}"
+        echo "Docker Build: ${{ needs.docker-build.result }}"
         
         if [ "${{ needs.nightly-build.result }}" != "success" ] || \
            [ "${{ needs.performance-test.result }}" != "success" ] || \
            [ "${{ needs.security-nightly.result }}" != "success" ] || \
-           [ "${{ needs.dependency-update-check.result }}" != "success" ]; then
+           [ "${{ needs.dependency-update-check.result }}" != "success" ] || \
+           [ "${{ needs.docker-build.result }}" != "success" ]; then
           echo "❌ Some nightly checks failed"
           echo "failed=true" >> $GITHUB_ENV
         else
@@ -307,6 +346,7 @@ jobs:
         Performance Test: ${{ needs.performance-test.result }}
         Security Scan: ${{ needs.security-nightly.result }}
         Dependency Check: ${{ needs.dependency-update-check.result }}
+        Docker Build: ${{ needs.docker-build.result }}
         
         Repository: ${{ github.repository }}
         Commit: ${{ github.sha }}
