@@ -228,12 +228,21 @@ jobs:
         
         echo "issue_created=true" >> $GITHUB_OUTPUT
         
-        # Use GitHub CLI to create issue
-        gh issue create \
+        # Debug: Show issue body
+        echo "=== Issue Body ==="
+        cat issue-body.md
+        echo "=================="
+        
+        # Use GitHub CLI to create issue with error handling
+        if gh issue create \
           --title "Dependency Update Available - $(date +%Y-%m-%d)" \
           --body-file issue-body.md \
-          --label "enhancement,dependencies,automated" \
-          --assignee "@me"
+          --label "enhancement,dependencies,automated"; then
+          echo "✅ Issue created successfully"
+        else
+          echo "❌ Failed to create issue, but continuing workflow"
+          echo "issue_created=false" >> $GITHUB_OUTPUT
+        fi
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     
