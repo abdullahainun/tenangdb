@@ -8,17 +8,14 @@ metadata:
 spec:
   # Schedule: Daily at 2 AM
   schedule: "0 2 * * *"
-  
+  failedJobsHistoryLimit: 3        # This should be here
+  successfulJobsHistoryLimit: 3    # This should be here
   # Timezone (optional, requires Kubernetes 1.25+)
-  # timeZone: "Asia/Jakarta"
+  timeZone: "Asia/Jakarta"
   
   # Job configuration
   jobTemplate:
     spec:
-      # Keep last 3 successful and 1 failed job
-      successfulJobsHistoryLimit: 3
-      failedJobsHistoryLimit: 1
-      
       template:
         metadata:
           labels:
