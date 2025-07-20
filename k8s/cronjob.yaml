@@ -40,8 +40,8 @@ spec:
             image: ghcr.io/abdullahainun/tenangdb:latest
             imagePullPolicy: Always
             
-            # Command
-            command: ["/app/tenangdb"]
+            # Command - use the main binary
+            command: ["/tenangdb"]
             args: ["backup"]
             
             # Environment variables from secrets
@@ -102,13 +102,13 @@ spec:
               name: tenangdb-config
           - name: backups
             persistentVolumeClaim:
-              claimName: tenangdb-backups
+              claimName: pvc-tenangdb-backups
           - name: tracking
             persistentVolumeClaim:
-              claimName: tenangdb-tracking
+              claimName: pvc-tenangdb-tracking
           - name: logs
             persistentVolumeClaim:
-              claimName: tenangdb-logs
+              claimName: pvc-tenangdb-logs
           
           # Optional: Node selector for dedicated backup nodes
           # nodeSelector:
@@ -152,7 +152,7 @@ spec:
         image: ghcr.io/abdullahainun/tenangdb:latest
         imagePullPolicy: Always
         
-        command: ["/app/tenangdb"]
+        command: ["/tenangdb"]
         args: ["backup", "--force"]  # Force backup even if frequency check fails
         
         env:
@@ -199,10 +199,10 @@ spec:
           name: tenangdb-config
       - name: backups
         persistentVolumeClaim:
-          claimName: tenangdb-backups
+          claimName: pvc-tenangdb-backups
       - name: tracking
         persistentVolumeClaim:
-          claimName: tenangdb-tracking
+          claimName: pvc-tenangdb-tracking
       - name: logs
         persistentVolumeClaim:
-          claimName: tenangdb-logs
+          claimName: pvc-tenangdb-logs

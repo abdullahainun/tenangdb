@@ -1,6 +1,13 @@
 # TenangDB Kubernetes Deployment
 
-This directory contains Kubernetes manifests for deploying TenangDB in a production Kubernetes cluster.
+This directory contains Kubernetes manifests for deploying TenangDB with dual binary architecture in a production Kubernetes cluster.
+
+## Architecture
+
+TenangDB now consists of two separate binaries:
+
+1. **`tenangdb`** - Main backup/restore/cleanup binary (runs as CronJob)
+2. **`tenangdb-exporter`** - Standalone metrics exporter (runs as Deployment)
 
 ## 📋 Prerequisites
 
@@ -14,13 +21,17 @@ This directory contains Kubernetes manifests for deploying TenangDB in a product
 ### 1. Create Namespace and Apply Manifests
 
 ```bash
-# Apply all manifests in order
+# Apply all manifests using kustomize (recommended)
+kubectl apply -k .
+
+# Or apply manually in order
 kubectl apply -f namespace.yaml
 kubectl apply -f secret.yaml
 kubectl apply -f configmap.yaml
 kubectl apply -f pvc.yaml
 kubectl apply -f rbac.yaml
 kubectl apply -f cronjob.yaml
+kubectl apply -f metrics-deployment.yaml
 ```
 
 ### 2. Configure Secrets
@@ -50,27 +61,37 @@ kubectl apply -f configmap.yaml
 ### 4. Verify Deployment
 
 ```bash
+# Check all resources
+kubectl get all -n tenangdb
+
 # Check if CronJob is created
 kubectl get cronjobs -n tenangdb
+
+# Check metrics exporter
+kubectl get deployment tenangdb-metrics -n tenangdb
 
 # Check PVCs
 kubectl get pvc -n tenangdb
 
-# Check upcoming job schedule
-kubectl get cronjobs tenangdb-backup -n tenangdb -o yaml
+# Test metrics endpoint
+kubectl port-forward -n tenangdb service/svc-tenangdb-metrics 9090:9090
+curl http://localhost:9090/metrics
 ```
 
 ## 📁 File Structure
 
 ```
 k8s/
-├── namespace.yaml      # TenangDB namespace
-├── secret.yaml         # Database credentials and cloud config
-├── configmap.yaml      # TenangDB configuration
-├── pvc.yaml           # Persistent volumes for backups/tracking/logs
-├── rbac.yaml          # ServiceAccount and permissions
-├── cronjob.yaml       # Scheduled backup job + manual job template
-└── README.md          # This file
+├── namespace.yaml          # TenangDB namespace
+├── secret.yaml             # Database credentials and cloud config
+├── configmap.yaml          # TenangDB configuration
+├── pv.yaml                # Persistent volumes (local-storage)
+├── pvc.yaml               # Persistent volume claims
+├── rbac.yaml              # ServiceAccount and permissions
+├── cronjob.yaml           # Scheduled backup job (main binary)
+├── metrics-deployment.yaml # Metrics exporter deployment + service
+├── kustomization.yaml     # Kustomize configuration
+└── README.md              # This file
 ```
 
 ## ⚙️ Configuration
@@ -142,7 +163,7 @@ spec:
       containers:
       - name: tenangdb
         image: ghcr.io/abdullahainun/tenangdb:latest
-        command: ["/app/tenangdb"]
+        command: ["/tenangdb"]
         args: ["backup", "--force"]
         envFrom:
         - secretRef:
@@ -195,7 +216,7 @@ kubectl run tenangdb-restore \
       "containers": [{
         "name": "tenangdb-restore",
         "image": "ghcr.io/abdullahainun/tenangdb:latest",
-        "command": ["/app/tenangdb", "restore", "--interactive"],
+        "command": ["/tenangdb", "restore", "--interactive"],
         "envFrom": [{"secretRef": {"name": "tenangdb-secrets"}}],
         "volumeMounts": [
           {"name": "config", "mountPath": "/config.yaml", "subPath": "config.yaml"},

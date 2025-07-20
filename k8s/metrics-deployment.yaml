@@ -1,0 +1,131 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tenangdb-metrics
+  namespace: tenangdb
+  labels:
+    app: tenangdb
+    component: metrics
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tenangdb
+      component: metrics
+  template:
+    metadata:
+      labels:
+        app: tenangdb
+        component: metrics
+    spec:
+      serviceAccountName: tenangdb
+      
+      # Security context
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+        fsGroup: 1001
+      
+      containers:
+      - name: tenangdb-exporter
+        image: ghcr.io/abdullahainun/tenangdb:latest
+        imagePullPolicy: Always
+        
+        # Use the exporter binary
+        command: ["/tenangdb-exporter"]
+        args: ["--port=9090", "--metrics-file=/tmp/tenangdb/metrics.json"]
+        
+        # Ports
+        ports:
+        - name: metrics
+          containerPort: 9090
+          protocol: TCP
+        
+        # Volume mounts
+        volumeMounts:
+        - name: metrics-storage
+          mountPath: /tmp/tenangdb
+        - name: logs
+          mountPath: /var/log/tenangdb
+        
+        # Resource limits
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+        
+        # Health checks
+        livenessProbe:
+          httpGet:
+            path: /metrics
+            port: 9090
+          initialDelaySeconds: 10
+          periodSeconds: 30
+          timeoutSeconds: 5
+          failureThreshold: 3
+        
+        readinessProbe:
+          httpGet:
+            path: /metrics
+            port: 9090
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 3
+          failureThreshold: 2
+      
+      volumes:
+      - name: metrics-storage
+        persistentVolumeClaim:
+          claimName: pvc-tenangdb-tracking
+      - name: logs
+        persistentVolumeClaim:
+          claimName: pvc-tenangdb-logs
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: svc-tenangdb-metrics
+  namespace: tenangdb
+  labels:
+    app: tenangdb
+    component: metrics
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "9090"
+    prometheus.io/path: "/metrics"
+spec:
+  type: ClusterIP
+  ports:
+  - name: metrics
+    port: 9090
+    targetPort: 9090
+    protocol: TCP
+  selector:
+    app: tenangdb
+    component: metrics
+
+---
+# Optional: ServiceMonitor for Prometheus Operator
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: tenangdb-metrics
+  namespace: tenangdb
+  labels:
+    app: tenangdb
+    component: metrics
+spec:
+  selector:
+    matchLabels:
+      app: tenangdb
+      component: metrics
+  endpoints:
+  - port: metrics
+    path: /metrics
+    interval: 30s
+    scrapeTimeout: 10s
