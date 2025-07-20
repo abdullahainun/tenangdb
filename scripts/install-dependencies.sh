@@ -99,6 +99,7 @@ check_os_version() {
     
     if [[ "$ID" == "ubuntu" ]]; then
         OS_TYPE="ubuntu"
+        DISTRO="ubuntu"
         OS_VERSION=$(echo "$VERSION_ID")
         print_status "INFO" "Detected Ubuntu $OS_VERSION ($VERSION_CODENAME)"
         
@@ -119,8 +120,15 @@ check_os_version() {
         
     elif [[ "$ID" == "debian" ]]; then
         OS_TYPE="debian"
+        DISTRO="debian"
         OS_VERSION=$(echo "$VERSION_ID")
         print_status "INFO" "Detected Debian $OS_VERSION ($VERSION_CODENAME)"
+        
+        # Handle Debian 10 (EOL) - update to archive.debian.org
+        if [[ "$OS_VERSION" == "10" ]]; then
+            print_status "WARNING" "Debian 10 is End-of-Life, updating sources to archive repository..."
+            setup_debian_10_archives
+        fi
         
         # Check if version is supported
         local version_supported=false
@@ -142,6 +150,29 @@ check_os_version() {
         print_status "INFO" "You may need to manually install dependencies for your OS."
         exit 1
     fi
+}
+
+# Function to setup Debian 10 archive repositories (EOL)
+setup_debian_10_archives() {
+    local sources_list="/etc/apt/sources.list"
+    local backup_file="/etc/apt/sources.list.backup.$(date +%s)"
+    
+    print_status "INFO" "Backing up current sources.list to $backup_file"
+    sudo cp "$sources_list" "$backup_file"
+    
+    print_status "INFO" "Updating sources.list to use archive.debian.org"
+    
+    # Create new sources.list for Debian 10 archive
+    cat << 'EOF' | sudo tee "$sources_list" > /dev/null
+# Debian 10 (Buster) - Archive repositories
+deb http://archive.debian.org/debian buster main contrib non-free
+deb http://archive.debian.org/debian-security buster/updates main contrib non-free
+EOF
+    
+    # Remove Release file date checking for archive
+    echo 'Acquire::Check-Valid-Until "false";' | sudo tee /etc/apt/apt.conf.d/99archive-check > /dev/null
+    
+    print_status "SUCCESS" "Debian 10 archive repositories configured"
 }
 
 # Function to check and install Homebrew on macOS
@@ -307,15 +338,23 @@ install_mydumper() {
                 fi
             fi
         else
-            # For newer Ubuntu versions
+            # For newer Ubuntu versions (20.04, 22.04, 24.04+)
             # Enable universe repository first
             sudo add-apt-repository universe -y
             sudo apt-get update -qq
             
             if ! sudo apt-get install -y mydumper; then
-                print_status "WARNING" "mydumper not available even with universe repository"
-                print_status "INFO" "Attempting to install build dependencies and compile from source..."
-                install_mydumper_from_source
+                print_status "WARNING" "mydumper not available in universe repository for Ubuntu $OS_VERSION"
+                
+                # Try different approaches based on version
+                if [[ "$OS_VERSION" == "24.04" ]]; then
+                    print_status "INFO" "Ubuntu 24.04 detected - trying alternative installation methods..."
+                    # Try installing from official GitHub releases
+                    install_mydumper_from_github_release
+                else
+                    print_status "INFO" "Attempting to install build dependencies and compile from source..."
+                    install_mydumper_from_source
+                fi
             fi
         fi
         
@@ -329,8 +368,8 @@ install_mydumper() {
                 print_status "WARNING" "mydumper not available in default repos for Debian 10"
                 print_status "INFO" "Trying to install from backports..."
                 
-                # Add backports repository
-                echo "deb http://deb.debian.org/debian buster-backports main" | sudo tee -a /etc/apt/sources.list
+                # Add backports repository using archive for Debian 10
+                echo "deb http://archive.debian.org/debian buster-backports main" | sudo tee -a /etc/apt/sources.list
                 sudo apt-get update -qq
                 
                 if ! sudo apt-get install -y -t buster-backports mydumper; then
@@ -370,6 +409,57 @@ install_mydumper() {
     else
         print_status "ERROR" "Failed to install mydumper/myloader"
         return 1
+    fi
+}
+
+# Function to install mydumper from GitHub releases (for Ubuntu 24.04+)
+install_mydumper_from_github_release() {
+    print_status "INFO" "Installing mydumper from GitHub releases..."
+    
+    local arch=$(uname -m)
+    local mydumper_url=""
+    
+    # Determine the correct download URL based on architecture
+    if [[ "$arch" == "x86_64" ]]; then
+        # Try to download the latest Ubuntu binary
+        mydumper_url="https://github.com/mydumper/mydumper/releases/latest/download/mydumper_0.12.7-2.jammy_amd64.deb"
+    else
+        print_status "WARNING" "No pre-built binary available for architecture: $arch"
+        print_status "INFO" "Falling back to source compilation..."
+        install_mydumper_from_source
+        return $?
+    fi
+    
+    print_status "INFO" "Downloading mydumper from GitHub releases..."
+    
+    if curl -fsSL "$mydumper_url" -o /tmp/mydumper.deb; then
+        print_status "INFO" "Installing downloaded mydumper package..."
+        
+        # Install package and fix dependencies
+        if sudo dpkg -i /tmp/mydumper.deb 2>/dev/null; then
+            print_status "SUCCESS" "mydumper installed successfully"
+        else
+            print_status "INFO" "Fixing dependencies..."
+            sudo apt-get install -f -y
+            
+            # Try again
+            if sudo dpkg -i /tmp/mydumper.deb; then
+                print_status "SUCCESS" "mydumper installed successfully after fixing dependencies"
+            else
+                print_status "WARNING" "Failed to install downloaded package, trying source compilation..."
+                install_mydumper_from_source
+                return $?
+            fi
+        fi
+        
+        # Cleanup
+        rm -f /tmp/mydumper.deb
+        
+    else
+        print_status "WARNING" "Failed to download mydumper from GitHub releases"
+        print_status "INFO" "Falling back to source compilation..."
+        install_mydumper_from_source
+        return $?
     fi
 }
 
@@ -449,20 +539,40 @@ install_mysql_client() {
         
     else
         # Linux installation
-        # Different package names for different Ubuntu versions
-        local mysql_packages=("mysql-client" "mysql-client-core-8.0" "mysql-client-8.0")
-        local installed=false
-        
-        for package in "${mysql_packages[@]}"; do
-            if sudo apt-get install -y "$package" 2>/dev/null; then
-                installed=true
-                break
+        # Handle different distributions and versions
+        if [[ "$DISTRO" == "debian" ]]; then
+            # Debian uses MariaDB packages
+            local debian_packages=("mariadb-client" "default-mysql-client")
+            local installed=false
+            
+            for package in "${debian_packages[@]}"; do
+                if sudo apt-get install -y "$package" 2>/dev/null; then
+                    installed=true
+                    break
+                fi
+            done
+            
+            if [[ "$installed" == false ]]; then
+                print_status "ERROR" "Failed to install MySQL/MariaDB client on Debian"
+                return 1
             fi
-        done
-        
-        if [[ "$installed" == false ]]; then
-            print_status "ERROR" "Failed to install MySQL client"
-            return 1
+            
+        else
+            # Ubuntu installation - try different package names
+            local mysql_packages=("mysql-client" "mysql-client-core-8.0" "mysql-client-8.0" "default-mysql-client")
+            local installed=false
+            
+            for package in "${mysql_packages[@]}"; do
+                if sudo apt-get install -y "$package" 2>/dev/null; then
+                    installed=true
+                    break
+                fi
+            done
+            
+            if [[ "$installed" == false ]]; then
+                print_status "ERROR" "Failed to install MySQL client"
+                return 1
+            fi
         fi
     fi
     
