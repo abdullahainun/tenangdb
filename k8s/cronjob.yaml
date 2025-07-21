@@ -8,8 +8,8 @@ metadata:
 spec:
   # Schedule: Daily at 2 AM
   schedule: "0 2 * * *"
-  failedJobsHistoryLimit: 3        # This should be here
-  successfulJobsHistoryLimit: 3    # This should be here
+  failedJobsHistoryLimit: 3
+  successfulJobsHistoryLimit: 3
   # Timezone (optional, requires Kubernetes 1.25+)
   timeZone: "Asia/Jakarta"
   
@@ -31,6 +31,7 @@ spec:
             runAsUser: 1001
             runAsGroup: 1001
             fsGroup: 1001
+            fsGroupChangePolicy: "OnRootMismatch"
           
           containers:
           - name: tenangdb
@@ -39,27 +40,8 @@ spec:
             
             # Command - use the main binary
             command: ["/tenangdb"]
-            args: ["backup"]
+            args: ["backup", "--force", "--config", "/config.yaml"]
             
-            # Environment variables from secrets
-            env:
-            - name: MYSQL_USER
-              valueFrom:
-                secretKeyRef:
-                  name: tenangdb-secrets
-                  key: MYSQL_USER
-            - name: MYSQL_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: tenangdb-secrets
-                  key: MYSQL_PASSWORD
-            # Optional: Cloud storage credentials
-            - name: RCLONE_CONFIG
-              valueFrom:
-                secretKeyRef:
-                  name: tenangdb-secrets
-                  key: RCLONE_CONFIG
-                  optional: true
             
             # Volume mounts
             volumeMounts:
@@ -67,12 +49,8 @@ spec:
               mountPath: /config.yaml
               subPath: config.yaml
               readOnly: true
-            - name: backups
-              mountPath: /backups
-            - name: tracking
-              mountPath: /tmp/tenangdb
-            - name: logs
-              mountPath: /var/log/tenangdb
+            - name: data
+              mountPath: /data
             
             # Resource limits
             resources:
@@ -82,124 +60,70 @@ spec:
               limits:
                 memory: "2Gi"
                 cpu: "2000m"
-            
-            # Liveness and readiness probes (optional)
-            # livenessProbe:
-            #   exec:
-            #     command:
-            #     - /bin/sh
-            #     - -c
-            #     - "pgrep -f tenangdb || exit 1"
-            #   initialDelaySeconds: 30
-            #   periodSeconds: 60
           
           volumes:
           - name: config
             configMap:
               name: tenangdb-config
-          - name: backups
+          - name: data
             persistentVolumeClaim:
-              claimName: pvc-tenangdb-backups
-          - name: tracking
-            persistentVolumeClaim:
-              claimName: pvc-tenangdb-tracking
-          - name: logs
-            persistentVolumeClaim:
-              claimName: pvc-tenangdb-logs
-          
-          # Optional: Node selector for dedicated backup nodes
-          # nodeSelector:
-          #   backup-node: "true"
-          
-          # Optional: Tolerations for dedicated backup nodes
-          # tolerations:
-          # - key: "backup-only"
-          #   operator: "Equal"
-          #   value: "true"
-          #   effect: "NoSchedule"
+              claimName: pvc-tenangdb-data
 
 ---
 # Optional: Manual backup job template
-apiVersion: batch/v1
-kind: Job
-metadata:
-  name: tenangdb-manual-backup
-  namespace: tenangdb
-  labels:
-    app: tenangdb
-    job-type: manual
-spec:
-  template:
-    metadata:
-      labels:
-        app: tenangdb
-        job-type: manual
-    spec:
-      serviceAccountName: tenangdb
-      restartPolicy: Never
+# apiVersion: batch/v1
+# kind: Job
+# metadata:
+#   name: tenangdb-manual-backup
+#   namespace: tenangdb
+#   labels:
+#     app: tenangdb
+#     job-type: manual
+# spec:
+#   template:
+#     metadata:
+#       labels:
+#         app: tenangdb
+#         job-type: manual
+#     spec:
+#       serviceAccountName: tenangdb
+#       restartPolicy: Never
       
-      securityContext:
-        runAsNonRoot: true
-        runAsUser: 1001
-        runAsGroup: 1001
-        fsGroup: 1001
+#       securityContext:
+#         runAsNonRoot: true
+#         runAsUser: 1001
+#         runAsGroup: 1001
+#         fsGroup: 1001
+#         fsGroupChangePolicy: "OnRootMismatch"
       
-      containers:
-      - name: tenangdb
-        image: ghcr.io/abdullahainun/tenangdb:latest
-        imagePullPolicy: Always
+#       containers:
+#       - name: tenangdb
+#         image: ghcr.io/abdullahainun/tenangdb:latest
+#         imagePullPolicy: Always
         
-        command: ["/tenangdb"]
-        args: ["backup", "--force"]  # Force backup even if frequency check fails
+#         command: ["/tenangdb"]
+#         args: ["backup", "--force", "--config", "/config.yaml"]  # Force backup even if frequency check fails    
         
-        env:
-        - name: MYSQL_USER
-          valueFrom:
-            secretKeyRef:
-              name: tenangdb-secrets
-              key: MYSQL_USER
-        - name: MYSQL_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: tenangdb-secrets
-              key: MYSQL_PASSWORD
-        - name: RCLONE_CONFIG
-          valueFrom:
-            secretKeyRef:
-              name: tenangdb-secrets
-              key: RCLONE_CONFIG
-              optional: true
+#         volumeMounts:
+#         - name: config
+#           mountPath: /config.yaml`
+#           subPath: config.yaml
+#           readOnly: true
+#         - name: backups
+#           mountPath: /backups
         
-        volumeMounts:
-        - name: config
-          mountPath: /config.yaml
-          subPath: config.yaml
-          readOnly: true
-        - name: backups
-          mountPath: /backups
-        - name: tracking
-          mountPath: /tmp/tenangdb
-        - name: logs
-          mountPath: /var/log/tenangdb
-        
-        resources:
-          requests:
-            memory: "512Mi"
-            cpu: "500m"
-          limits:
-            memory: "2Gi"
-            cpu: "2000m"
+#         resources:
+#           requests:
+#             memory: "512Mi"
+#             cpu: "500m"
+#           limits:
+#             memory: "2Gi"
+#             cpu: "2000m"
       
-      volumes:
-      - name: config
-        configMap:
-          name: tenangdb-config
-      - name: backups
-        persistentVolumeClaim:
-          claimName: pvc-tenangdb-backups
-      - name: tracking
-        persistentVolumeClaim:
-          claimName: pvc-tenangdb-tracking
-      - name: logs
-        persistentVolumeClaim:
-          claimName: pvc-tenangdb-logs
+#       volumes:
+#       - name: config
+#         configMap:
+#           name: tenangdb-config
+#       - name: backups
+#         persistentVolumeClaim:
+#           claimName: pvc-tenangdb-backups

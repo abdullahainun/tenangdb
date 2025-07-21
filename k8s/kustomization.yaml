@@ -10,7 +10,6 @@ resources:
 - namespace.yaml
 - rbac.yaml
 - configmap.yaml
-- secret.yaml
 - pv.yaml
 - pvc.yaml
 - cronjob.yaml

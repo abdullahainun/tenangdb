@@ -30,7 +30,7 @@ data:
     
     # Backup storage and database selection
     backup:
-      output_dir: /backups
+      directory: /data/backups
       databases:
         - production_db
         - analytics_db
@@ -40,9 +40,8 @@ data:
     
     # Cloud upload configuration
     upload:
-      enabled: true
-      destination: "s3:your-backup-bucket/tenangdb"  # Configure your cloud storage
-      rclone_path: /usr/local/bin/rclone
+      enabled: false
+      destination: "s3:your-backup-bucket/tenangdb"
       timeout: 300
       retry_count: 3
     
@@ -50,10 +49,8 @@ data:
     frequency:
       enabled: true
       interval: 24h
-      tracking_file: /tmp/tenangdb/backup_tracking.json
     
     # Logging settings
     logging:
       level: info
-      format: json  # JSON format for better Kubernetes log integration
-      output_file: /var/log/tenangdb/tenangdb.log
+      format: json

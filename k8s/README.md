@@ -1,100 +1,98 @@
 # TenangDB Kubernetes Deployment
 
-This directory contains Kubernetes manifests for deploying TenangDB with dual binary architecture in a production Kubernetes cluster.
+This directory contains Kubernetes manifests for deploying TenangDB with automatic database backup functionality in a production Kubernetes cluster.
 
 ## Architecture
 
-TenangDB now consists of two separate binaries:
+TenangDB deployment consists of:
 
-1. **`tenangdb`** - Main backup/restore/cleanup binary (runs as CronJob)
-2. **`tenangdb-exporter`** - Standalone metrics exporter (runs as Deployment)
+1. **`tenangdb`** - Main backup binary (runs as CronJob for scheduled backups)
+2. **`tenangdb-exporter`** - Metrics exporter (runs as Deployment for monitoring)
 
 ## 📋 Prerequisites
 
 - Kubernetes cluster (1.20+)
 - `kubectl` configured to access your cluster
-- MySQL/MariaDB service running in cluster or accessible from cluster
-- Cloud storage configured (S3, GCS, etc.) - optional but recommended
+- MySQL/MariaDB service accessible from cluster
+- Local storage class or persistent storage available
 
 ## 🚀 Quick Start
 
-### 1. Create Namespace and Apply Manifests
+### 1. Deploy Using Kustomize (Recommended)
 
 ```bash
-# Apply all manifests using kustomize (recommended)
+# Deploy all manifests
 kubectl apply -k .
 
-# Or apply manually in order
-kubectl apply -f namespace.yaml
-kubectl apply -f secret.yaml
-kubectl apply -f configmap.yaml
-kubectl apply -f pvc.yaml
-kubectl apply -f rbac.yaml
-kubectl apply -f cronjob.yaml
-kubectl apply -f metrics-deployment.yaml
+# Check deployment status
+kubectl get all -n tenangdb
 ```
 
-### 2. Configure Secrets
+### 2. Configure Database Connection
 
-Edit the secret with your actual database credentials:
+Edit `configmap.yaml` to update your database settings:
 
-```bash
-# Create secret with your credentials
-kubectl create secret generic tenangdb-secrets \
-  --from-literal=MYSQL_USER=your-backup-user \
-  --from-literal=MYSQL_PASSWORD=your-secure-password \
-  --namespace=tenangdb
+```yaml
+database:
+  host: 192.168.43.117  # Your MySQL server IP/hostname
+  port: 3306
+  username: tenangdb    # Database user (hardcoded in config)
+  password: "secure_password"  # Database password (hardcoded in config)
 ```
 
-### 3. Configure Database Connection
-
-Edit `configmap.yaml` to update:
-- `database.host`: Your MySQL service endpoint
-- `backup.databases`: List of databases to backup
-- `upload.destination`: Your cloud storage destination
+Then apply the updated config:
 
 ```bash
-# Update configmap
 kubectl apply -f configmap.yaml
 ```
 
-### 4. Verify Deployment
+### 3. Verify Deployment
 
 ```bash
 # Check all resources
-kubectl get all -n tenangdb
+kubectl get all,pvc -n tenangdb
 
-# Check if CronJob is created
+# Check CronJob schedule
 kubectl get cronjobs -n tenangdb
 
 # Check metrics exporter
-kubectl get deployment tenangdb-metrics -n tenangdb
+kubectl logs -n tenangdb deployment/tenangdb-metrics
 
-# Check PVCs
-kubectl get pvc -n tenangdb
-
-# Test metrics endpoint
-kubectl port-forward -n tenangdb service/svc-tenangdb-metrics 9090:9090
-curl http://localhost:9090/metrics
+# Test manual backup
+kubectl create job --from=cronjob/tenangdb-backup tenangdb-test -n tenangdb
+kubectl logs -n tenangdb job/tenangdb-test
 ```
 
 ## 📁 File Structure
 
 ```
 k8s/
-├── namespace.yaml          # TenangDB namespace
-├── secret.yaml             # Database credentials and cloud config
-├── configmap.yaml          # TenangDB configuration
-├── pv.yaml                # Persistent volumes (local-storage)
-├── pvc.yaml               # Persistent volume claims
-├── rbac.yaml              # ServiceAccount and permissions
-├── cronjob.yaml           # Scheduled backup job (main binary)
-├── metrics-deployment.yaml # Metrics exporter deployment + service
-├── kustomization.yaml     # Kustomize configuration
-└── README.md              # This file
+├── namespace.yaml                      # TenangDB namespace
+├── configmap.yaml                      # TenangDB configuration
+├── pv.yaml                            # Persistent volume (20Gi local storage)
+├── pvc.yaml                           # Persistent volume claim
+├── rbac.yaml                          # ServiceAccount and permissions
+├── cronjob.yaml                       # Scheduled backup job (daily 2 AM)
+├── metrics-deployment.yaml            # Metrics exporter + service + ServiceMonitor
+├── kustomization.yaml                 # Kustomize configuration
+├── backup-explorer.yaml.disabled      # Pod for accessing backup files
+├── fix-permissions-job.yaml.disabled  # Emergency permissions fix for Talos OS
+├── secret.yaml.disabled               # Not used (env vars removed)
+└── README.md                          # This file
 ```
 
 ## ⚙️ Configuration
+
+### Single PVC Storage Structure
+
+All data is stored in a single 20Gi PVC with this structure:
+
+```
+/data/
+├── backups/        # Database backup files (organized by date)
+├── metrics/        # Metrics and tracking data
+└── logs/           # Application logs
+```
 
 ### Database Configuration
 
@@ -102,9 +100,11 @@ Update `configmap.yaml` with your database settings:
 
 ```yaml
 database:
-  host: mysql-service.default.svc.cluster.local
+  host: your-mysql-server
   port: 3306
-  # credentials come from secret
+  username: backup-user
+  password: "your-password"
+  timeout: 30
 ```
 
 ### Backup Configuration
@@ -113,161 +113,99 @@ Configure which databases to backup:
 
 ```yaml
 backup:
+  directory: /data/backups
   databases:
-    - production_db
-    - analytics_db
-    - user_data
-```
-
-### Cloud Upload Configuration
-
-Configure cloud storage destination:
-
-```yaml
-upload:
-  enabled: true
-  destination: "s3:your-backup-bucket/tenangdb"
-  # or "gcs:your-bucket/tenangdb"
+    - your_database_1
+    - your_database_2
+  batch_size: 5
+  concurrency: 3
 ```
 
 ### Schedule Configuration
 
-Default schedule is daily at 2 AM. Modify in `cronjob.yaml`:
+Default: Daily at 2 AM Jakarta time. Modify in `cronjob.yaml`:
 
 ```yaml
 spec:
-  schedule: "0 2 * * *"  # Daily at 2 AM
-  # schedule: "0 */6 * * *"  # Every 6 hours
-  # schedule: "0 2 * * 0"    # Weekly on Sunday at 2 AM
+  schedule: "0 2 * * *"        # Daily at 2 AM
+  timeZone: "Asia/Jakarta"
+  # schedule: "0 */6 * * *"    # Every 6 hours
+  # schedule: "0 2 * * 0"      # Weekly on Sunday
 ```
 
 ## 🔧 Operations
 
 ### Manual Backup
 
-Run a manual backup job:
-
 ```bash
 # Create manual backup job
-kubectl apply -f - <<EOF
-apiVersion: batch/v1
-kind: Job
-metadata:
-  name: tenangdb-manual-$(date +%Y%m%d-%H%M%S)
-  namespace: tenangdb
-spec:
-  template:
-    spec:
-      serviceAccountName: tenangdb
-      restartPolicy: Never
-      containers:
-      - name: tenangdb
-        image: ghcr.io/abdullahainun/tenangdb:latest
-        command: ["/tenangdb"]
-        args: ["backup", "--force"]
-        envFrom:
-        - secretRef:
-            name: tenangdb-secrets
-        volumeMounts:
-        - name: config
-          mountPath: /config.yaml
-          subPath: config.yaml
-        - name: backups
-          mountPath: /backups
-        - name: tracking
-          mountPath: /tmp/tenangdb
-      volumes:
-      - name: config
-        configMap:
-          name: tenangdb-config
-      - name: backups
-        persistentVolumeClaim:
-          claimName: tenangdb-backups
-      - name: tracking
-        persistentVolumeClaim:
-          claimName: tenangdb-tracking
-EOF
+kubectl create job --from=cronjob/tenangdb-backup tenangdb-manual-$(date +%Y%m%d-%H%M%S) -n tenangdb
+
+# Check job status
+kubectl get jobs -n tenangdb
+
+# View logs
+kubectl logs -n tenangdb job/tenangdb-manual-<timestamp>
+```
+
+### Access Backup Files
+
+Use the backup explorer pod:
+
+```bash
+# Enable backup explorer
+mv backup-explorer.yaml.disabled backup-explorer.yaml
+kubectl apply -f backup-explorer.yaml
+
+# Browse backup files
+kubectl exec -it backup-explorer -n tenangdb -- ls -la /data/backups
+
+# Copy files to local
+kubectl cp tenangdb/backup-explorer:/data/backups/database/2025-07 ./local-backup
+
+# Cleanup
+kubectl delete -f backup-explorer.yaml
 ```
 
 ### View Logs
 
 ```bash
 # Check recent backup jobs
-kubectl get jobs -n tenangdb
+kubectl get jobs -n tenangdb --sort-by=.metadata.creationTimestamp
 
-# View logs from latest backup
-kubectl logs -n tenangdb -l job-name=tenangdb-backup-<timestamp>
+# View latest backup logs
+kubectl logs -n tenangdb -l job-name=$(kubectl get jobs -n tenangdb --sort-by=.metadata.creationTimestamp -o name | tail -1 | cut -d/ -f2)
 
-# View logs from manual backup
-kubectl logs -n tenangdb -l job-name=tenangdb-manual-<timestamp>
-```
-
-### Restore Operations
-
-```bash
-# Run restore job
-kubectl run tenangdb-restore \
-  --image=ghcr.io/abdullahainun/tenangdb:latest \
-  --namespace=tenangdb \
-  --rm -it --restart=Never \
-  --overrides='{
-    "spec": {
-      "serviceAccountName": "tenangdb",
-      "containers": [{
-        "name": "tenangdb-restore",
-        "image": "ghcr.io/abdullahainun/tenangdb:latest",
-        "command": ["/tenangdb", "restore", "--interactive"],
-        "envFrom": [{"secretRef": {"name": "tenangdb-secrets"}}],
-        "volumeMounts": [
-          {"name": "config", "mountPath": "/config.yaml", "subPath": "config.yaml"},
-          {"name": "backups", "mountPath": "/backups"}
-        ]
-      }],
-      "volumes": [
-        {"name": "config", "configMap": {"name": "tenangdb-config"}},
-        {"name": "backups", "persistentVolumeClaim": {"claimName": "tenangdb-backups"}}
-      ]
-    }
-  }'
+# Check CronJob history
+kubectl get cronjobs tenangdb-backup -n tenangdb
 ```
 
 ## 📊 Monitoring
 
-### Check Backup Status
+### Metrics Endpoint
+
+The metrics exporter provides Prometheus metrics:
+
+```bash
+# Port forward to access metrics
+kubectl port-forward -n tenangdb service/svc-tenangdb-metrics 9090:9090
+
+# Check metrics
+curl http://localhost:9090/metrics
+curl http://localhost:9090/health
+```
+
+### Backup Status
 
 ```bash
 # Check CronJob status
-kubectl get cronjobs -n tenangdb
+kubectl describe cronjob tenangdb-backup -n tenangdb
 
 # Check recent jobs
-kubectl get jobs -n tenangdb --sort-by=.metadata.creationTimestamp
+kubectl get jobs -n tenangdb
 
 # Check failed jobs
 kubectl get jobs -n tenangdb --field-selector=status.failed=1
-```
-
-### View Backup History
-
-```bash
-# Check persistent logs
-kubectl exec -n tenangdb -it deployment/log-viewer -- cat /var/log/tenangdb/tenangdb.log
-
-# Or mount the log PVC to view logs
-kubectl run log-viewer \
-  --image=alpine:latest \
-  --namespace=tenangdb \
-  --rm -it --restart=Never \
-  --overrides='{
-    "spec": {
-      "containers": [{
-        "name": "log-viewer",
-        "image": "alpine:latest",
-        "command": ["sh"],
-        "volumeMounts": [{"name": "logs", "mountPath": "/logs"}]
-      }],
-      "volumes": [{"name": "logs", "persistentVolumeClaim": {"claimName": "tenangdb-logs"}}]
-    }
-  }'
 ```
 
 ## 🛡️ Security
@@ -278,78 +216,110 @@ Create a dedicated backup user with minimal permissions:
 
 ```sql
 -- Create backup user
-CREATE USER 'backup-user'@'%' IDENTIFIED BY 'secure-password';
+CREATE USER 'tenangdb'@'%' IDENTIFIED BY 'secure_password';
 
--- Grant minimal required permissions
-GRANT SELECT, LOCK TABLES, SHOW VIEW, EVENT, TRIGGER ON *.* TO 'backup-user'@'%';
-GRANT REPLICATION CLIENT ON *.* TO 'backup-user'@'%';
+-- Grant minimal required permissions for mydumper
+GRANT SELECT, RELOAD, LOCK TABLES, REPLICATION CLIENT ON *.* TO 'tenangdb'@'%';
+GRANT SHOW VIEW ON *.* TO 'tenangdb'@'%';
 
--- Apply privileges
+-- For specific databases only
+-- GRANT SELECT, LOCK TABLES ON database1.* TO 'tenangdb'@'%';
+-- GRANT SELECT, LOCK TABLES ON database2.* TO 'tenangdb'@'%';
+
 FLUSH PRIVILEGES;
 ```
 
-### Secret Management
+### Pod Security
 
-- Store credentials in Kubernetes secrets
-- Use RBAC to limit access to secrets
-- Consider using external secret management (Vault, AWS Secrets Manager)
-
-### Network Security
-
-- Use NetworkPolicies to restrict access
-- Ensure database connections use TLS
-- Store cloud credentials securely
-
-## 🔄 Backup Retention
-
-Backup retention is handled by:
-1. **Kubernetes**: CronJob keeps last 3 successful jobs
-2. **Cloud Storage**: Configure lifecycle policies on your cloud storage
-3. **Local Storage**: PVC size limits local retention
+- Runs as non-root user (1001:1001)
+- Uses read-only config mounts
+- Minimal resource limits
+- Service account with restricted permissions
 
 ## 🚨 Troubleshooting
 
+### Permission Issues (Talos OS)
+
+If you encounter permission denied errors:
+
+```bash
+# Use the emergency permissions fix
+mv fix-permissions-job.yaml.disabled fix-permissions-job.yaml
+kubectl apply -f fix-permissions-job.yaml
+
+# Wait for completion
+kubectl get job fix-tenangdb-permissions -n tenangdb-privileged
+
+# Cleanup
+kubectl delete -f fix-permissions-job.yaml
+```
+
 ### Common Issues
 
-1. **Permission Denied**
+1. **PVC Pending**
    ```bash
-   # Check service account permissions
-   kubectl auth can-i --list --as=system:serviceaccount:tenangdb:tenangdb -n tenangdb
+   # Check PV status
+   kubectl get pv | grep tenangdb
+   
+   # Check storage class
+   kubectl get storageclass
+   
+   # Check node affinity
+   kubectl describe pv pv-tenangdb-data
    ```
 
 2. **Database Connection Failed**
    ```bash
-   # Test database connectivity
-   kubectl run mysql-test --image=mysql:8.0 --rm -it --restart=Never -- \
-     mysql -h mysql-service.default.svc.cluster.local -u backup-user -p
+   # Test connectivity from cluster
+   kubectl run mysql-test --image=mysql:8.0 --rm -it --restart=Never -n tenangdb -- \
+     mysql -h 192.168.43.117 -u tenangdb -p
    ```
 
-3. **PVC Issues**
+3. **Backup Job Fails**
    ```bash
-   # Check PVC status
-   kubectl get pvc -n tenangdb
+   # Check job logs
+   kubectl logs -n tenangdb job/tenangdb-backup-<timestamp>
    
-   # Check storage class
-   kubectl get storageclass
+   # Check config
+   kubectl get configmap tenangdb-config -n tenangdb -o yaml
    ```
 
-4. **Cloud Upload Failed**
+4. **Metrics Pod Not Ready**
    ```bash
-   # Check rclone config
-   kubectl get secret tenangdb-secrets -n tenangdb -o yaml
+   # Check pod status
+   kubectl describe pod -n tenangdb -l component=metrics
+   
+   # Check health endpoint
+   kubectl exec -n tenangdb deployment/tenangdb-metrics -- wget -O- http://localhost:9090/health
    ```
 
-### Debug Mode
+## 🔄 Storage Management
 
-Enable debug logging by updating the ConfigMap:
+### Backup Retention
 
-```yaml
-logging:
-  level: debug
-```
+- **Kubernetes Jobs**: CronJob keeps last 3 successful jobs
+- **Local Storage**: 20Gi PVC provides space for multiple backup cycles
+- **File Organization**: Backups organized by database and date for easy cleanup
+
+### Storage Expansion
+
+To increase storage capacity:
+
+1. Update PV size in `pv.yaml`
+2. Update PVC size in `pvc.yaml`
+3. Apply changes and restart pods
 
 ## 📚 Additional Resources
 
-- [TenangDB Documentation](https://github.com/abdullahainun/tenangdb)
+- [TenangDB GitHub Repository](https://github.com/abdullahainun/tenangdb)
 - [Kubernetes CronJob Documentation](https://kubernetes.io/docs/concepts/workloads/controllers/cron-jobs/)
 - [Kubernetes Persistent Volumes](https://kubernetes.io/docs/concepts/storage/persistent-volumes/)
+- [mydumper Documentation](https://mydumper.readthedocs.io/)
+
+## 🚀 Production Considerations
+
+1. **Resource Limits**: Adjust CPU/memory limits based on database size
+2. **Network Policies**: Implement network policies for security
+3. **Monitoring**: Set up alerts for backup failures
+4. **Backup Validation**: Regularly test restore procedures
+5. **Disaster Recovery**: Consider off-site backup strategies

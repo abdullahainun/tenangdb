@@ -1,0 +1,49 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: backup-explorer
+  namespace: tenangdb
+  labels:
+    app: tenangdb
+    component: explorer
+spec:
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1001
+    runAsGroup: 1001
+    fsGroup: 1001
+  containers:
+  - name: explorer
+    image: busybox
+    command: ['sleep', 'infinity']
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+      seccompProfile:
+        type: RuntimeDefault
+    volumeMounts:
+    - name: data
+      mountPath: /data
+      readOnly: true
+    resources:
+      requests:
+        memory: "16Mi"
+        cpu: "10m"
+      limits:
+        memory: "64Mi"
+        cpu: "50m"
+  volumes:
+  - name: data
+    persistentVolumeClaim:
+      claimName: pvc-tenangdb-data
+  restartPolicy: Never
+
+---
+# Instructions for usage:
+# 1. Enable this manifest: mv backup-explorer.yaml.disabled backup-explorer.yaml
+# 2. Deploy: kubectl apply -f backup-explorer.yaml
+# 3. Access files: kubectl exec -it backup-explorer -n tenangdb -- ls -la /data
+# 4. Copy files: kubectl cp tenangdb/backup-explorer:/data/backups/database/date ./local-backup
+# 5. Cleanup: kubectl delete -f backup-explorer.yaml

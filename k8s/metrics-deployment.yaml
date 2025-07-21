@@ -33,16 +33,8 @@ spec:
         imagePullPolicy: Always
         
         # Use the exporter binary via entrypoint
-        args: ["tenangdb-exporter", "--port=9090", "--metrics-file=/tmp/tenangdb/metrics.json"]
+        args: ["tenangdb-exporter", "--port=9090", "--metrics-file=/data/metrics/metrics.json"]
         
-        # Environment variables (alternative to config file)
-        env:
-        - name: TENANGDB_METRICS_PORT
-          value: "9090"
-        - name: TENANGDB_METRICS_FILE
-          value: "/tmp/tenangdb/metrics.json"
-        - name: TENANGDB_LOG_LEVEL
-          value: "debug"
         
         # Ports
         ports:
@@ -52,10 +44,8 @@ spec:
         
         # Volume mounts
         volumeMounts:
-        - name: metrics-storage
-          mountPath: /tmp/tenangdb
-        - name: logs
-          mountPath: /var/log/tenangdb
+        - name: data
+          mountPath: /data
         
         # Resource limits
         resources:
@@ -86,12 +76,9 @@ spec:
           failureThreshold: 2
       
       volumes:
-      - name: metrics-storage
+      - name: data
         persistentVolumeClaim:
-          claimName: pvc-tenangdb-tracking
-      - name: logs
-        persistentVolumeClaim:
-          claimName: pvc-tenangdb-logs
+          claimName: pvc-tenangdb-data
 
 ---
 apiVersion: v1
