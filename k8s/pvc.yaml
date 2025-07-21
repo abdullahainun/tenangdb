@@ -1,41 +1,15 @@
----
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: pvc-tenangdb-backups
+  name: pvc-tenangdb-data
   namespace: tenangdb
+  labels:
+    app: tenangdb
+    component: storage
 spec:
   storageClassName: local-storage
   accessModes:
-    - ReadWriteOnce
+    - ReadWriteMany
   resources:
     requests:
-      storage: 10Gi
-
----
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: pvc-tenangdb-tracking
-  namespace: tenangdb
-spec:
-  storageClassName: local-storage
-  accessModes:
-    - ReadWriteOnce
-  resources:
-    requests:
-      storage: 1Gi
-
----
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: pvc-tenangdb-logs
-  namespace: tenangdb
-spec:
-  storageClassName: local-storage
-  accessModes:
-    - ReadWriteOnce
-  resources:
-    requests:
-      storage: 5Gi
+      storage: 20Gi

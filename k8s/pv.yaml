@@ -1,65 +1,17 @@
 apiVersion: v1
 kind: PersistentVolume
 metadata:
-  name: pv-tenangdb-backups
+  name: pv-tenangdb-data
   labels:
     type: local
 spec:
   storageClassName: local-storage
   capacity:
-    storage: 10Gi
+    storage: 20Gi
   accessModes:
-    - ReadWriteOnce
+    - ReadWriteMany
   hostPath:
-    path: /var/lib/tenangdb/backups
-  nodeAffinity:
-    required:
-      nodeSelectorTerms:
-        - matchExpressions:
-            - key: kubernetes.io/hostname
-              operator: In
-              values:
-                - homelab-k8s-worker-2
-
----
-apiVersion: v1
-kind: PersistentVolume
-metadata:
-  name: pv-tenangdb-tracking
-  labels:
-    type: local
-spec:
-  storageClassName: local-storage
-  capacity:
-    storage: 1Gi
-  accessModes:
-    - ReadWriteOnce
-  hostPath:
-    path: /var/lib/tenangdb/tracking
-  nodeAffinity:
-    required:
-      nodeSelectorTerms:
-        - matchExpressions:
-            - key: kubernetes.io/hostname
-              operator: In
-              values:
-                - homelab-k8s-worker-2
-
----
-apiVersion: v1
-kind: PersistentVolume
-metadata:
-  name: pv-tenangdb-logs
-  labels:
-    type: local
-spec:
-  storageClassName: local-storage
-  capacity:
-    storage: 5Gi
-  accessModes:
-    - ReadWriteOnce
-  hostPath:
-    path: /var/lib/tenangdb/logs
+    path: /var/lib/tenangdb/data
   nodeAffinity:
     required:
       nodeSelectorTerms:

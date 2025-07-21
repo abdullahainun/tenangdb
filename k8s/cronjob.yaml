@@ -40,27 +40,8 @@ spec:
             
             # Command - use the main binary
             command: ["/tenangdb"]
-            args: ["backup", "--config", "/config.yaml"]
+            args: ["backup", "--force", "--config", "/config.yaml"]
             
-            # Environment variables from secrets
-            env:
-            - name: MYSQL_USER
-              valueFrom:
-                secretKeyRef:
-                  name: tenangdb-secrets
-                  key: MYSQL_USER
-            - name: MYSQL_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: tenangdb-secrets
-                  key: MYSQL_PASSWORD
-            # Optional: Cloud storage credentials
-            - name: RCLONE_CONFIG
-              valueFrom:
-                secretKeyRef:
-                  name: tenangdb-secrets
-                  key: RCLONE_CONFIG
-                  optional: true
             
             # Volume mounts
             volumeMounts:
@@ -68,8 +49,8 @@ spec:
               mountPath: /config.yaml
               subPath: config.yaml
               readOnly: true
-            - name: backups
-              mountPath: /backups
+            - name: data
+              mountPath: /data
             
             # Resource limits
             resources:
@@ -84,83 +65,65 @@ spec:
           - name: config
             configMap:
               name: tenangdb-config
-          - name: backups
+          - name: data
             persistentVolumeClaim:
-              claimName: pvc-tenangdb-backups
+              claimName: pvc-tenangdb-data
 
 ---
 # Optional: Manual backup job template
-apiVersion: batch/v1
-kind: Job
-metadata:
-  name: tenangdb-manual-backup
-  namespace: tenangdb
-  labels:
-    app: tenangdb
-    job-type: manual
-spec:
-  template:
-    metadata:
-      labels:
-        app: tenangdb
-        job-type: manual
-    spec:
-      serviceAccountName: tenangdb
-      restartPolicy: Never
+# apiVersion: batch/v1
+# kind: Job
+# metadata:
+#   name: tenangdb-manual-backup
+#   namespace: tenangdb
+#   labels:
+#     app: tenangdb
+#     job-type: manual
+# spec:
+#   template:
+#     metadata:
+#       labels:
+#         app: tenangdb
+#         job-type: manual
+#     spec:
+#       serviceAccountName: tenangdb
+#       restartPolicy: Never
       
-      securityContext:
-        runAsNonRoot: true
-        runAsUser: 1001
-        runAsGroup: 1001
-        fsGroup: 1001
-        fsGroupChangePolicy: "OnRootMismatch"
+#       securityContext:
+#         runAsNonRoot: true
+#         runAsUser: 1001
+#         runAsGroup: 1001
+#         fsGroup: 1001
+#         fsGroupChangePolicy: "OnRootMismatch"
       
-      containers:
-      - name: tenangdb
-        image: ghcr.io/abdullahainun/tenangdb:latest
-        imagePullPolicy: Always
+#       containers:
+#       - name: tenangdb
+#         image: ghcr.io/abdullahainun/tenangdb:latest
+#         imagePullPolicy: Always
         
-        command: ["/tenangdb"]
-        args: ["backup", "--force", "--config", "/config.yaml"]  # Force backup even if frequency check fails
+#         command: ["/tenangdb"]
+#         args: ["backup", "--force", "--config", "/config.yaml"]  # Force backup even if frequency check fails    
         
-        env:
-        - name: MYSQL_USER
-          valueFrom:
-            secretKeyRef:
-              name: tenangdb-secrets
-              key: MYSQL_USER
-        - name: MYSQL_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: tenangdb-secrets
-              key: MYSQL_PASSWORD
-        - name: RCLONE_CONFIG
-          valueFrom:
-            secretKeyRef:
-              name: tenangdb-secrets
-              key: RCLONE_CONFIG
-              optional: true
+#         volumeMounts:
+#         - name: config
+#           mountPath: /config.yaml`
+#           subPath: config.yaml
+#           readOnly: true
+#         - name: backups
+#           mountPath: /backups
         
-        volumeMounts:
-        - name: config
-          mountPath: /config.yaml
-          subPath: config.yaml
-          readOnly: true
-        - name: backups
-          mountPath: /backups
-        
-        resources:
-          requests:
-            memory: "512Mi"
-            cpu: "500m"
-          limits:
-            memory: "2Gi"
-            cpu: "2000m"
+#         resources:
+#           requests:
+#             memory: "512Mi"
+#             cpu: "500m"
+#           limits:
+#             memory: "2Gi"
+#             cpu: "2000m"
       
-      volumes:
-      - name: config
-        configMap:
-          name: tenangdb-config
-      - name: backups
-        persistentVolumeClaim:
-          claimName: pvc-tenangdb-backups
+#       volumes:
+#       - name: config
+#         configMap:
+#           name: tenangdb-config
+#       - name: backups
+#         persistentVolumeClaim:
+#           claimName: pvc-tenangdb-backups

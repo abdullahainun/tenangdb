@@ -23,10 +23,12 @@ spec:
         - sh
         - -c
         - |
-          mkdir -p /host/var/lib/tenangdb/backups
-          chown -R 1001:1001 /host/var/lib/tenangdb/backups
-          chmod -R 775 /host/var/lib/tenangdb/backups
-          echo "Permissions fixed"
+          mkdir -p /host/var/lib/tenangdb/data/backups
+          mkdir -p /host/var/lib/tenangdb/data/metrics
+          mkdir -p /host/var/lib/tenangdb/data/logs
+          chown -R 1001:1001 /host/var/lib/tenangdb/data
+          chmod -R 775 /host/var/lib/tenangdb/data
+          echo "Single PVC permissions fixed for /data structure"
         securityContext:
           privileged: true
         volumeMounts:
