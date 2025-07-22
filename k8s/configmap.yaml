@@ -50,6 +50,12 @@ data:
       enabled: true
       interval: 24h
     
+    # Metrics configuration
+    metrics:
+      enabled: true
+      storage_path: /data/metrics/metrics.json
+      port: "9090"
+    
     # Logging settings
     logging:
       level: info
