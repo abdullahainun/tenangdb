@@ -34,7 +34,7 @@ Edit `configmap.yaml` to update your database settings:
 
 ```yaml
 database:
-  host: 192.168.43.117  # Your MySQL server IP/hostname
+  host: 192.168.1.100  # Your MySQL server IP/hostname
   port: 3306
   username: tenangdb    # Database user (hardcoded in config)
   password: "secure_password"  # Database password (hardcoded in config)
