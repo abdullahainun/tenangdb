@@ -40,10 +40,11 @@ data:
     
     # Cloud upload configuration
     upload:
-      enabled: false
-      destination: "s3:your-backup-bucket/tenangdb"
-      timeout: 300
+      enabled: true
+      destination: "gcs:your-tenangdb-backups/backups"
+      timeout: 600
       retry_count: 3
+      rclone_config_path: "/etc/rclone/rclone.conf"
     
     # Frequency checking (requires persistent volume)
     frequency:
