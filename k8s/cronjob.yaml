@@ -51,6 +51,12 @@ spec:
               readOnly: true
             - name: data
               mountPath: /data
+            - name: rclone-config
+              mountPath: /etc/rclone
+              readOnly: true
+            - name: gcs-credentials
+              mountPath: /etc/gcs-key
+              readOnly: true
             
             # Resource limits
             resources:
@@ -68,6 +74,18 @@ spec:
           - name: data
             persistentVolumeClaim:
               claimName: pvc-tenangdb-data
+          - name: rclone-config
+            secret:
+              secretName: tenangdb-gcs-config
+              items:
+              - key: rclone.conf
+                path: rclone.conf
+          - name: gcs-credentials
+            secret:
+              secretName: tenangdb-gcs-config
+              items:
+              - key: service-account.json
+                path: service-account.json
 
 ---
 # Optional: Manual backup job template
