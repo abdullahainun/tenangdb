@@ -20,8 +20,12 @@ sudo chown -R tenangdb:tenangdb /var/log/tenangdb /var/backups/tenangdb
 
 # Install binary from release
 curl -L https://github.com/abdullahainun/tenangdb/releases/latest/download/tenangdb-linux-amd64 -o tenangdb
+curl -L https://github.com/abdullahainun/tenangdb/releases/download/latest/tenangdb-exporter-linux-amd64 -o tenangdb_exporter
+
 sudo mv tenangdb /usr/local/bin/
+sudo mv tenangdb_exporter /usr/local/bin/
 sudo chmod +x /usr/local/bin/tenangdb
+sudo chmod +x /usr/local/bin/tenangdb_exporter
 
 # Create config
 curl -L https://raw.githubusercontent.com/abdullahainun/tenangdb/main/config.yaml.example -o config.yaml
@@ -74,7 +78,40 @@ RandomizedDelaySec=30m
 WantedBy=timers.target
 ```
 
-**Enable and Start:**
+### 3. Metrics Exporter Service (Optional)
+
+**Systemd Service File for Exporter** (`/etc/systemd/system/tenangdb-exporter.service`):
+
+```ini
+[Unit]
+Description=TenangDB Exporter
+
+[Service]
+User=tenangdb
+Group=tenangdb
+ExecStart=/usr/local/bin/tenangdb_exporter
+
+# Security settings
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/lib/tenangdb /var/log/tenangdb
+
+[Install]
+WantedBy=multi-user.target
+```
+
+**Enable and Start Exporter:**
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable tenangdb-exporter.timer
+sudo systemctl start tenangdb-exporter.timer
+sudo systemctl status tenangdb-exporter.timer
+```
+
+**Enable and Start Backup Service:**
 
 ```bash
 sudo systemctl daemon-reload
@@ -220,8 +257,13 @@ cleanup:
 
 **Check Service Status:**
 ```bash
+# Backup service
 sudo systemctl status tenangdb.service
 sudo journalctl -u tenangdb.service -f
+
+# Exporter service (if enabled)
+sudo systemctl status tenangdb-exporter.service
+sudo journalctl -u tenangdb-exporter.service -f
 ```
 
 **Log Monitoring:**
