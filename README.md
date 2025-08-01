@@ -1,11 +1,11 @@
 # TenangDB
 
-🚧 **Under Development** 
-
-This project is actively being developed. While core features are stable, expect:
-- Potential breaking changes in configuration and CLI
-- Some experimental features may not work as expected  
-- Thorough testing recommended before production use
+> 🚧 **Under Development** 
+>
+> This project is actively being developed. While core features are stable, expect:
+> - Potential breaking changes in configuration and CLI
+> - Some experimental features may not work as expected  
+> - Thorough testing recommended before production use
 
 🛡️ **Backup yang Bikin Tenang** - Secure MySQL backup with intelligent automation.
 
