@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"runtime"
@@ -66,6 +67,9 @@ func main() {
 
 	// Add config command
 	rootCmd.AddCommand(newConfigCommand())
+
+	// Add init command
+	rootCmd.AddCommand(newInitCommand())
 
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
@@ -1199,4 +1203,1044 @@ func getDirSize(path string) (int64, error) {
 		return nil
 	})
 	return size, err
+}
+
+func newInitCommand() *cobra.Command {
+	var configPath string
+	var force bool
+	var deploySystemd bool
+	var systemdUser string
+
+	cmd := &cobra.Command{
+		Use:   "init",
+		Short: "Initialize TenangDB configuration",
+		Long:  `Interactive wizard to set up TenangDB configuration, create directories, and validate dependencies.`,
+		Run: func(cmd *cobra.Command, args []string) {
+			runInit(configPath, force, deploySystemd, systemdUser)
+		},
+	}
+
+	cmd.Flags().StringVar(&configPath, "config", "", "config file path (auto-discovery if not specified)")
+	cmd.Flags().BoolVar(&force, "force", false, "overwrite existing config file without confirmation")
+	cmd.Flags().BoolVar(&deploySystemd, "deploy-systemd", false, "automatically deploy as systemd service")
+	cmd.Flags().StringVar(&systemdUser, "systemd-user", "tenangdb", "systemd service user")
+
+	return cmd
+}
+
+func runInit(configPath string, force bool, deploySystemd bool, systemdUser string) {
+	fmt.Printf("\n🛡️ TenangDB Setup Wizard\n")
+	fmt.Printf("========================\n\n")
+	fmt.Printf("This wizard will help you set up TenangDB with your MySQL database.\n\n")
+
+	// Determine config file path
+	targetConfigPath := configPath
+	if targetConfigPath == "" {
+		// Use the first path from the standard locations
+		configPaths := config.GetConfigPaths()
+		targetConfigPath = expandPath(configPaths[0])
+	}
+
+	// Check if config already exists
+	if _, err := os.Stat(targetConfigPath); err == nil && !force {
+		fmt.Printf("⚠️  Config file already exists: %s\n", targetConfigPath)
+		fmt.Print("Do you want to overwrite it? [y/N]: ")
+		
+		scanner := bufio.NewScanner(os.Stdin)
+		if scanner.Scan() {
+			response := strings.ToLower(strings.TrimSpace(scanner.Text()))
+			if response != "y" && response != "yes" {
+				fmt.Println("Setup cancelled.")
+				return
+			}
+		} else {
+			fmt.Println("Setup cancelled.")
+			return
+		}
+	}
+
+	fmt.Printf("📁 Config will be saved to: %s\n\n", targetConfigPath)
+
+	// Step 1: Validate dependencies
+	fmt.Printf("🔍 Step 1: Checking dependencies...\n")
+	deps := validateDependencies()
+	
+	// Step 2: Database configuration
+	fmt.Printf("\n💾 Step 2: Database Configuration\n")
+	fmt.Printf("=================================\n")
+	dbConfig := setupDatabaseConfig()
+
+	// Step 3: Test database connection
+	fmt.Printf("\n🔗 Step 3: Testing database connection...\n")
+	if !testDatabaseConnection(dbConfig) {
+		fmt.Printf("❌ Database connection failed. Please check your settings and try again.\n")
+		return
+	}
+	fmt.Printf("✅ Database connection successful!\n")
+
+	// Step 4: Backup configuration
+	fmt.Printf("\n📦 Step 4: Backup Configuration\n")
+	fmt.Printf("===============================\n")
+	backupConfig := setupBackupConfig(dbConfig)
+
+	// Step 5: Upload configuration (optional)
+	fmt.Printf("\n☁️ Step 5: Cloud Upload (Optional)\n")
+	fmt.Printf("==================================\n")
+	uploadConfig := setupUploadConfig(deps.rcloneAvailable)
+
+	// Step 6: Logging and metrics
+	fmt.Printf("\n📊 Step 6: Logging & Metrics\n")
+	fmt.Printf("============================\n")
+	loggingConfig, metricsConfig := setupLoggingAndMetrics()
+
+	// Step 7: Generate and save config
+	fmt.Printf("\n💾 Step 7: Generating configuration...\n")
+	fullConfig := generateConfig(dbConfig, backupConfig, uploadConfig, loggingConfig, metricsConfig)
+	
+	if err := saveConfig(fullConfig, targetConfigPath); err != nil {
+		fmt.Printf("❌ Failed to save config: %v\n", err)
+		return
+	}
+
+	// Step 8: Create directories
+	fmt.Printf("\n📁 Step 8: Creating directories...\n")
+	createDirectories(backupConfig.Directory, loggingConfig.FilePath, metricsConfig.StoragePath)
+
+	// Step 9: Systemd deployment (optional)
+	if deploySystemd || (!deploySystemd && promptSystemdDeployment()) {
+		fmt.Printf("\n🚀 Step 9: Deploying as systemd service...\n")
+		if err := deployAsSystemdService(targetConfigPath, systemdUser, metricsConfig.Port); err != nil {
+			fmt.Printf("❌ Failed to deploy systemd service: %v\n", err)
+			fmt.Printf("💡 You can deploy manually later using the script in scripts/install.sh\n")
+		} else {
+			fmt.Printf("✅ Systemd service deployed successfully!\n")
+		}
+	}
+
+	// Summary
+	fmt.Printf("\n🎉 Setup Complete!\n")
+	fmt.Printf("==================\n\n")
+	fmt.Printf("✅ Configuration saved: %s\n", targetConfigPath)
+	fmt.Printf("✅ Directories created\n")
+	fmt.Printf("✅ Dependencies validated\n")
+	if deploySystemd {
+		fmt.Printf("✅ Systemd service deployed\n")
+	}
+	fmt.Printf("\n")
+	
+	fmt.Printf("🚀 Next steps:\n")
+	if deploySystemd {
+		fmt.Printf("  1. Check service status: sudo systemctl status tenangdb.timer\n")
+		fmt.Printf("  2. View logs: sudo journalctl -u tenangdb.service -f\n")
+		fmt.Printf("  3. Manual backup: sudo systemctl start tenangdb.service\n")
+		if metricsConfig.Enabled {
+			fmt.Printf("  4. View metrics: curl http://localhost:%s/metrics\n", metricsConfig.Port)
+		}
+	} else {
+		fmt.Printf("  1. Run your first backup: tenangdb backup\n")
+		if uploadConfig.Enabled {
+			fmt.Printf("  2. Check cloud upload: rclone ls %s\n", uploadConfig.Destination)
+		}
+		if metricsConfig.Enabled {
+			fmt.Printf("  3. View metrics: http://localhost:%s/metrics\n", metricsConfig.Port)
+		}
+		fmt.Printf("  4. Deploy as service: tenangdb init --deploy-systemd --force\n")
+	}
+	fmt.Printf("\n📚 Need help? Check: tenangdb --help\n\n")
+}
+
+type DependencyStatus struct {
+	mysqldumpAvailable bool
+	mysqlAvailable     bool
+	mydumperAvailable  bool
+	myloaderAvailable  bool
+	rcloneAvailable    bool
+}
+
+func validateDependencies() DependencyStatus {
+	deps := DependencyStatus{}
+	
+	// Check mysqldump
+	if path := config.FindMysqldumpPath(); path != "" {
+		if _, err := os.Stat(path); err == nil {
+			deps.mysqldumpAvailable = true
+			fmt.Printf("✅ mysqldump found: %s\n", path)
+		}
+	}
+	if !deps.mysqldumpAvailable {
+		fmt.Printf("❌ mysqldump not found (required for backup)\n")
+	}
+
+	// Check mysql
+	if path := config.FindMysqlPath(); path != "" {
+		if _, err := os.Stat(path); err == nil {
+			deps.mysqlAvailable = true
+			fmt.Printf("✅ mysql found: %s\n", path)
+		}
+	}
+	if !deps.mysqlAvailable {
+		fmt.Printf("⚠️  mysql client not found (required for restore)\n")
+	}
+
+	// Check mydumper (optional)
+	if path := config.FindMydumperPath(); path != "" {
+		if _, err := os.Stat(path); err == nil {
+			deps.mydumperAvailable = true
+			fmt.Printf("✅ mydumper found: %s (faster parallel backups)\n", path)
+		}
+	}
+	if !deps.mydumperAvailable {
+		fmt.Printf("⚠️  mydumper not found (optional, enables faster parallel backups)\n")
+	}
+
+	// Check myloader (optional)
+	if path := config.FindMyloaderPath(); path != "" {
+		if _, err := os.Stat(path); err == nil {
+			deps.myloaderAvailable = true
+			fmt.Printf("✅ myloader found: %s (faster parallel restores)\n", path)
+		}
+	}
+	if !deps.myloaderAvailable && deps.mydumperAvailable {
+		fmt.Printf("⚠️  myloader not found (optional, enables faster parallel restores)\n")
+	}
+
+	// Check rclone (optional)
+	if path := config.FindRclonePath(); path != "" {
+		if _, err := os.Stat(path); err == nil {
+			deps.rcloneAvailable = true
+			fmt.Printf("✅ rclone found: %s (cloud upload)\n", path)
+		}
+	}
+	if !deps.rcloneAvailable {
+		fmt.Printf("⚠️  rclone not found (optional, enables cloud upload)\n")
+	}
+
+	return deps
+}
+
+func setupDatabaseConfig() config.DatabaseConfig {
+	scanner := bufio.NewScanner(os.Stdin)
+	
+	// Database host
+	fmt.Print("Database host [localhost]: ")
+	host := "localhost"
+	if scanner.Scan() {
+		if input := strings.TrimSpace(scanner.Text()); input != "" {
+			host = input
+		}
+	}
+
+	// Database port
+	fmt.Print("Database port [3306]: ")
+	port := 3306
+	if scanner.Scan() {
+		if input := strings.TrimSpace(scanner.Text()); input != "" {
+			if p, err := fmt.Sscanf(input, "%d", &port); p != 1 || err != nil {
+				fmt.Printf("Invalid port, using default: 3306\n")
+				port = 3306
+			}
+		}
+	}
+
+	// Database username
+	fmt.Print("Database username: ")
+	var username string
+	if scanner.Scan() {
+		username = strings.TrimSpace(scanner.Text())
+	}
+	for username == "" {
+		fmt.Print("Username is required. Database username: ")
+		if scanner.Scan() {
+			username = strings.TrimSpace(scanner.Text())
+		}
+	}
+
+	// Database password
+	fmt.Print("Database password: ")
+	var password string
+	if scanner.Scan() {
+		password = scanner.Text() // Don't trim password, preserve spaces
+	}
+
+	return config.DatabaseConfig{
+		Host:     host,
+		Port:     port,
+		Username: username,
+		Password: password,
+		Timeout:  30,
+	}
+}
+
+func testDatabaseConnection(dbConfig config.DatabaseConfig) bool {
+	// Create a minimal config for testing
+	testConfig := &config.Config{
+		Database: dbConfig,
+	}
+	
+	dbClient, err := database.NewClient(&testConfig.Database)
+	if err != nil {
+		fmt.Printf("❌ Failed to create database client: %v\n", err)
+		return false
+	}
+	defer dbClient.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Test connection by listing databases
+	databases, err := dbClient.ListDatabases(ctx)
+	if err != nil {
+		fmt.Printf("❌ Failed to connect: %v\n", err)
+		return false
+	}
+
+	fmt.Printf("✅ Found %d databases: %v\n", len(databases), databases)
+	return true
+}
+
+func setupBackupConfig(dbConfig config.DatabaseConfig) config.BackupConfig {
+	scanner := bufio.NewScanner(os.Stdin)
+	
+	// Get available databases for selection
+	fmt.Printf("Getting list of available databases...\n")
+	testConfig := &config.Config{Database: dbConfig}
+	dbClient, err := database.NewClient(&testConfig.Database)
+	if err != nil {
+		fmt.Printf("❌ Could not connect to database: %v\n", err)
+		fmt.Printf("You'll need to manually specify databases.\n")
+	}
+	
+	var availableDatabases []string
+	if dbClient != nil {
+		defer dbClient.Close()
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		
+		if dbs, err := dbClient.ListDatabases(ctx); err == nil {
+			availableDatabases = dbs
+		}
+	}
+
+	// Show available databases
+	if len(availableDatabases) > 0 {
+		fmt.Printf("\nAvailable databases:\n")
+		for i, db := range availableDatabases {
+			// Skip system databases by default
+			if db == "information_schema" || db == "performance_schema" || db == "mysql" || db == "sys" {
+				fmt.Printf("  %d. %s (system database)\n", i+1, db)
+			} else {
+				fmt.Printf("  %d. %s\n", i+1, db)
+			}
+		}
+	}
+
+	// Database selection
+	fmt.Printf("\nWhich databases do you want to backup?\n")
+	fmt.Printf("Enter database names separated by commas, or numbers from the list above.\n")
+	fmt.Print("Databases to backup: ")
+	
+	var selectedDatabases []string
+	if scanner.Scan() {
+		input := strings.TrimSpace(scanner.Text())
+		if input != "" {
+			// Parse input - could be database names or numbers
+			parts := strings.Split(input, ",")
+			for _, part := range parts {
+				part = strings.TrimSpace(part)
+				
+				// Check if it's a number
+				var num int
+				if _, err := fmt.Sscanf(part, "%d", &num); err == nil && len(availableDatabases) > 0 {
+					if num >= 1 && num <= len(availableDatabases) {
+						selectedDatabases = append(selectedDatabases, availableDatabases[num-1])
+						continue
+					}
+				}
+				
+				// Treat as database name
+				if part != "" {
+					selectedDatabases = append(selectedDatabases, part)
+				}
+			}
+		}
+	}
+
+	// Ensure at least one database is selected
+	for len(selectedDatabases) == 0 {
+		fmt.Print("At least one database is required. Databases to backup: ")
+		if scanner.Scan() {
+			input := strings.TrimSpace(scanner.Text())
+			if input != "" {
+				parts := strings.Split(input, ",")
+				for _, part := range parts {
+					part = strings.TrimSpace(part)
+					if part != "" {
+						selectedDatabases = append(selectedDatabases, part)
+					}
+				}
+			}
+		}
+	}
+
+	// Backup directory
+	defaultDir := "/backups"
+	if runtime.GOOS == "darwin" {
+		if os.Geteuid() == 0 {
+			defaultDir = "/usr/local/var/tenangdb/backups"
+		} else {
+			homeDir, _ := os.UserHomeDir()
+			defaultDir = filepath.Join(homeDir, "Library", "Application Support", "TenangDB", "backups")
+		}
+	} else {
+		if os.Geteuid() == 0 {
+			defaultDir = "/var/backups/tenangdb"
+		} else {
+			homeDir, _ := os.UserHomeDir()
+			defaultDir = filepath.Join(homeDir, ".local", "share", "tenangdb", "backups")
+		}
+	}
+
+	fmt.Printf("Backup directory [%s]: ", defaultDir)
+	backupDir := defaultDir
+	if scanner.Scan() {
+		if input := strings.TrimSpace(scanner.Text()); input != "" {
+			backupDir = input
+		}
+	}
+
+	return config.BackupConfig{
+		Directory:           backupDir,
+		Databases:           selectedDatabases,
+		BatchSize:           5,
+		Concurrency:         3,
+		Timeout:             30 * time.Minute,
+		RetryCount:          3,
+		RetryDelay:          10 * time.Second,
+		CheckLastBackupTime: true,
+		MinBackupInterval:   1 * time.Hour,
+		SkipConfirmation:    false,
+	}
+}
+
+func setupUploadConfig(rcloneAvailable bool) config.UploadConfig {
+	if !rcloneAvailable {
+		fmt.Printf("⚠️  Rclone not available, skipping cloud upload setup.\n")
+		return config.UploadConfig{Enabled: false}
+	}
+
+	scanner := bufio.NewScanner(os.Stdin)
+	
+	fmt.Print("Enable cloud upload? [y/N]: ")
+	enabled := false
+	if scanner.Scan() {
+		response := strings.ToLower(strings.TrimSpace(scanner.Text()))
+		enabled = response == "y" || response == "yes"
+	}
+
+	if !enabled {
+		return config.UploadConfig{Enabled: false}
+	}
+
+	// Get rclone destination
+	fmt.Printf("\nRclone remotes (run 'rclone config' to set up remotes):\n")
+	
+	var destination string
+	fmt.Print("Upload destination (e.g., 'mycloud:backup-folder'): ")
+	if scanner.Scan() {
+		destination = strings.TrimSpace(scanner.Text())
+	}
+
+	for destination == "" {
+		fmt.Print("Destination is required. Upload destination: ")
+		if scanner.Scan() {
+			destination = strings.TrimSpace(scanner.Text())
+		}
+	}
+
+	return config.UploadConfig{
+		Enabled:     true,
+		Destination: destination,
+		Timeout:     300,
+		RetryCount:  3,
+	}
+}
+
+func setupLoggingAndMetrics() (config.LoggingConfig, config.MetricsConfig) {
+	scanner := bufio.NewScanner(os.Stdin)
+	
+	// Logging level
+	fmt.Print("Log level (debug/info/warn/error) [info]: ")
+	logLevel := "info"
+	if scanner.Scan() {
+		if input := strings.TrimSpace(scanner.Text()); input != "" {
+			logLevel = input
+		}
+	}
+
+	// Metrics
+	fmt.Print("Enable Prometheus metrics? [y/N]: ")
+	metricsEnabled := false
+	if scanner.Scan() {
+		response := strings.ToLower(strings.TrimSpace(scanner.Text()))
+		metricsEnabled = response == "y" || response == "yes"
+	}
+
+	metricsPort := "8080"
+	if metricsEnabled {
+		fmt.Print("Metrics port [8080]: ")
+		if scanner.Scan() {
+			if input := strings.TrimSpace(scanner.Text()); input != "" {
+				metricsPort = input
+			}
+		}
+	}
+
+	// Default paths
+	var logPath, metricsPath string
+	if runtime.GOOS == "darwin" {
+		if os.Geteuid() == 0 {
+			logPath = "/usr/local/var/log/tenangdb/tenangdb.log"
+			metricsPath = "/usr/local/var/tenangdb/metrics.json"
+		} else {
+			homeDir, _ := os.UserHomeDir()
+			logPath = filepath.Join(homeDir, "Library", "Logs", "TenangDB", "tenangdb.log")
+			metricsPath = filepath.Join(homeDir, "Library", "Application Support", "TenangDB", "metrics.json")
+		}
+	} else {
+		if os.Geteuid() == 0 {
+			logPath = "/var/log/tenangdb/tenangdb.log"
+			metricsPath = "/var/lib/tenangdb/metrics.json"
+		} else {
+			homeDir, _ := os.UserHomeDir()
+			logPath = filepath.Join(homeDir, ".local", "share", "tenangdb", "logs", "tenangdb.log")
+			metricsPath = filepath.Join(homeDir, ".local", "share", "tenangdb", "metrics.json")
+		}
+	}
+
+	return config.LoggingConfig{
+			Level:      logLevel,
+			Format:     "clean",
+			FileFormat: "text",
+			FilePath:   logPath,
+		}, config.MetricsConfig{
+			Enabled:     metricsEnabled,
+			Port:        metricsPort,
+			StoragePath: metricsPath,
+		}
+}
+
+func generateConfig(dbConfig config.DatabaseConfig, backupConfig config.BackupConfig, uploadConfig config.UploadConfig, loggingConfig config.LoggingConfig, metricsConfig config.MetricsConfig) string {
+	var configBuilder strings.Builder
+	
+	configBuilder.WriteString("# TenangDB Configuration\n")
+	configBuilder.WriteString("# Generated by: tenangdb init\n")
+	configBuilder.WriteString(fmt.Sprintf("# Created: %s\n\n", time.Now().Format("2006-01-02 15:04:05")))
+	
+	// Database section
+	configBuilder.WriteString("database:\n")
+	configBuilder.WriteString(fmt.Sprintf("  host: %s\n", dbConfig.Host))
+	configBuilder.WriteString(fmt.Sprintf("  port: %d\n", dbConfig.Port))
+	configBuilder.WriteString(fmt.Sprintf("  username: %s\n", dbConfig.Username))
+	configBuilder.WriteString(fmt.Sprintf("  password: \"%s\"\n", dbConfig.Password))
+	configBuilder.WriteString(fmt.Sprintf("  timeout: %d\n", dbConfig.Timeout))
+	configBuilder.WriteString("\n")
+	
+	// Add mydumper if available
+	if _, err := os.Stat(config.FindMydumperPath()); err == nil {
+		configBuilder.WriteString("  mydumper:\n")
+		configBuilder.WriteString("    enabled: true\n")
+		configBuilder.WriteString("    threads: 4\n")
+		configBuilder.WriteString("\n")
+		
+		if _, err := os.Stat(config.FindMyloaderPath()); err == nil {
+			configBuilder.WriteString("    myloader:\n")
+			configBuilder.WriteString("      enabled: true\n")
+			configBuilder.WriteString("      threads: 4\n")
+			configBuilder.WriteString("\n")
+		}
+	}
+	
+	// Backup section
+	configBuilder.WriteString("backup:\n")
+	configBuilder.WriteString(fmt.Sprintf("  directory: %s\n", backupConfig.Directory))
+	configBuilder.WriteString("  databases:\n")
+	for _, db := range backupConfig.Databases {
+		configBuilder.WriteString(fmt.Sprintf("    - %s\n", db))
+	}
+	configBuilder.WriteString(fmt.Sprintf("  batch_size: %d\n", backupConfig.BatchSize))
+	configBuilder.WriteString(fmt.Sprintf("  concurrency: %d\n", backupConfig.Concurrency))
+	configBuilder.WriteString(fmt.Sprintf("  check_last_backup_time: %t\n", backupConfig.CheckLastBackupTime))
+	configBuilder.WriteString(fmt.Sprintf("  min_backup_interval: %s\n", backupConfig.MinBackupInterval))
+	configBuilder.WriteString("\n")
+	
+	// Upload section
+	configBuilder.WriteString("upload:\n")
+	configBuilder.WriteString(fmt.Sprintf("  enabled: %t\n", uploadConfig.Enabled))
+	if uploadConfig.Enabled {
+		configBuilder.WriteString(fmt.Sprintf("  destination: \"%s\"\n", uploadConfig.Destination))
+		configBuilder.WriteString(fmt.Sprintf("  timeout: %d\n", uploadConfig.Timeout))
+		configBuilder.WriteString(fmt.Sprintf("  retry_count: %d\n", uploadConfig.RetryCount))
+	}
+	configBuilder.WriteString("\n")
+	
+	// Logging section
+	configBuilder.WriteString("logging:\n")
+	configBuilder.WriteString(fmt.Sprintf("  level: %s\n", loggingConfig.Level))
+	configBuilder.WriteString(fmt.Sprintf("  format: %s\n", loggingConfig.Format))
+	configBuilder.WriteString(fmt.Sprintf("  file_path: %s\n", loggingConfig.FilePath))
+	configBuilder.WriteString("\n")
+	
+	// Metrics section
+	configBuilder.WriteString("metrics:\n")
+	configBuilder.WriteString(fmt.Sprintf("  enabled: %t\n", metricsConfig.Enabled))
+	if metricsConfig.Enabled {
+		configBuilder.WriteString(fmt.Sprintf("  port: \"%s\"\n", metricsConfig.Port))
+		configBuilder.WriteString(fmt.Sprintf("  storage_path: %s\n", metricsConfig.StoragePath))
+	}
+	configBuilder.WriteString("\n")
+	
+	// Cleanup section with safe defaults
+	configBuilder.WriteString("cleanup:\n")
+	configBuilder.WriteString("  enabled: false\n")
+	configBuilder.WriteString("  age_based_cleanup: true\n")
+	configBuilder.WriteString("  max_age_days: 7\n")
+	
+	return configBuilder.String()
+}
+
+func saveConfig(configContent, configPath string) error {
+	// Ensure directory exists
+	dir := filepath.Dir(configPath)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return fmt.Errorf("failed to create config directory: %w", err)
+	}
+
+	// Write config file
+	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
+		return fmt.Errorf("failed to write config file: %w", err)
+	}
+
+	return nil
+}
+
+func createDirectories(backupDir, logPath, metricsPath string) {
+	dirs := []string{
+		backupDir,
+		filepath.Dir(logPath),
+	}
+	
+	if metricsPath != "" {
+		dirs = append(dirs, filepath.Dir(metricsPath))
+	}
+
+	for _, dir := range dirs {
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			fmt.Printf("⚠️  Failed to create directory %s: %v\n", dir, err)
+		} else {
+			fmt.Printf("✅ Created directory: %s\n", dir)
+		}
+	}
+}
+
+func promptSystemdDeployment() bool {
+	// Only prompt on Linux
+	if runtime.GOOS != "linux" {
+		return false
+	}
+	
+	// Check if running as root or with sudo
+	if os.Geteuid() != 0 {
+		fmt.Printf("\n🚀 Systemd Deployment (Optional)\n")
+		fmt.Printf("=================================\n")
+		fmt.Printf("TenangDB can be deployed as a systemd service for:\n")
+		fmt.Printf("  ✅ Automated daily backups\n")
+		fmt.Printf("  ✅ Weekend cleanup\n")  
+		fmt.Printf("  ✅ Always-on metrics server\n")
+		fmt.Printf("  ✅ Auto-restart on failures\n\n")
+		fmt.Printf("⚠️  Note: This requires sudo privileges\n")
+		fmt.Print("Deploy as systemd service? [y/N]: ")
+		
+		scanner := bufio.NewScanner(os.Stdin)
+		if scanner.Scan() {
+			response := strings.ToLower(strings.TrimSpace(scanner.Text()))
+			return response == "y" || response == "yes"
+		}
+	}
+	
+	return false
+}
+
+func deployAsSystemdService(configPath, systemdUser, metricsPort string) error {
+	// Check if running on Linux
+	if runtime.GOOS != "linux" {
+		return fmt.Errorf("systemd deployment is only supported on Linux")
+	}
+	
+	// Get current executable path
+	execPath, err := os.Executable()
+	if err != nil {
+		return fmt.Errorf("failed to get executable path: %w", err)
+	}
+	
+	// Create systemd user if doesn't exist
+	if err := createSystemdUser(systemdUser); err != nil {
+		return fmt.Errorf("failed to create systemd user: %w", err)
+	}
+	
+	// Create system directories
+	if err := createSystemDirectories(systemdUser); err != nil {
+		return fmt.Errorf("failed to create system directories: %w", err)
+	}
+	
+	// Install binary to system location
+	if err := installBinary(execPath, systemdUser); err != nil {
+		return fmt.Errorf("failed to install binary: %w", err)
+	}
+	
+	// Copy config to system location
+	if err := installConfig(configPath); err != nil {
+		return fmt.Errorf("failed to install config: %w", err)
+	}
+	
+	// Generate and install systemd service files
+	if err := installSystemdServices(systemdUser, metricsPort); err != nil {
+		return fmt.Errorf("failed to install systemd services: %w", err)
+	}
+	
+	// Enable and start services
+	if err := enableSystemdServices(); err != nil {
+		return fmt.Errorf("failed to enable systemd services: %w", err)
+	}
+	
+	return nil
+}
+
+func createSystemdUser(username string) error {
+	fmt.Printf("Creating system user '%s'...\n", username)
+	
+	// Check if user exists
+	if _, err := exec.LookPath("id"); err != nil {
+		return fmt.Errorf("id command not found")
+	}
+	
+	cmd := exec.Command("id", username)
+	if cmd.Run() == nil {
+		fmt.Printf("✅ User '%s' already exists\n", username)
+		return nil
+	}
+	
+	// Create group
+	cmd = exec.Command("sudo", "groupadd", "-r", username)
+	if err := cmd.Run(); err != nil {
+		// Group might already exist, continue
+	}
+	
+	// Create user
+	cmd = exec.Command("sudo", "useradd", "-r", "-g", username, "-s", "/bin/false", "-d", "/opt/tenangdb", username)
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to create user: %w", err)
+	}
+	
+	fmt.Printf("✅ Created system user '%s'\n", username)
+	return nil
+}
+
+func createSystemDirectories(systemdUser string) error {
+	fmt.Printf("Creating system directories...\n")
+	
+	directories := []string{
+		"/opt/tenangdb",
+		"/etc/tenangdb", 
+		"/var/log/tenangdb",
+		"/var/backups/tenangdb",
+		"/var/lib/tenangdb",
+	}
+	
+	for _, dir := range directories {
+		cmd := exec.Command("sudo", "mkdir", "-p", dir)
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("failed to create directory %s: %w", dir, err)
+		}
+		
+		// Set ownership
+		cmd = exec.Command("sudo", "chown", systemdUser+":"+systemdUser, dir)
+		if err := cmd.Run(); err != nil {
+			// Some directories might need different ownership, continue
+		}
+		
+		// Set permissions
+		cmd = exec.Command("sudo", "chmod", "755", dir)
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("failed to set permissions for %s: %w", dir, err)
+		}
+	}
+	
+	fmt.Printf("✅ Created system directories\n")
+	return nil
+}
+
+func installBinary(execPath, systemdUser string) error {
+	fmt.Printf("Installing binary to /opt/tenangdb/...\n")
+	
+	// Copy main binary
+	cmd := exec.Command("sudo", "cp", execPath, "/opt/tenangdb/tenangdb")
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to copy binary: %w", err)
+	}
+	
+	// Set permissions
+	cmd = exec.Command("sudo", "chmod", "+x", "/opt/tenangdb/tenangdb")
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to set binary permissions: %w", err)
+	}
+	
+	// Try to copy exporter binary if it exists in same directory
+	execDir := filepath.Dir(execPath)
+	exporterPath := filepath.Join(execDir, "tenangdb-exporter")
+	if _, err := os.Stat(exporterPath); err == nil {
+		cmd = exec.Command("sudo", "cp", exporterPath, "/opt/tenangdb/tenangdb-exporter")
+		if err := cmd.Run(); err == nil {
+			cmd = exec.Command("sudo", "chmod", "+x", "/opt/tenangdb/tenangdb-exporter")
+			cmd.Run()
+			fmt.Printf("✅ Installed tenangdb-exporter\n")
+		}
+	}
+	
+	fmt.Printf("✅ Installed binary to /opt/tenangdb/tenangdb\n")
+	return nil
+}
+
+func installConfig(configPath string) error {
+	fmt.Printf("Installing configuration to /etc/tenangdb/...\n")
+	
+	// Copy config file
+	cmd := exec.Command("sudo", "cp", configPath, "/etc/tenangdb/config.yaml")
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to copy config: %w", err)
+	}
+	
+	// Set permissions
+	cmd = exec.Command("sudo", "chmod", "640", "/etc/tenangdb/config.yaml")
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to set config permissions: %w", err)
+	}
+	
+	fmt.Printf("✅ Installed configuration\n")
+	return nil
+}
+
+func installSystemdServices(systemdUser, metricsPort string) error {
+	fmt.Printf("Installing systemd service files...\n")
+	
+	// Generate service file content
+	services := map[string]string{
+		"tenangdb.service": generateTenangDBService(systemdUser),
+		"tenangdb.timer": generateTenangDBTimer(),
+		"tenangdb-cleanup.service": generateCleanupService(systemdUser),
+		"tenangdb-cleanup.timer": generateCleanupTimer(),
+		"tenangdb-exporter.service": generateExporterService(systemdUser, metricsPort),
+	}
+	
+	for filename, content := range services {
+		// Write service file to temp location
+		tempFile := filepath.Join("/tmp", filename)
+		if err := os.WriteFile(tempFile, []byte(content), 0644); err != nil {
+			return fmt.Errorf("failed to write %s: %w", filename, err)
+		}
+		
+		// Copy to systemd directory
+		cmd := exec.Command("sudo", "cp", tempFile, "/etc/systemd/system/"+filename)
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("failed to install %s: %w", filename, err)
+		}
+		
+		// Clean up temp file
+		os.Remove(tempFile)
+		
+		fmt.Printf("✅ Installed %s\n", filename)
+	}
+	
+	// Reload systemd
+	cmd := exec.Command("sudo", "systemctl", "daemon-reload")
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to reload systemd: %w", err)
+	}
+	
+	fmt.Printf("✅ Systemd daemon reloaded\n")
+	return nil
+}
+
+func enableSystemdServices() error {
+	fmt.Printf("Enabling and starting systemd services...\n")
+	
+	services := []string{
+		"tenangdb.timer",
+		"tenangdb-cleanup.timer", 
+		"tenangdb-exporter.service",
+	}
+	
+	for _, service := range services {
+		// Enable service
+		cmd := exec.Command("sudo", "systemctl", "enable", service)
+		if err := cmd.Run(); err != nil {
+			fmt.Printf("⚠️  Failed to enable %s: %v\n", service, err)
+			continue
+		}
+		
+		// Start service  
+		cmd = exec.Command("sudo", "systemctl", "start", service)
+		if err := cmd.Run(); err != nil {
+			fmt.Printf("⚠️  Failed to start %s: %v\n", service, err)
+			continue
+		}
+		
+		fmt.Printf("✅ Enabled and started %s\n", service)
+	}
+	
+	return nil
+}
+
+func generateTenangDBService(systemdUser string) string {
+	return fmt.Sprintf(`[Unit]
+Description=TenangDB Backup Service
+After=network.target mysqld.service
+Requires=mysqld.service
+
+[Service]
+Type=oneshot
+User=%s
+Group=%s
+WorkingDirectory=/opt/tenangdb
+ExecStart=/opt/tenangdb/tenangdb backup --config /etc/tenangdb/config.yaml --yes
+StandardOutput=journal
+StandardError=journal
+TimeoutStartSec=3600
+TimeoutStopSec=300
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/backups/tenangdb /var/log/tenangdb /var/lib/tenangdb
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+
+[Install]
+WantedBy=multi-user.target
+`, systemdUser, systemdUser)
+}
+
+func generateTenangDBTimer() string {
+	return `[Unit]
+Description=TenangDB Backup Timer
+Requires=tenangdb.service
+
+[Timer]
+OnCalendar=daily
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target
+`
+}
+
+func generateCleanupService(systemdUser string) string {
+	return fmt.Sprintf(`[Unit]
+Description=TenangDB Cleanup Service
+After=network.target
+
+[Service]
+Type=oneshot
+User=%s
+Group=%s
+WorkingDirectory=/opt/tenangdb
+ExecStart=/opt/tenangdb/tenangdb cleanup --config /etc/tenangdb/config.yaml --yes
+StandardOutput=journal
+StandardError=journal
+TimeoutStartSec=1800
+TimeoutStopSec=300
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/backups/tenangdb /var/log/tenangdb /var/lib/tenangdb
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+
+[Install]
+WantedBy=multi-user.target
+`, systemdUser, systemdUser)
+}
+
+func generateCleanupTimer() string {
+	return `[Unit]
+Description=TenangDB Cleanup Timer
+Requires=tenangdb-cleanup.service
+
+[Timer]
+OnCalendar=Sat,Sun 02:00
+Persistent=true
+RandomizedDelaySec=600
+
+[Install]
+WantedBy=timers.target
+`
+}
+
+func generateExporterService(systemdUser, metricsPort string) string {
+	return fmt.Sprintf(`[Unit]
+Description=TenangDB Metrics Exporter
+Documentation=https://tenangdb.ainun.cloud
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=%s
+Group=%s
+WorkingDirectory=/opt/tenangdb
+ExecStart=/opt/tenangdb/tenangdb-exporter --config /etc/tenangdb/config.yaml --port %s
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=always
+RestartSec=5
+KillMode=mixed
+KillSignal=SIGTERM
+TimeoutStopSec=30
+
+# Output to journal
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=tenangdb-exporter
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/tenangdb /var/log/tenangdb
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+MemoryDenyWriteExecute=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+RemoveIPC=true
+PrivateDevices=true
+
+# Network restrictions
+RestrictAddressFamilies=AF_INET AF_INET6
+IPAddressDeny=any
+IPAddressAllow=localhost 
+IPAddressAllow=127.0.0.0/8
+IPAddressAllow=::1/128
+
+[Install]
+WantedBy=multi-user.target
+`, systemdUser, systemdUser, metricsPort)
 }

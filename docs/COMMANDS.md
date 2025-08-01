@@ -9,12 +9,62 @@ tenangdb [command] [options]
 ```
 
 ### Available Commands
-- Default (no subcommand) - Run database backup
+- `init` - Interactive setup wizard (NEW!)
+- `backup` - Run database backup (default)
 - `restore` - Restore database from backup
 - `cleanup` - Clean up old backup files
-- `exporter` - Start Prometheus metrics exporter
+- `config` - Show configuration information
 - `version` - Show version information
 - `help` - Show help information
+
+## 🧙‍♂️ Init Command (NEW!)
+
+**The easiest way to set up TenangDB**
+
+### Basic Usage
+```bash
+# Interactive setup wizard
+tenangdb init
+
+# Setup + deploy as systemd service
+tenangdb init --deploy-systemd
+
+# Custom config location
+tenangdb init --config /etc/tenangdb/config.yaml
+
+# Force overwrite existing config
+tenangdb init --force
+```
+
+### Options
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--config` | Config file path (auto-discovery if not specified) | Auto-detect |
+| `--deploy-systemd` | Automatically deploy as systemd service | `false` |
+| `--systemd-user` | Systemd service user | `tenangdb` |
+| `--force` | Overwrite existing config without confirmation | `false` |
+
+### What Init Does
+- ✅ **Dependency Check**: Validates mydumper, mysql, rclone availability
+- ✅ **Database Testing**: Tests connection with provided credentials  
+- ✅ **Smart Config**: Generates optimized config with platform-specific paths
+- ✅ **Directory Setup**: Creates backup, log, and metrics directories
+- ✅ **Systemd Deploy**: (Optional) Installs and enables systemd services
+- ✅ **Security Setup**: User isolation, proper permissions, hardening
+
+### Examples
+```bash
+# Basic setup for development
+tenangdb init --config ~/tenangdb-config.yaml
+
+# Production deployment with systemd
+sudo tenangdb init --deploy-systemd
+
+# Multiple environments
+sudo tenangdb init --deploy-systemd --config /etc/tenangdb/prod.yaml
+sudo tenangdb init --deploy-systemd --config /etc/tenangdb/staging.yaml \
+  --systemd-user tenangdb-staging
+```
 
 ## 🔄 Default Backup Command
 

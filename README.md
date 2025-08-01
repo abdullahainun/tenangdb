@@ -1,15 +1,8 @@
 # TenangDB
 
-> 🚧 **Under Development** 
->
-> This project is actively being developed. While core features are stable, expect:
-> - Potential breaking changes in configuration and CLI
-> - Some experimental features may not work as expected  
-> - Thorough testing recommended before production use
-
 🛡️ **Backup yang Bikin Tenang** - Secure MySQL backup with intelligent automation.
 
-*Zero-configuration backup system with smart confirmations and cloud integration.*
+*2-minute setup wizard. Production-ready systemd service. Zero configuration headaches.*
 
 ## 🎬 Live Demo
 
@@ -19,169 +12,155 @@
 
 ## ⚡ Quick Start
 
+**🚀 Production Setup (Recommended)**
 ```bash
-# Docker (Recommended)
-docker pull ghcr.io/abdullahainun/tenangdb:latest
-
-# 1. Setup
-mkdir tenangdb && cd tenangdb
-curl -L https://go.ainun.cloud/tenangdb-config.yaml.example -o config.yaml
-nano config.yaml  # Edit database credentials
-
-# 2. Run backup
-mkdir -p backups
-docker run -it --user $(id -u):$(id -g) \
-  -v $(pwd)/config.yaml:/config.yaml \
-  -v $(pwd)/backups:/backups \
-  ghcr.io/abdullahainun/tenangdb:latest backup
-
-# Binary install
+# 1. Install binary
 curl -sSL https://go.ainun.cloud/tenangdb-install.sh | bash
-tenangdb backup
 
-# With metrics monitoring
-tenangdb-exporter &  # Start metrics server
-tenangdb backup      # Run backup with metrics
+# 2. Interactive setup wizard (2 minutes!)
+sudo tenangdb init --deploy-systemd
+
+# 3. Done! ✅ 
+sudo systemctl status tenangdb.timer
+curl http://localhost:8080/metrics
 ```
 
-## ⚙️ Config
+**🐳 Docker (Alternative)**
+```bash
+# Quick test run
+docker run -it --rm ghcr.io/abdullahainun/tenangdb:latest init
 
+# Production with persistent config
+mkdir tenangdb && cd tenangdb
+docker run -it --user $(id -u):$(id -g) \
+  -v $(pwd):/workspace \
+  ghcr.io/abdullahainun/tenangdb:latest init
+```
+
+## ⚙️ Setup Options
+
+**Interactive Wizard (Recommended)**
+```bash
+tenangdb init              # Guided setup wizard
+tenangdb init --deploy-systemd  # + Auto systemd deployment
+tenangdb init --config /custom/path.yaml  # Custom location
+```
+
+**Manual Config** ([Full example](config.yaml.example))
 ```yaml
 database:
-  host: your_mysql_host
-  username: your_username
-  password: your_password
-  mydumper:
-    enabled: true
-
+  host: localhost
+  username: tenangdb_user
+  password: secure_password
+  
 backup:
-  databases:
-    - your_database1
-    - your_database2
-  # Smart features
-  check_last_backup_time: true    # Prevent redundant backups
-  min_backup_interval: 1h         # Minimum time between backups
-
-logging:
-  file_path: /logs/tenangdb.log    # Custom log path
-
+  databases: [app_db, logs_db]
+  directory: /var/backups/tenangdb
+  
 upload:
-  enabled: false
-  destination: "your-remote:backup-folder"
-
+  enabled: true
+  destination: "s3:my-backups"
+  
 metrics:
-  enabled: true                        # Enable Prometheus metrics
-  port: 9090                          # Metrics server port
-  storage_path: /var/lib/tenangdb/metrics.json
+  enabled: true
+  port: 8080
 ```
 
 ## 🔧 Features
 
-- **Smart Confirmations**: Interactive prompts with backup summary
-- **Frequency Checking**: Prevents redundant backups with configurable intervals
-- **Auto-Discovery**: Binary paths, directories, and optimal settings
-- **Cloud Integration**: Seamless upload to any rclone-supported storage
-- **Compression**: tar.gz/zst/xz support with hybrid local/cloud approach
-- **Safety First**: Database overwrite warnings and confirmation prompts
-- **Metrics & Monitoring**: Prometheus metrics with dedicated exporter binary
+- **🧙‍♂️ Setup Wizard**: 2-minute interactive configuration with database testing
+- **🚀 Auto Deployment**: One-command systemd service installation  
+- **🛡️ Production Ready**: Security hardening, user isolation, auto-restart
+- **📊 Smart Monitoring**: Prometheus metrics, health checks, centralized logging
+- **☁️ Cloud Integration**: Upload to S3, GCS, Azure, or any rclone-supported storage
+- **⚡ Fast Backups**: mydumper parallel processing with automatic fallback
+- **🧠 Intelligent**: Frequency checking, duplicate prevention, graceful error handling
 
 ## 📋 Commands
 
 ```bash
-# Backup
-tenangdb backup                    # Interactive with smart confirmations
-tenangdb backup --yes              # Automated mode (skip confirmations)
-tenangdb backup --force            # Skip frequency checks
-
-# Restore
-tenangdb restore -b /path -d target_db    # Interactive with safety checks
-tenangdb restore -b /path -d target_db --yes  # Automated mode
-
-# Maintenance
-tenangdb cleanup --force           # Clean old backups
+# Setup & Deploy
+tenangdb init                      # Interactive setup wizard
+tenangdb init --deploy-systemd     # Setup + auto systemd deployment
 tenangdb config                    # Show config paths
 
-# Metrics (separate binary)
-tenangdb-exporter                  # Start Prometheus metrics server on :9090
-tenangdb-exporter --port 8080      # Custom port
-tenangdb-exporter --config /path/to/config.yaml  # Custom config
+# Operations  
+tenangdb backup                    # Interactive backup
+tenangdb backup --yes              # Automated mode
+tenangdb restore -b /path -d db    # Restore with safety checks
+tenangdb cleanup                   # Clean old backups
+
+# Systemd Management (after --deploy-systemd)
+sudo systemctl status tenangdb.timer     # Check backup schedule
+sudo systemctl start tenangdb.service    # Manual backup
+sudo journalctl -u tenangdb.service -f   # View logs
+curl http://localhost:8080/metrics       # Prometheus metrics
 ```
 
 ## 🔧 Advanced
 
+**Custom Deployment**
 ```bash
-# Docker with proper volume mounting (important for frequency checking)
-docker run -it --user $(id -u):$(id -g) \
-  -v $(pwd)/config.yaml:/config.yaml \
-  -v $(pwd)/backups:/backups \
-  -v $(pwd)/tmp:/tmp \
-  ghcr.io/abdullahainun/tenangdb:latest backup
+# Custom systemd user
+tenangdb init --deploy-systemd --systemd-user mybackup
 
-# Cloud storage setup
-rclone config
-upload:
-  enabled: true
-  destination: "your-remote:database-backups"
+# Multiple configs
+tenangdb init --config /etc/tenangdb/prod.yaml
+tenangdb init --config /etc/tenangdb/staging.yaml
 
-# Production deployment with MySQL demo
-docker-compose up -d  # Includes MySQL 8.0 + TenangDB
+# Docker with systemd
+docker run -d --privileged \
+  -v /sys/fs/cgroup:/sys/fs/cgroup:ro \
+  tenangdb:latest /sbin/init
+```
 
-# MySQL user setup (MySQL 8.0+)
+**MySQL User Setup**
+```sql
 CREATE USER 'tenangdb'@'%' IDENTIFIED BY 'secure_password';
-GRANT SELECT, SHOW DATABASES, LOCK TABLES, EVENT, TRIGGER, EXECUTE ON *.* TO 'tenangdb'@'%';
+GRANT SELECT, SHOW DATABASES, LOCK TABLES, EVENT, TRIGGER ON *.* TO 'tenangdb'@'%';
 GRANT REPLICATION CLIENT ON *.* TO 'tenangdb'@'%';
-GRANT INSERT, UPDATE, DELETE, CREATE, DROP, ALTER, INDEX, REFERENCES, CREATE TEMPORARY TABLES, CREATE VIEW ON *.* TO 'tenangdb'@'%';
 FLUSH PRIVILEGES;
 ```
 
-**💡 Docker Note:** Mount `/tmp` volume to persist backup frequency tracking between container restarts.
-
-## 📊 Metrics & Monitoring
-
-TenangDB provides Prometheus metrics via a dedicated exporter binary:
-
+**Cloud Storage**
 ```bash
-# Start metrics exporter
-tenangdb-exporter --port 9090
-
-# Metrics endpoints
-curl http://localhost:9090/metrics   # Prometheus metrics
-curl http://localhost:9090/health    # Health check
+rclone config  # Setup remote (S3, GCS, Azure, etc.)
+# Wizard will guide you through cloud setup
 ```
 
-**Available Metrics:**
+## 📊 Monitoring
+
+**Built-in Metrics** (enabled with `--deploy-systemd`)
+- ✅ Prometheus metrics on `:8080/metrics`
+- ✅ Health check endpoint `:8080/health` 
+- ✅ Centralized logging via `journalctl`
+- ✅ Service status monitoring
+
+**Key Metrics:**
 - `tenangdb_backup_duration_seconds` - Backup execution time
-- `tenangdb_backup_success_total` - Total successful backups  
-- `tenangdb_backup_failure_total` - Total failed backups
-- `tenangdb_upload_duration_seconds` - Upload execution time
-- `tenangdb_restore_duration_seconds` - Restore execution time
-- `tenangdb_cleanup_files_removed_total` - Files removed during cleanup
+- `tenangdb_backup_success_total` - Successful backups counter
+- `tenangdb_upload_duration_seconds` - Cloud upload time
+- `tenangdb_cleanup_files_removed_total` - Cleaned up files
 
-**Docker with Metrics:**
-```bash
-# Run both backup and exporter
-docker run -d --name tenangdb-exporter \
-  -p 9090:9090 \
-  -v $(pwd)/metrics:/var/lib/tenangdb \
-  ghcr.io/abdullahainun/tenangdb:latest tenangdb-exporter
+**Grafana Dashboard:** [Import from examples/](grafana/dashboard.json)
 
-docker run --user $(id -u):$(id -g) \
-  -v $(pwd)/config.yaml:/config.yaml \
-  -v $(pwd)/backups:/backups \
-  -v $(pwd)/metrics:/var/lib/tenangdb \
-  ghcr.io/abdullahainun/tenangdb:latest backup
-```
+## 🎯 Why TenangDB?
+
+| Feature | Traditional Scripts | TenangDB |
+|---------|-------------------|----------|
+| **Setup Time** | 30+ minutes | 2 minutes |
+| **Configuration** | Manual YAML editing | Interactive wizard |
+| **Production Deploy** | Multiple manual steps | `--deploy-systemd` |
+| **Error Handling** | Script breaks | Graceful fallbacks |
+| **Monitoring** | DIY | Built-in Prometheus |
+| **Security** | Basic | Hardened systemd |
 
 ## 📋 Compatibility
 
-**mydumper:** v0.9.1+ (Ubuntu 18.04) to v0.19.3+ (macOS Homebrew)  
+**Platforms:** Linux (systemd), macOS, Docker  
 **MySQL:** 5.7+, 8.0+, MariaDB 10.3+  
-**Platforms:** macOS (Intel/Apple Silicon), Linux (Ubuntu/CentOS/Debian/Fedora)
-
-## 📚 Documentation
-
-[Installation Guide](INSTALL.md) • [Docker Guide](DOCKER.md) • [MySQL Setup](MYSQL_USER_SETUP.md) • [Production Deployment](PRODUCTION_DEPLOYMENT.md) • [Config Reference](config.yaml.example)
+**Cloud:** S3, GCS, Azure, 40+ providers via rclone
 
 ---
 
-**Support:** [Issues](https://github.com/abdullahainun/tenangdb/issues) • **License:** [MIT](LICENSE)
+**📚 Docs:** [Config Reference](config.yaml.example) • **🐛 Issues:** [GitHub](https://github.com/abdullahainun/tenangdb/issues) • **📄 License:** [MIT](LICENSE)

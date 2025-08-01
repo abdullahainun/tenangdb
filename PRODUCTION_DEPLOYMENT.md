@@ -1,38 +1,47 @@
 # TenangDB Production Deployment Guide
 
-## 🚀 Deployment Options
+## 🚀 Quick Production Deploy (Recommended)
 
-TenangDB automatically detects execution context and uses appropriate paths for production deployment.
-
-### 1. System Service (Recommended for Production)
-
-**Run as system service with dedicated user:**
-
+**🎯 One-Command Deploy:**
 ```bash
-# Create tenangdb user
-sudo useradd -r -s /bin/false tenangdb
+# Install + Setup + Deploy in one command
+curl -sSL https://go.ainun.cloud/tenangdb-install.sh | bash
+sudo tenangdb init --deploy-systemd
 
-# Create directories
-sudo mkdir -p /etc/tenangdb
-sudo mkdir -p /var/log/tenangdb
-sudo mkdir -p /var/backups/tenangdb
-sudo chown -R tenangdb:tenangdb /var/log/tenangdb /var/backups/tenangdb
-
-# Install binary from release
-curl -L https://github.com/abdullahainun/tenangdb/releases/latest/download/tenangdb-linux-amd64 -o tenangdb
-curl -L https://github.com/abdullahainun/tenangdb/releases/download/latest/tenangdb-exporter-linux-amd64 -o tenangdb_exporter
-
-sudo mv tenangdb /usr/local/bin/
-sudo mv tenangdb_exporter /usr/local/bin/
-sudo chmod +x /usr/local/bin/tenangdb
-sudo chmod +x /usr/local/bin/tenangdb_exporter
-
-# Create config
-curl -L https://raw.githubusercontent.com/abdullahainun/tenangdb/main/config.yaml.example -o config.yaml
-sudo cp config.yaml /etc/tenangdb/config.yaml
-sudo chown tenangdb:tenangdb /etc/tenangdb/config.yaml
-sudo chmod 600 /etc/tenangdb/config.yaml
+# Verify deployment
+sudo systemctl status tenangdb.timer tenangdb-exporter.service
+curl http://localhost:8080/metrics
 ```
+
+**✨ This automatically:**
+- Creates `tenangdb` system user with proper permissions
+- Sets up directories: `/etc/tenangdb`, `/var/log/tenangdb`, `/var/backups/tenangdb`
+- Installs binaries to `/opt/tenangdb/`
+- Generates systemd service files with security hardening
+- Enables daily backups + weekend cleanup + metrics server
+- Tests database connection before deployment
+
+---
+
+## 🎛️ Advanced Deployment Options
+
+### Custom Systemd User
+```bash
+# Deploy with custom user
+sudo tenangdb init --deploy-systemd --systemd-user mybackup-user
+```
+
+### Multiple Environments
+```bash
+# Production environment
+sudo tenangdb init --deploy-systemd --config /etc/tenangdb/prod.yaml
+
+# Staging environment  
+sudo tenangdb init --deploy-systemd --config /etc/tenangdb/staging.yaml \
+  --systemd-user tenangdb-staging
+```
+
+### Manual Systemd Deploy (Legacy)
 
 **Systemd Service File** (`/etc/systemd/system/tenangdb.service`):
 

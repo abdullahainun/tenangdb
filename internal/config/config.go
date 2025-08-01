@@ -362,6 +362,27 @@ func findMysqlPath() string {
 	return "/usr/bin/mysql" // Linux/Unix fallback
 }
 
+// Public functions for external access
+func FindMysqldumpPath() string {
+	return findMysqldumpPath()
+}
+
+func FindMysqlPath() string {
+	return findMysqlPath()
+}
+
+func FindMydumperPath() string {
+	return findMydumperPath()
+}
+
+func FindMyloaderPath() string {
+	return findMyloaderPath()
+}
+
+func FindRclonePath() string {
+	return findRclonePath()
+}
+
 func setDefaults() {
 	viper.SetDefault("database.host", "localhost")
 	viper.SetDefault("database.port", 3306)
