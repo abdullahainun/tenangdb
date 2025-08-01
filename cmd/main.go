@@ -1988,32 +1988,37 @@ func createSystemdUser(username string) error {
 func createSystemDirectories(systemdUser string) error {
 	fmt.Printf("Creating system directories...\n")
 	
-	directories := []string{
-		"/opt/tenangdb",
-		"/etc/tenangdb", 
-		"/var/log/tenangdb",
-		"/var/backups/tenangdb",
-		"/var/lib/tenangdb",
+	// Directory configurations: path -> [ownership, permissions]
+	directories := map[string][]string{
+		"/opt/tenangdb":         {systemdUser + ":" + systemdUser, "755"}, // tenangdb reads binaries
+		"/etc/tenangdb":         {"root:" + systemdUser, "750"},           // root owns, tenangdb reads
+		"/var/log/tenangdb":     {systemdUser + ":" + systemdUser, "755"}, // tenangdb writes logs
+		"/var/backups/tenangdb": {systemdUser + ":" + systemdUser, "755"}, // tenangdb writes backups
+		"/var/lib/tenangdb":     {systemdUser + ":" + systemdUser, "755"}, // tenangdb writes metrics
 	}
 	
-	for _, dir := range directories {
+	for dir, config := range directories {
+		ownership := config[0]
+		permissions := config[1]
+		
 		cmd := execCommand("mkdir", "-p", dir)
 		if err := cmd.Run(); err != nil {
 			return fmt.Errorf("failed to create directory %s: %w", dir, err)
 		}
 		
 		// Set ownership
-		cmd = execCommand("chown", systemdUser+":"+systemdUser, dir)
+		cmd = execCommand("chown", ownership, dir)
 		if err := cmd.Run(); err != nil {
-			// Some directories might need different ownership, continue - this is expected
-			fmt.Printf("Ownership setting result for %s (expected for some dirs): %v\n", dir, err)
+			return fmt.Errorf("failed to set ownership for %s: %w", dir, err)
 		}
 		
 		// Set permissions
-		cmd = execCommand("chmod", "755", dir)
+		cmd = execCommand("chmod", permissions, dir)
 		if err := cmd.Run(); err != nil {
 			return fmt.Errorf("failed to set permissions for %s: %w", dir, err)
 		}
+		
+		fmt.Printf("✅ Created %s (owner: %s, perms: %s)\n", dir, ownership, permissions)
 	}
 	
 	fmt.Printf("✅ Created system directories\n")
@@ -2082,13 +2087,19 @@ func installConfig(configPath string) error {
 		fmt.Printf("✅ Copied configuration to %s\n", targetPath)
 	}
 	
-	// Set permissions
-	cmd := execCommand("chmod", "640", targetPath)
+	// Set ownership to tenangdb user
+	cmd := execCommand("chown", "tenangdb:tenangdb", targetPath)
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to set config ownership: %w", err)
+	}
+	
+	// Set permissions (readable by owner and group, not world-readable for security)
+	cmd = execCommand("chmod", "640", targetPath)
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("failed to set config permissions: %w", err)
 	}
 	
-	fmt.Printf("✅ Configuration permissions set\n")
+	fmt.Printf("✅ Configuration ownership and permissions set\n")
 	return nil
 }
 
