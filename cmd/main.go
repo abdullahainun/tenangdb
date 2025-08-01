@@ -1583,7 +1583,7 @@ func setupBackupConfig(dbConfig config.DatabaseConfig) config.BackupConfig {
 	}
 
 	// Backup directory
-	defaultDir := "/backups"
+	var defaultDir string
 	if runtime.GOOS == "darwin" {
 		if os.Geteuid() == 0 {
 			defaultDir = "/usr/local/var/tenangdb/backups"
@@ -1932,7 +1932,8 @@ func createSystemdUser(username string) error {
 	// Create group
 	cmd = exec.Command("sudo", "groupadd", "-r", username)
 	if err := cmd.Run(); err != nil {
-		// Group might already exist, continue
+		// Group might already exist, continue - this is expected
+		fmt.Printf("Group creation result (expected if exists): %v\n", err)
 	}
 	
 	// Create user
@@ -1965,7 +1966,8 @@ func createSystemDirectories(systemdUser string) error {
 		// Set ownership
 		cmd = exec.Command("sudo", "chown", systemdUser+":"+systemdUser, dir)
 		if err := cmd.Run(); err != nil {
-			// Some directories might need different ownership, continue
+			// Some directories might need different ownership, continue - this is expected
+			fmt.Printf("Ownership setting result for %s (expected for some dirs): %v\n", dir, err)
 		}
 		
 		// Set permissions
@@ -1979,7 +1981,7 @@ func createSystemDirectories(systemdUser string) error {
 	return nil
 }
 
-func installBinary(execPath, systemdUser string) error {
+func installBinary(execPath, _ string) error {
 	fmt.Printf("Installing binary to /opt/tenangdb/...\n")
 	
 	// Copy main binary
@@ -2001,8 +2003,11 @@ func installBinary(execPath, systemdUser string) error {
 		cmd = exec.Command("sudo", "cp", exporterPath, "/opt/tenangdb/tenangdb-exporter")
 		if err := cmd.Run(); err == nil {
 			cmd = exec.Command("sudo", "chmod", "+x", "/opt/tenangdb/tenangdb-exporter")
-			cmd.Run()
-			fmt.Printf("✅ Installed tenangdb-exporter\n")
+			if err := cmd.Run(); err != nil {
+				fmt.Printf("⚠️  Failed to set exporter permissions: %v\n", err)
+			} else {
+				fmt.Printf("✅ Installed tenangdb-exporter\n")
+			}
 		}
 	}
 	
