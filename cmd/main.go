@@ -1236,9 +1236,38 @@ func runInit(configPath string, force bool, deploySystemd bool, systemdUser stri
 	// Determine config file path
 	targetConfigPath := configPath
 	if targetConfigPath == "" {
-		// Use the first path from the standard locations
+		// For init command, prioritize user-writable paths when not running as root
 		configPaths := config.GetConfigPaths()
-		targetConfigPath = expandPath(configPaths[0])
+		if os.Geteuid() != 0 {
+			// Not running as root, find first user-writable path
+			for _, path := range configPaths {
+				expandedPath := expandPath(path)
+				// Check if we can write to the directory
+				dir := filepath.Dir(expandedPath)
+				if err := os.MkdirAll(dir, 0755); err == nil {
+					// Test write permission
+					testFile := filepath.Join(dir, ".tenangdb_write_test")
+					if err := os.WriteFile(testFile, []byte("test"), 0644); err == nil {
+						os.Remove(testFile) // Clean up test file
+						targetConfigPath = expandedPath
+						break
+					}
+				}
+			}
+			// If no writable path found, use user config as fallback
+			if targetConfigPath == "" {
+				if runtime.GOOS == "darwin" {
+					homeDir, _ := os.UserHomeDir()
+					targetConfigPath = filepath.Join(homeDir, "Library", "Application Support", "TenangDB", "config.yaml")
+				} else {
+					homeDir, _ := os.UserHomeDir()
+					targetConfigPath = filepath.Join(homeDir, ".config", "tenangdb", "config.yaml")
+				}
+			}
+		} else {
+			// Running as root, use system-wide path
+			targetConfigPath = expandPath(configPaths[0])
+		}
 	}
 
 	// Check if config already exists
@@ -1259,7 +1288,11 @@ func runInit(configPath string, force bool, deploySystemd bool, systemdUser stri
 		}
 	}
 
-	fmt.Printf("📁 Config will be saved to: %s\n\n", targetConfigPath)
+	fmt.Printf("📁 Config will be saved to: %s\n", targetConfigPath)
+	if os.Geteuid() != 0 && deploySystemd {
+		fmt.Printf("💡 Note: Run with 'sudo' to deploy systemd services system-wide\n")
+	}
+	fmt.Printf("\n")
 
 	// Step 1: Validate dependencies
 	fmt.Printf("🔍 Step 1: Checking dependencies...\n")
@@ -1309,11 +1342,16 @@ func runInit(configPath string, force bool, deploySystemd bool, systemdUser stri
 	// Step 9: Systemd deployment (optional)
 	if deploySystemd || (!deploySystemd && promptSystemdDeployment()) {
 		fmt.Printf("\n🚀 Step 9: Deploying as systemd service...\n")
-		if err := deployAsSystemdService(targetConfigPath, systemdUser, metricsConfig.Port); err != nil {
-			fmt.Printf("❌ Failed to deploy systemd service: %v\n", err)
-			fmt.Printf("💡 You can deploy manually later using the script in scripts/install.sh\n")
+		if os.Geteuid() != 0 {
+			fmt.Printf("❌ Systemd deployment requires root privileges\n")
+			fmt.Printf("💡 Please run: sudo tenangdb init --deploy-systemd --config %s --force\n", targetConfigPath)
 		} else {
-			fmt.Printf("✅ Systemd service deployed successfully!\n")
+			if err := deployAsSystemdService(targetConfigPath, systemdUser, metricsConfig.Port); err != nil {
+				fmt.Printf("❌ Failed to deploy systemd service: %v\n", err)
+				fmt.Printf("💡 You can deploy manually later using the script in scripts/install.sh\n")
+			} else {
+				fmt.Printf("✅ Systemd service deployed successfully!\n")
+			}
 		}
 	}
 
@@ -1848,23 +1886,24 @@ func promptSystemdDeployment() bool {
 		return false
 	}
 	
-	// Check if running as root or with sudo
+	fmt.Printf("\n🚀 Systemd Deployment (Optional)\n")
+	fmt.Printf("=================================\n")
+	fmt.Printf("TenangDB can be deployed as a systemd service for:\n")
+	fmt.Printf("  ✅ Automated daily backups\n")
+	fmt.Printf("  ✅ Weekend cleanup\n")  
+	fmt.Printf("  ✅ Always-on metrics server\n")
+	fmt.Printf("  ✅ Auto-restart on failures\n\n")
+	
 	if os.Geteuid() != 0 {
-		fmt.Printf("\n🚀 Systemd Deployment (Optional)\n")
-		fmt.Printf("=================================\n")
-		fmt.Printf("TenangDB can be deployed as a systemd service for:\n")
-		fmt.Printf("  ✅ Automated daily backups\n")
-		fmt.Printf("  ✅ Weekend cleanup\n")  
-		fmt.Printf("  ✅ Always-on metrics server\n")
-		fmt.Printf("  ✅ Auto-restart on failures\n\n")
-		fmt.Printf("⚠️  Note: This requires sudo privileges\n")
-		fmt.Print("Deploy as systemd service? [y/N]: ")
-		
-		scanner := bufio.NewScanner(os.Stdin)
-		if scanner.Scan() {
-			response := strings.ToLower(strings.TrimSpace(scanner.Text()))
-			return response == "y" || response == "yes"
-		}
+		fmt.Printf("⚠️  Note: This requires sudo privileges (will show instructions)\n")
+	}
+	
+	fmt.Print("Deploy as systemd service? [y/N]: ")
+	
+	scanner := bufio.NewScanner(os.Stdin)
+	if scanner.Scan() {
+		response := strings.ToLower(strings.TrimSpace(scanner.Text()))
+		return response == "y" || response == "yes"
 	}
 	
 	return false
