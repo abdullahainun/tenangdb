@@ -175,21 +175,45 @@ func findConfigFile() (string, error) {
 func getConfigPaths() []string {
 	if runtime.GOOS == "darwin" {
 		// macOS specific paths
-		return []string{
-			"/usr/local/etc/tenangdb/config.yaml",                  // Homebrew system-wide
-			"/etc/tenangdb/config.yaml",                            // System fallback
-			"~/Library/Application Support/TenangDB/config.yaml",   // macOS user config
-			"~/.config/tenangdb/config.yaml",                      // XDG fallback
-			"./config.yaml",                                        // Current dir
-			"./tenangdb.yaml",                                      // Current dir alt
+		if isRunningAsRoot() {
+			// Root user: prioritize system configs
+			return []string{
+				"/usr/local/etc/tenangdb/config.yaml",                  // Homebrew system-wide
+				"/etc/tenangdb/config.yaml",                            // System fallback
+				"~/Library/Application Support/TenangDB/config.yaml",   // macOS user config
+				"~/.config/tenangdb/config.yaml",                      // XDG fallback
+				"./config.yaml",                                        // Current dir
+				"./tenangdb.yaml",                                      // Current dir alt
+			}
+		} else {
+			// Non-root user: prioritize user configs
+			return []string{
+				"~/Library/Application Support/TenangDB/config.yaml",   // macOS user config
+				"~/.config/tenangdb/config.yaml",                      // XDG fallback
+				"./config.yaml",                                        // Current dir
+				"./tenangdb.yaml",                                      // Current dir alt
+				"/usr/local/etc/tenangdb/config.yaml",                  // Homebrew system-wide (if readable)
+				"/etc/tenangdb/config.yaml",                            // System fallback (if readable)
+			}
 		}
 	} else {
 		// Linux/Unix paths
-		return []string{
-			"/etc/tenangdb/config.yaml",         // System-wide
-			"~/.config/tenangdb/config.yaml",    // User-specific
-			"./config.yaml",                     // Current dir
-			"./tenangdb.yaml",                   // Current dir alt
+		if isRunningAsRoot() {
+			// Root user: prioritize system configs
+			return []string{
+				"/etc/tenangdb/config.yaml",         // System-wide
+				"~/.config/tenangdb/config.yaml",    // User-specific
+				"./config.yaml",                     // Current dir
+				"./tenangdb.yaml",                   // Current dir alt
+			}
+		} else {
+			// Non-root user: prioritize user configs
+			return []string{
+				"~/.config/tenangdb/config.yaml",    // User-specific
+				"./config.yaml",                     // Current dir
+				"./tenangdb.yaml",                   // Current dir alt
+				"/etc/tenangdb/config.yaml",         // System-wide (if readable)
+			}
 		}
 	}
 }
