@@ -14,15 +14,21 @@
 
 **🚀 Production Setup (Recommended)**
 ```bash
-# 1. Install binary
-curl -sSL https://go.ainun.cloud/tenangdb-install.sh | bash
+# One-command install + setup (includes dependencies!)
+curl -sSL https://go.ainun.cloud/tenangdb-install.sh | sudo bash
 
-# 2. Interactive setup wizard (2 minutes!)
-sudo tenangdb init --deploy-systemd
-
-# 3. Done! ✅ 
+# Done! ✅ Check your setup:
 sudo systemctl status tenangdb.timer
 curl http://localhost:8080/metrics
+```
+
+**👤 Personal Setup (Development)**
+```bash
+# Install for current user only
+curl -sSL https://go.ainun.cloud/tenangdb-install.sh | bash
+
+# Run your first backup
+tenangdb backup
 ```
 
 **🐳 Docker (Alternative)**
