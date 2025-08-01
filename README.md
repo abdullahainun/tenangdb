@@ -10,7 +10,7 @@
 
 ## 🎬 Live Demo
 
-[![TenangDB Demo](https://asciinema.org/a/728588.svg)](https://asciinema.org/a/728588)
+[![TenangDB Demo](https://asciinema.org/a/731101.svg)](https://asciinema.org/a/731101)
 
 ## ⚡ Quick Start
 
