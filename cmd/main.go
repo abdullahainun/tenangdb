@@ -212,7 +212,20 @@ func runBackup(configFile, logLevel string, dryRun bool, databases string, force
 			log.WithError(err).Warn("Failed to update backup timestamp")
 		}
 		
-		log.Info("✅ All backup process completed successfully")
+		// Get backup statistics for accurate final message
+		stats := backupService.GetStatistics()
+		if stats.FailedBackups == 0 {
+			log.Info("✅ All backup process completed successfully")
+		} else if stats.SuccessfulBackups > 0 {
+			log.WithFields(map[string]interface{}{
+				"successful": stats.SuccessfulBackups,
+				"failed":     stats.FailedBackups,
+				"total":      stats.TotalDatabases,
+			}).Warn("⚠️  Backup process completed with partial success")
+		} else {
+			log.WithField("failed", stats.FailedBackups).Error("❌ All database backups failed")
+			os.Exit(1)
+		}
 	case <-sigChan:
 		log.Info("Received shutdown signal, gracefully shutting down...")
 		cancel()
