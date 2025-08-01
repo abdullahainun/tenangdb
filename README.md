@@ -12,219 +12,62 @@
 
 [![TenangDB Demo](https://asciinema.org/a/728588.svg)](https://asciinema.org/a/728588)
 
-*Note: The "analytics" database backup error in the demo is expected - it shows how TenangDB handles insufficient privileges gracefully while continuing with other databases.*
-
 ## ⚡ Quick Start
 
-**🚀 Production Setup (Recommended)**
+### Production Setup (Recommended)
 ```bash
-# One-command install + setup (includes dependencies!)
 curl -sSL https://go.ainun.cloud/tenangdb-install.sh | sudo bash
-
-# Done! ✅ Check your setup:
-sudo systemctl status tenangdb.timer
-curl http://localhost:8080/metrics
 ```
 
-**👤 Personal Setup (Development)**
+### Personal Setup
 ```bash
-# Install for current user only
 curl -sSL https://go.ainun.cloud/tenangdb-install.sh | bash
-
-# Run your first backup
-tenangdb backup
 ```
 
-**🐳 Docker (Verified Working)**
+### Docker
 ```bash
-# Pull the latest TenangDB image
 docker pull ghcr.io/abdullahainun/tenangdb:latest
+docker run --rm ghcr.io/abdullahainun/tenangdb:latest --help
+```
 
-# Method 1: Quick backup with Docker networking
-mkdir tenangdb-docker && cd tenangdb-docker
+## 🔧 Key Features
 
-# Create config pointing to your MySQL host
-echo "database:
-  host: mysql-host
-  username: your-user
-  password: your-pass
-backup:
-  databases: [your-db]
-  directory: /backups" > config.yaml
+- **🧙‍♂️ Interactive Setup**: 2-minute wizard with database testing
+- **🚀 Auto Deployment**: One-command systemd service installation  
+- **📊 Built-in Monitoring**: Prometheus metrics + health checks
+- **☁️ Cloud Integration**: S3, GCS, Azure via rclone
+- **⚡ Fast & Smart**: mydumper + intelligent error handling
+
+## 📚 Documentation
+
+- **[Installation Guide](INSTALL.md)** - Detailed setup instructions
+- **[Commands Reference](docs/COMMANDS.md)** - Complete command list
+- **[Configuration](config.yaml.example)** - Full config examples
+- **[Production Deployment](PRODUCTION_DEPLOYMENT.md)** - systemd setup
+- **[Troubleshooting](TROUBLESHOOTING.md)** - Common issues & solutions
+- **[Docker Guide](DOCKER.md)** - Container usage
+
+## 🚀 Basic Usage
+
+```bash
+# Interactive setup
+tenangdb init
 
 # Run backup
-docker run --rm \
-  -v $(pwd)/config.yaml:/config.yaml:ro \
-  -v $(pwd)/backups:/backups \
-  ghcr.io/abdullahainun/tenangdb:latest backup --config /config.yaml --yes
+tenangdb backup
 
-# Method 2: Full docker-compose with MySQL + TenangDB
-curl -L https://raw.githubusercontent.com/abdullahainun/tenangdb/main/docker-compose.yml -o docker-compose.yml
-docker-compose up -d  # Includes MySQL, TenangDB, and metrics exporter
+# Check status (if systemd deployed)
+sudo systemctl status tenangdb.timer
 ```
-
-## ⚙️ Config
-
-**Interactive Wizard (Recommended)**
-```bash
-tenangdb init              # Guided setup wizard
-tenangdb init --deploy-systemd  # + Auto systemd deployment
-tenangdb init --config /custom/path.yaml  # Custom location
-```
-
-**Manual Config** ([Full example](config.yaml.example))
-```yaml
-database:
-  host: localhost
-  username: tenangdb_user
-  password: secure_password
-  
-backup:
-  databases: [app_db, logs_db]
-  directory: /var/backups/tenangdb
-  
-upload:
-  enabled: true
-  destination: "s3:my-backups"
-  
-metrics:
-  enabled: true
-  port: 8080
-```
-
-## 🔧 Features
-
-- **🧙‍♂️ Setup Wizard**: 2-minute interactive configuration with database testing
-- **🚀 Auto Deployment**: One-command systemd service installation with privilege detection
-- **🛡️ Production Ready**: Security hardening, user isolation, proper file permissions
-- **📊 Smart Monitoring**: Prometheus metrics with graceful port conflict handling
-- **☁️ Cloud Integration**: Upload to S3, GCS, Azure, or any rclone-supported storage
-- **⚡ Fast Backups**: mydumper parallel processing with automatic fallback
-- **🧠 Intelligent**: Frequency checking, partial failure detection, detailed reporting
-- **🔐 Permission Aware**: Smart config path selection based on user privileges
-
-## 📋 Commands
-
-```bash
-# Setup & Deploy
-tenangdb init                      # Interactive setup wizard (privilege-aware)
-tenangdb init --deploy-systemd     # Setup + auto systemd deployment
-tenangdb config                    # Show config paths and active config
-
-# Operations  
-tenangdb backup                    # Interactive backup with confirmation
-tenangdb backup --yes              # Skip confirmations (automated mode)
-tenangdb backup --force            # Skip frequency checks
-tenangdb restore -b /path -d db    # Restore with safety checks
-tenangdb cleanup                   # Clean old backups
-
-# Systemd Management (after --deploy-systemd)
-sudo systemctl status tenangdb.timer     # Check backup schedule
-sudo systemctl start tenangdb.service    # Manual backup
-sudo journalctl -u tenangdb.service -f   # View logs
-curl http://localhost:8080/metrics       # Prometheus metrics (if enabled)
-```
-
-## 🔧 Advanced
-
-**Custom Deployment**
-```bash
-# Custom systemd user
-tenangdb init --deploy-systemd --systemd-user mybackup
-
-# Multiple configs
-tenangdb init --config /etc/tenangdb/prod.yaml
-tenangdb init --config /etc/tenangdb/staging.yaml
-
-# Docker with systemd
-docker run -d --privileged \
-  -v /sys/fs/cgroup:/sys/fs/cgroup:ro \
-  tenangdb:latest /sbin/init
-```
-
-**MySQL User Setup**
-```sql
-CREATE USER 'tenangdb'@'%' IDENTIFIED BY 'secure_password';
-GRANT SELECT, SHOW DATABASES, LOCK TABLES, EVENT, TRIGGER ON *.* TO 'tenangdb'@'%';
-GRANT REPLICATION CLIENT ON *.* TO 'tenangdb'@'%';
-FLUSH PRIVILEGES;
-```
-
-**Cloud Storage**
-```bash
-rclone config  # Setup remote (S3, GCS, Azure, etc.)
-# Wizard will guide you through cloud setup
-```
-
-## 📊 Monitoring
-
-**Built-in Metrics** (enabled with `--deploy-systemd`)
-- ✅ Prometheus metrics on `:8080/metrics`
-- ✅ Health check endpoint `:8080/health` 
-- ✅ Centralized logging via `journalctl`
-- ✅ Service status monitoring
-
-**Key Metrics:**
-- `tenangdb_backup_duration_seconds` - Backup execution time
-- `tenangdb_backup_success_total` - Successful backups counter
-- `tenangdb_upload_duration_seconds` - Cloud upload time
-- `tenangdb_cleanup_files_removed_total` - Cleaned up files
-
-**Grafana Dashboard:** [Import from examples/](grafana/dashboard.json)
-
-## 🔧 Troubleshooting
-
-**Common Issues & Solutions:**
-
-```bash
-# Permission denied on config file
-./tenangdb init                    # Uses user config (~/.config/tenangdb/)
-sudo ./tenangdb init --deploy-systemd  # Uses system config (/etc/tenangdb/)
-
-# Metrics server port conflict
-# Edit config: metrics.port: "8081" (or disable: metrics.enabled: false)
-netstat -tlnp | grep :8080        # Check what's using port 8080
-
-# Systemd service won't start
-sudo systemctl status tenangdb.service
-sudo journalctl -u tenangdb.service -f
-# Common fix: MySQL service name mismatch (now auto-handled)
-
-# Partial backup failures
-# Check individual database permissions and disk space
-./tenangdb backup --log-level debug
-
-# Non-root user issues
-./tenangdb config                  # Shows active config path
-# TenangDB automatically uses user-appropriate paths
-```
-
-## 🎯 Why TenangDB?
-
-| Feature | Traditional Scripts | TenangDB |
-|---------|-------------------|----------|
-| **Setup Time** | 30+ minutes | 2 minutes |
-| **Configuration** | Manual YAML editing | Interactive wizard |
-| **Production Deploy** | Multiple manual steps | `--deploy-systemd` |
-| **Error Handling** | Script breaks | Graceful fallbacks + detailed reporting |
-| **Monitoring** | DIY | Built-in Prometheus with conflict detection |
-| **Security** | Basic | Hardened systemd + privilege-aware paths |
-| **Permission Handling** | Manual sudo/chown | Automatic privilege detection |
-| **Partial Failures** | Silent or unclear | Clear status with counts |
 
 ## 📋 Compatibility
 
-**Platforms:** Linux (systemd), macOS, Docker  
+**Platforms:** Linux, macOS, Docker  
 **MySQL:** 5.7+, 8.0+, MariaDB 10.3+  
-**Cloud:** S3, GCS, Azure, 40+ providers via rclone
+**Cloud:** 40+ providers via rclone
 
 ---
 
-**📚 Docs:** [Config Reference](config.yaml.example) • **🐛 Issues:** [GitHub](https://github.com/abdullahainun/tenangdb/issues) • **📄 License:** [MIT](LICENSE)
+**📚 [Full Documentation](docs/)** • **🐛 [Issues](https://github.com/abdullahainun/tenangdb/issues)** • **📄 [License](LICENSE)**
 
-## 👥 Built by
-
-[![Ainun Abdullah](https://github.com/abdullahainun.png?size=50)](https://github.com/abdullahainun)
-
-**[Abdullah Ainun Najib](https://github.com/abdullahainun)**  
-*Creator & Maintainer*
+Built by [Abdullah Ainun Najib](https://github.com/abdullahainun)
