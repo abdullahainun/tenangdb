@@ -15,11 +15,12 @@ curl http://localhost:8080/metrics
 
 **✨ This automatically:**
 - Creates `tenangdb` system user with proper permissions
-- Sets up directories: `/etc/tenangdb`, `/var/log/tenangdb`, `/var/backups/tenangdb`
-- Installs binaries to `/opt/tenangdb/`
-- Generates systemd service files with security hardening
-- Enables daily backups + weekend cleanup + metrics server
+- Sets up directories with secure ownership: `/etc/tenangdb` (root:tenangdb), working dirs (tenangdb:tenangdb)
+- Installs binaries to `/opt/tenangdb/` with proper permissions
+- Generates flexible systemd service files (no hard MySQL dependency)
+- Enables daily backups + weekend cleanup + metrics server (with port conflict detection)
 - Tests database connection before deployment
+- Handles nested sudo issues and permission conflicts
 
 ---
 

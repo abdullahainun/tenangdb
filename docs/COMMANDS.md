@@ -47,10 +47,10 @@ tenangdb init --force
 ### What Init Does
 - ✅ **Dependency Check**: Validates mydumper, mysql, rclone availability
 - ✅ **Database Testing**: Tests connection with provided credentials  
-- ✅ **Smart Config**: Generates optimized config with platform-specific paths
-- ✅ **Directory Setup**: Creates backup, log, and metrics directories
-- ✅ **Systemd Deploy**: (Optional) Installs and enables systemd services
-- ✅ **Security Setup**: User isolation, proper permissions, hardening
+- ✅ **Smart Config**: Generates optimized config with privilege-aware paths
+- ✅ **Directory Setup**: Creates backup, log, and metrics directories with proper ownership
+- ✅ **Systemd Deploy**: (Optional) Installs and enables systemd services without MySQL dependency
+- ✅ **Security Setup**: User isolation, proper permissions, root-owned config directory
 
 ### Examples
 ```bash
@@ -385,4 +385,38 @@ make test-deps
 mydumper --version
 myloader --version
 rclone version
+```
+
+### Error Handling & Status Reporting
+
+**TenangDB provides detailed status reporting for backup operations:**
+
+```bash
+# Successful backup (all databases)
+✅ All backup process completed successfully
+
+# Partial failure (some databases failed)
+⚠️  Backup process completed with partial success (successful: 2, failed: 1, total: 3)
+
+# Total failure (all databases failed)
+❌ All database backups failed (failed: 3)
+```
+
+**Common Scenarios:**
+
+```bash
+# Permission issues
+./tenangdb backup --log-level debug  # Shows detailed permission errors
+
+# Port conflicts for metrics
+# Edit ~/.config/tenangdb/config.yaml:
+metrics:
+  enabled: false  # Or change port: "8081"
+
+# Non-root user setup
+./tenangdb config  # Shows which config file is being used
+# TenangDB automatically selects user-appropriate config paths
+
+# Systemd deployment issues
+sudo ./tenangdb init --deploy-systemd --force  # Redeploy with latest fixes
 ```

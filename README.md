@@ -69,24 +69,26 @@ metrics:
 ## 🔧 Features
 
 - **🧙‍♂️ Setup Wizard**: 2-minute interactive configuration with database testing
-- **🚀 Auto Deployment**: One-command systemd service installation  
-- **🛡️ Production Ready**: Security hardening, user isolation, auto-restart
-- **📊 Smart Monitoring**: Prometheus metrics, health checks, centralized logging
+- **🚀 Auto Deployment**: One-command systemd service installation with privilege detection
+- **🛡️ Production Ready**: Security hardening, user isolation, proper file permissions
+- **📊 Smart Monitoring**: Prometheus metrics with graceful port conflict handling
 - **☁️ Cloud Integration**: Upload to S3, GCS, Azure, or any rclone-supported storage
 - **⚡ Fast Backups**: mydumper parallel processing with automatic fallback
-- **🧠 Intelligent**: Frequency checking, duplicate prevention, graceful error handling
+- **🧠 Intelligent**: Frequency checking, partial failure detection, detailed reporting
+- **🔐 Permission Aware**: Smart config path selection based on user privileges
 
 ## 📋 Commands
 
 ```bash
 # Setup & Deploy
-tenangdb init                      # Interactive setup wizard
+tenangdb init                      # Interactive setup wizard (privilege-aware)
 tenangdb init --deploy-systemd     # Setup + auto systemd deployment
-tenangdb config                    # Show config paths
+tenangdb config                    # Show config paths and active config
 
 # Operations  
-tenangdb backup                    # Interactive backup
-tenangdb backup --yes              # Automated mode
+tenangdb backup                    # Interactive backup with confirmation
+tenangdb backup --yes              # Skip confirmations (automated mode)
+tenangdb backup --force            # Skip frequency checks
 tenangdb restore -b /path -d db    # Restore with safety checks
 tenangdb cleanup                   # Clean old backups
 
@@ -94,7 +96,7 @@ tenangdb cleanup                   # Clean old backups
 sudo systemctl status tenangdb.timer     # Check backup schedule
 sudo systemctl start tenangdb.service    # Manual backup
 sudo journalctl -u tenangdb.service -f   # View logs
-curl http://localhost:8080/metrics       # Prometheus metrics
+curl http://localhost:8080/metrics       # Prometheus metrics (if enabled)
 ```
 
 ## 🔧 Advanced
@@ -144,6 +146,33 @@ rclone config  # Setup remote (S3, GCS, Azure, etc.)
 
 **Grafana Dashboard:** [Import from examples/](grafana/dashboard.json)
 
+## 🔧 Troubleshooting
+
+**Common Issues & Solutions:**
+
+```bash
+# Permission denied on config file
+./tenangdb init                    # Uses user config (~/.config/tenangdb/)
+sudo ./tenangdb init --deploy-systemd  # Uses system config (/etc/tenangdb/)
+
+# Metrics server port conflict
+# Edit config: metrics.port: "8081" (or disable: metrics.enabled: false)
+netstat -tlnp | grep :8080        # Check what's using port 8080
+
+# Systemd service won't start
+sudo systemctl status tenangdb.service
+sudo journalctl -u tenangdb.service -f
+# Common fix: MySQL service name mismatch (now auto-handled)
+
+# Partial backup failures
+# Check individual database permissions and disk space
+./tenangdb backup --log-level debug
+
+# Non-root user issues
+./tenangdb config                  # Shows active config path
+# TenangDB automatically uses user-appropriate paths
+```
+
 ## 🎯 Why TenangDB?
 
 | Feature | Traditional Scripts | TenangDB |
@@ -151,9 +180,11 @@ rclone config  # Setup remote (S3, GCS, Azure, etc.)
 | **Setup Time** | 30+ minutes | 2 minutes |
 | **Configuration** | Manual YAML editing | Interactive wizard |
 | **Production Deploy** | Multiple manual steps | `--deploy-systemd` |
-| **Error Handling** | Script breaks | Graceful fallbacks |
-| **Monitoring** | DIY | Built-in Prometheus |
-| **Security** | Basic | Hardened systemd |
+| **Error Handling** | Script breaks | Graceful fallbacks + detailed reporting |
+| **Monitoring** | DIY | Built-in Prometheus with conflict detection |
+| **Security** | Basic | Hardened systemd + privilege-aware paths |
+| **Permission Handling** | Manual sudo/chown | Automatic privilege detection |
+| **Partial Failures** | Silent or unclear | Clear status with counts |
 
 ## 📋 Compatibility
 
