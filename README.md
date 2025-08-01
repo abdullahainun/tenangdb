@@ -70,4 +70,4 @@ sudo systemctl status tenangdb.timer
 
 **📚 [Full Documentation](docs/)** • **🐛 [Issues](https://github.com/abdullahainun/tenangdb/issues)** • **📄 [License](LICENSE)**
 
-Built by [Abdullah Ainun Najib](https://github.com/abdullahainun)
+Built by [Ainun Abdullah](https://github.com/abdullahainun)
