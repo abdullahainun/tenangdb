@@ -37,7 +37,7 @@ docker run -it --user $(id -u):$(id -g) \
   ghcr.io/abdullahainun/tenangdb:latest init
 ```
 
-## ⚙️ Setup Options
+## ⚙️ Config
 
 **Interactive Wizard (Recommended)**
 ```bash
