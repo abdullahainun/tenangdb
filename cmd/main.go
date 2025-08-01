@@ -2166,8 +2166,9 @@ func enableSystemdServices() error {
 func generateTenangDBService(systemdUser string) string {
 	return fmt.Sprintf(`[Unit]
 Description=TenangDB Backup Service
-After=network.target mysqld.service
-Requires=mysqld.service
+After=network.target
+Wants=network-online.target
+After=network-online.target
 
 [Service]
 Type=oneshot
