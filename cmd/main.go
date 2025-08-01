@@ -150,16 +150,6 @@ func runBackup(configFile, logLevel string, dryRun bool, databases string, force
 		log.WithError(err).Warn("Failed to initialize file logger, using stdout")
 	}
 
-	if dryRun {
-		log.Info("DRY RUN MODE: No actual backup will be performed")
-		log.WithField("databases", cfg.Backup.Databases).Info("Would backup these databases")
-		log.WithField("backup_directory", cfg.Backup.Directory).Info("Backup directory")
-		if cfg.Upload.Enabled {
-			log.WithField("upload_destination", cfg.Upload.Destination).Info("Would upload to")
-		}
-		return
-	}
-
 	// Initialize Prometheus metrics if enabled (before any user interaction)
 	if cfg.Metrics.Enabled {
 		metrics.Init()
@@ -172,7 +162,17 @@ func runBackup(configFile, logLevel string, dryRun bool, databases string, force
 			}
 		}()
 		// Give metrics server a moment to start and potentially fail
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(200 * time.Millisecond)
+	}
+
+	if dryRun {
+		log.Info("DRY RUN MODE: No actual backup will be performed")
+		log.WithField("databases", cfg.Backup.Databases).Info("Would backup these databases")
+		log.WithField("backup_directory", cfg.Backup.Directory).Info("Backup directory")
+		if cfg.Upload.Enabled {
+			log.WithField("upload_destination", cfg.Upload.Destination).Info("Would upload to")
+		}
+		return
 	}
 
 	// Check backup frequency if enabled
