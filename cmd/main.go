@@ -1021,10 +1021,14 @@ func updateLastBackupTime(backupDir string) error {
 // getTrackingFilePath returns the path for backup tracking file
 // Uses a more persistent location to survive container restarts
 func getTrackingFilePath(backupDir string) string {
-	// Try to use a more persistent location based on platform
+	// Try to use a more persistent location based on platform and user context
 	var trackingDir string
 	
-	if runtime.GOOS == "darwin" {
+	// Check if running as systemd service (system user or specific directories exist)
+	if _, err := os.Stat("/var/lib/tenangdb"); err == nil {
+		// Systemd deployment detected - use system directory
+		trackingDir = "/var/lib/tenangdb"
+	} else if runtime.GOOS == "darwin" {
 		// macOS: Use Application Support directory
 		if homeDir, err := os.UserHomeDir(); err == nil {
 			trackingDir = filepath.Join(homeDir, "Library", "Application Support", "TenangDB")
