@@ -1,5 +1,8 @@
 name: Documentation
 
+# Validates documentation structure, links, YAML syntax, and quality
+# Updated to support new clean README.md structure with separate doc files
+
 on:
   push:
     branches: [ main ]
@@ -40,7 +43,7 @@ jobs:
         fi
         
         # Check if README.md contains required sections
-        required_sections=("Quick Start" "Config" "Features" "Commands")
+        required_sections=("Quick Start" "Key Features" "Documentation" "Basic Usage")
         for section in "${required_sections[@]}"; do
           if ! grep -q "## .*$section" README.md; then
             echo "❌ Missing section: $section"
@@ -100,18 +103,102 @@ jobs:
         echo "🔍 Checking documentation links..."
         
         # Check if referenced documentation files exist
-        docs_files=("INSTALL.md" "DOCKER.md" "MYSQL_USER_SETUP.md" "PRODUCTION_DEPLOYMENT.md")
+        docs_files=(
+          "INSTALL.md" 
+          "DOCKER.md" 
+          "TROUBLESHOOTING.md"
+          "MYSQL_USER_SETUP.md" 
+          "PRODUCTION_DEPLOYMENT.md"
+          "docs/COMMANDS.md"
+          "config.yaml.example"
+        )
+        
+        missing_files=()
+        found_files=()
+        
         for doc in "${docs_files[@]}"; do
           if grep -q "$doc" README.md; then
             if [ ! -f "$doc" ]; then
-              echo "⚠️  Referenced but missing: $doc"
+              missing_files+=("$doc")
+              echo "❌ Referenced but missing: $doc"
             else
+              found_files+=("$doc")
               echo "✅ Found: $doc"
             fi
           fi
         done
         
+        # Check for new documentation files that should be referenced
+        new_docs=("TROUBLESHOOTING.md" "DOCKER.md")
+        for doc in "${new_docs[@]}"; do
+          if [ -f "$doc" ] && ! grep -q "$doc" README.md; then
+            echo "⚠️  Documentation file exists but not referenced in README: $doc"
+          fi
+        done
+        
+        if [ ${#missing_files[@]} -gt 0 ]; then
+          echo "❌ Missing ${#missing_files[@]} referenced files"
+          exit 1
+        fi
+        
         echo "✅ Documentation links check completed"
+    
+    - name: Validate documentation structure
+      run: |
+        echo "🔍 Validating documentation structure..."
+        
+        # Check TROUBLESHOOTING.md structure
+        if [ -f "TROUBLESHOOTING.md" ]; then
+          echo "Checking TROUBLESHOOTING.md..."
+          required_sections=("Common Issues" "MySQL Setup" "Docker Issues" "Getting Help")
+          for section in "${required_sections[@]}"; do
+            if ! grep -q "## .*$section" TROUBLESHOOTING.md; then
+              echo "⚠️  TROUBLESHOOTING.md missing section: $section"
+            else
+              echo "✅ Found section: $section"
+            fi
+          done
+        fi
+        
+        # Check DOCKER.md structure
+        if [ -f "DOCKER.md" ]; then
+          echo "Checking DOCKER.md..."
+          required_sections=("Quick Start" "Interactive Setup" "Networking" "Volume Mounts")
+          for section in "${required_sections[@]}"; do
+            if ! grep -q "## .*$section" DOCKER.md; then
+              echo "⚠️  DOCKER.md missing section: $section"
+            else
+              echo "✅ Found section: $section"
+            fi
+          done
+        fi
+        
+        # Check if Docker examples are properly formatted
+        if [ -f "DOCKER.md" ]; then
+          if ! grep -q "docker pull ghcr.io/abdullahainun/tenangdb:latest" DOCKER.md; then
+            echo "⚠️  DOCKER.md missing verified docker pull command"
+          else
+            echo "✅ Docker pull command found"
+          fi
+        fi
+        
+        # Validate README.md links point to existing files
+        echo "Checking README.md documentation links..."
+        while IFS= read -r line; do
+          if [[ $line =~ \[.*\]\(([^)]+)\) ]]; then
+            link="${BASH_REMATCH[1]}"
+            # Skip external URLs and anchors
+            if [[ ! $link =~ ^https?:// ]] && [[ ! $link =~ ^# ]] && [[ $link != *"#"* ]]; then
+              if [ ! -f "$link" ] && [ ! -d "$link" ]; then
+                echo "⚠️  Broken link in README.md: $link"
+              else
+                echo "✅ Valid link: $link"
+              fi
+            fi
+          fi
+        done < README.md
+        
+        echo "✅ Documentation structure validation completed"
     
     - name: Validate Docker Compose
       if: hashFiles('docker-compose.yml') != ''
@@ -159,6 +246,57 @@ jobs:
         "
         
         echo "✅ Docker Compose validation completed"
+    
+    - name: Check documentation quality
+      run: |
+        echo "🔍 Checking documentation quality..."
+        
+        # Check README.md length (should be concise)
+        readme_lines=$(wc -l < README.md)
+        if [ $readme_lines -gt 100 ]; then
+          echo "⚠️  README.md is quite long ($readme_lines lines). Consider moving content to separate files."
+        else
+          echo "✅ README.md length is appropriate ($readme_lines lines)"
+        fi
+        
+        # Check for consistent emoji usage
+        if ! grep -q "🛡️" README.md; then
+          echo "⚠️  Missing main project emoji (🛡️) in README.md"
+        else
+          echo "✅ Main project emoji found"
+        fi
+        
+        # Check for installation commands
+        if ! grep -q "curl.*tenangdb-install.sh" README.md; then
+          echo "⚠️  Missing installation command in README.md"
+        else
+          echo "✅ Installation command found"
+        fi
+        
+        # Check for demo link
+        if ! grep -q "asciinema.org" README.md; then
+          echo "⚠️  Missing demo link in README.md"
+        else
+          echo "✅ Demo link found"
+        fi
+        
+        # Check for proper badge formatting
+        badge_count=$(grep -c "shields.io\|img.shields.io" README.md || true)
+        if [ $badge_count -lt 3 ]; then
+          echo "⚠️  Less than 3 badges found ($badge_count). Consider adding more status badges."
+        else
+          echo "✅ Found $badge_count badges"
+        fi
+        
+        # Check for proper code block formatting
+        bash_blocks=$(grep -c "```bash" README.md || true)
+        if [ $bash_blocks -lt 3 ]; then
+          echo "⚠️  Few bash code blocks found ($bash_blocks). Users need clear examples."
+        else
+          echo "✅ Found $bash_blocks bash code blocks"
+        fi
+        
+        echo "✅ Documentation quality check completed"
 
   status-check:
     name: Documentation Status Check
