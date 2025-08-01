@@ -160,15 +160,19 @@ func runBackup(configFile, logLevel string, dryRun bool, databases string, force
 		return
 	}
 
-	// Initialize Prometheus metrics if enabled
+	// Initialize Prometheus metrics if enabled (before any user interaction)
 	if cfg.Metrics.Enabled {
 		metrics.Init()
+		log.WithField("port", cfg.Metrics.Port).Debug("Initializing Prometheus metrics server")
 		go func() {
-			log.WithField("port", cfg.Metrics.Port).Info("Starting Prometheus metrics server")
 			if err := metrics.StartMetricsServer(cfg.Metrics.Port); err != nil {
-				log.WithError(err).Error("Failed to start metrics server")
+				log.WithError(err).WithField("port", cfg.Metrics.Port).Warn("Metrics server failed to start (backup will continue)")
+			} else {
+				log.WithField("port", cfg.Metrics.Port).Debug("Metrics server started successfully")
 			}
 		}()
+		// Give metrics server a moment to start and potentially fail
+		time.Sleep(100 * time.Millisecond)
 	}
 
 	// Check backup frequency if enabled
