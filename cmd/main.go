@@ -2068,19 +2068,27 @@ func execCommand(args ...string) *exec.Cmd {
 func installConfig(configPath string) error {
 	fmt.Printf("Installing configuration to /etc/tenangdb/...\n")
 	
-	// Copy config file
-	cmd := execCommand("cp", configPath, "/etc/tenangdb/config.yaml")
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to copy config: %w", err)
+	targetPath := "/etc/tenangdb/config.yaml"
+	
+	// Check if source and target are the same file
+	if configPath == targetPath {
+		fmt.Printf("✅ Configuration already at target location\n")
+	} else {
+		// Copy config file
+		cmd := execCommand("cp", configPath, targetPath)
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("failed to copy config: %w", err)
+		}
+		fmt.Printf("✅ Copied configuration to %s\n", targetPath)
 	}
 	
 	// Set permissions
-	cmd = execCommand("chmod", "640", "/etc/tenangdb/config.yaml")
+	cmd := execCommand("chmod", "640", targetPath)
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("failed to set config permissions: %w", err)
 	}
 	
-	fmt.Printf("✅ Installed configuration\n")
+	fmt.Printf("✅ Configuration permissions set\n")
 	return nil
 }
 
