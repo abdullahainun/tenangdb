@@ -1,99 +1,114 @@
 # 📖 TenangDB Installation Guide
 
-## 🐳 Docker Installation (Recommended)
+## 🚀 Quick Install (Recommended)
 
+**🎯 Production Setup (2 minutes)**
 ```bash
-# Setup (one-time)
-docker pull ghcr.io/abdullahainun/tenangdb:latest
-mkdir -p backups && sudo chown $(id -u):$(id -g) backups
-
-# Run backup
-docker run --user $(id -u):$(id -g) -v $(pwd)/config.yaml:/config.yaml -v $(pwd)/backups:/backups ghcr.io/abdullahainun/tenangdb:latest backup
-
-# Run metrics exporter  
-docker run -d --name tenangdb-exporter -p 9090:9090 -v $(pwd)/config.yaml:/config.yaml ghcr.io/abdullahainun/tenangdb:latest tenangdb-exporter
-
-# Or use docker-compose
-curl -L https://go.ainun.cloud/tenangdb-docker-compose.yml -o docker-compose.yml
-docker-compose up -d
-```
-
-## 📦 Binary Installation
-
-### Download Release Binary
-```bash
-# One-liner install
+# 1. Install binary
 curl -sSL https://go.ainun.cloud/tenangdb-install.sh | bash
 
-# Or manual download (both binaries)
+# 2. Interactive setup wizard + systemd deployment
+sudo tenangdb init --deploy-systemd
+
+# 3. Done! ✅
+sudo systemctl status tenangdb.timer
+curl http://localhost:8080/metrics
+```
+
+**✨ What this does:**
+- Downloads & installs binary + dependencies
+- Interactive wizard (database config, backup setup)
+- Auto-deploys as systemd service with security hardening
+- Sets up daily backups + weekend cleanup
+- Enables Prometheus metrics monitoring
+
+---
+
+## 🧙‍♂️ Interactive Setup Options
+
+```bash
+# Basic setup wizard
+tenangdb init
+
+# Setup + auto-deploy systemd services
+tenangdb init --deploy-systemd
+
+# Custom config location
+tenangdb init --config /etc/tenangdb/config.yaml
+
+# Custom systemd user
+tenangdb init --deploy-systemd --systemd-user mybackup
+```
+
+**Wizard Features:**
+- ✅ Database connection testing
+- ✅ Dependency validation (mydumper, rclone, etc.)
+- ✅ Smart defaults based on platform
+- ✅ Cloud storage setup (optional)
+- ✅ Metrics configuration
+
+---
+
+## 🐳 Docker Installation
+
+**Quick Test:**
+```bash
+docker run -it --rm ghcr.io/abdullahainun/tenangdb:latest init
+```
+
+**Production with Docker:**
+```bash
+# Setup workspace
+mkdir tenangdb && cd tenangdb
+
+# Run setup wizard
+docker run -it --user $(id -u):$(id -g) \
+  -v $(pwd):/workspace \
+  ghcr.io/abdullahainun/tenangdb:latest init
+
+# Run backups
+docker run --user $(id -u):$(id -g) \
+  -v $(pwd)/config.yaml:/config.yaml \
+  -v $(pwd)/backups:/backups \
+  ghcr.io/abdullahainun/tenangdb:latest backup
+```
+
+---
+
+## 📦 Manual Installation
+
+**For Custom Setups Only**
+
+```bash
+# Download binaries
 curl -L https://github.com/abdullahainun/tenangdb/releases/latest/download/tenangdb-linux-amd64 -o tenangdb
 curl -L https://github.com/abdullahainun/tenangdb/releases/latest/download/tenangdb-exporter-linux-amd64 -o tenangdb-exporter
 chmod +x tenangdb tenangdb-exporter
 sudo mv tenangdb tenangdb-exporter /usr/local/bin/
-```
 
-### Dependencies (Binary Only)
-```bash
-# Ubuntu/Debian
-sudo apt install mydumper rclone mysql-client
+# Install dependencies
+sudo apt install mydumper rclone mysql-client  # Ubuntu/Debian
+brew install mydumper rclone mysql-client      # macOS
 
-# macOS
-brew install mydumper rclone mysql-client
-```
-
-## ⚙️ Configuration
-
-### Download Config Template
-```bash
+# Manual config
 curl -L https://go.ainun.cloud/tenangdb-config.yaml.example -o config.yaml
 nano config.yaml
 ```
 
-### Basic Config
-```yaml
-database:
-  host: 127.0.0.1
-  username: backup_user
-  password: "secure_password"
-
-backup:
-  databases:
-    - your_database_1
-    - your_database_2
-```
-
-### Test Installation
-```bash
-# With Docker
-docker run -v $(pwd)/config.yaml:/config.yaml ghcr.io/abdullahainun/tenangdb:latest backup --dry-run
-
-# With Binary
-tenangdb backup --config config.yaml --dry-run
-```
-
 ---
 
-## 🚀 Production Setup
+## ✅ Verify Installation
 
-### System Service
 ```bash
-# Install with systemd
-sudo ./scripts/install.sh
+# Check binary
+tenangdb --version
 
-# Enable timers
-sudo systemctl enable tenangdb.timer
-sudo systemctl start tenangdb.timer
+# Test config (dry run)
+tenangdb backup --dry-run
+
+# Check systemd services (if deployed)
+sudo systemctl status tenangdb.timer
+sudo systemctl status tenangdb-exporter.service
 ```
 
-### Docker Production
-```bash
-# Use docker-compose
-docker-compose up -d
-
-# Or schedule with cron
-0 2 * * * docker run -v /path/to/config.yaml:/config.yaml ghcr.io/abdullahainun/tenangdb:latest backup
-```
-
----
-
-For detailed configuration options, see [config.yaml.example](config.yaml.example) and [DOCKER.md](DOCKER.md).
+**Next Steps:** See [PRODUCTION_DEPLOYMENT.md](PRODUCTION_DEPLOYMENT.md) for advanced configuration.
