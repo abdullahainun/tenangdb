@@ -1969,14 +1969,14 @@ func createSystemdUser(username string) error {
 	}
 	
 	// Create group
-	cmd = exec.Command("sudo", "groupadd", "-r", username)
+	cmd = execCommand("groupadd", "-r", username)
 	if err := cmd.Run(); err != nil {
 		// Group might already exist, continue - this is expected
 		fmt.Printf("Group creation result (expected if exists): %v\n", err)
 	}
 	
 	// Create user
-	cmd = exec.Command("sudo", "useradd", "-r", "-g", username, "-s", "/bin/false", "-d", "/opt/tenangdb", username)
+	cmd = execCommand("useradd", "-r", "-g", username, "-s", "/bin/false", "-d", "/opt/tenangdb", username)
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("failed to create user: %w", err)
 	}
@@ -1997,20 +1997,20 @@ func createSystemDirectories(systemdUser string) error {
 	}
 	
 	for _, dir := range directories {
-		cmd := exec.Command("sudo", "mkdir", "-p", dir)
+		cmd := execCommand("mkdir", "-p", dir)
 		if err := cmd.Run(); err != nil {
 			return fmt.Errorf("failed to create directory %s: %w", dir, err)
 		}
 		
 		// Set ownership
-		cmd = exec.Command("sudo", "chown", systemdUser+":"+systemdUser, dir)
+		cmd = execCommand("chown", systemdUser+":"+systemdUser, dir)
 		if err := cmd.Run(); err != nil {
 			// Some directories might need different ownership, continue - this is expected
 			fmt.Printf("Ownership setting result for %s (expected for some dirs): %v\n", dir, err)
 		}
 		
 		// Set permissions
-		cmd = exec.Command("sudo", "chmod", "755", dir)
+		cmd = execCommand("chmod", "755", dir)
 		if err := cmd.Run(); err != nil {
 			return fmt.Errorf("failed to set permissions for %s: %w", dir, err)
 		}
@@ -2024,13 +2024,13 @@ func installBinary(execPath, _ string) error {
 	fmt.Printf("Installing binary to /opt/tenangdb/...\n")
 	
 	// Copy main binary
-	cmd := exec.Command("sudo", "cp", execPath, "/opt/tenangdb/tenangdb")
+	cmd := execCommand("cp", execPath, "/opt/tenangdb/tenangdb")
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("failed to copy binary: %w", err)
 	}
 	
 	// Set permissions
-	cmd = exec.Command("sudo", "chmod", "+x", "/opt/tenangdb/tenangdb")
+	cmd = execCommand("chmod", "+x", "/opt/tenangdb/tenangdb")
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("failed to set binary permissions: %w", err)
 	}
@@ -2039,9 +2039,9 @@ func installBinary(execPath, _ string) error {
 	execDir := filepath.Dir(execPath)
 	exporterPath := filepath.Join(execDir, "tenangdb-exporter")
 	if _, err := os.Stat(exporterPath); err == nil {
-		cmd = exec.Command("sudo", "cp", exporterPath, "/opt/tenangdb/tenangdb-exporter")
+		cmd = execCommand("cp", exporterPath, "/opt/tenangdb/tenangdb-exporter")
 		if err := cmd.Run(); err == nil {
-			cmd = exec.Command("sudo", "chmod", "+x", "/opt/tenangdb/tenangdb-exporter")
+			cmd = execCommand("chmod", "+x", "/opt/tenangdb/tenangdb-exporter")
 			if err := cmd.Run(); err != nil {
 				fmt.Printf("⚠️  Failed to set exporter permissions: %v\n", err)
 			} else {
@@ -2054,17 +2054,28 @@ func installBinary(execPath, _ string) error {
 	return nil
 }
 
+// execCommand runs a command with or without sudo based on current privileges
+func execCommand(args ...string) *exec.Cmd {
+	if os.Geteuid() == 0 {
+		// Already running as root, no need for sudo
+		return exec.Command(args[0], args[1:]...)
+	} else {
+		// Not root, use sudo
+		return exec.Command("sudo", args...)
+	}
+}
+
 func installConfig(configPath string) error {
 	fmt.Printf("Installing configuration to /etc/tenangdb/...\n")
 	
 	// Copy config file
-	cmd := exec.Command("sudo", "cp", configPath, "/etc/tenangdb/config.yaml")
+	cmd := execCommand("cp", configPath, "/etc/tenangdb/config.yaml")
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("failed to copy config: %w", err)
 	}
 	
 	// Set permissions
-	cmd = exec.Command("sudo", "chmod", "640", "/etc/tenangdb/config.yaml")
+	cmd = execCommand("chmod", "640", "/etc/tenangdb/config.yaml")
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("failed to set config permissions: %w", err)
 	}
@@ -2093,7 +2104,7 @@ func installSystemdServices(systemdUser, metricsPort string) error {
 		}
 		
 		// Copy to systemd directory
-		cmd := exec.Command("sudo", "cp", tempFile, "/etc/systemd/system/"+filename)
+		cmd := execCommand("cp", tempFile, "/etc/systemd/system/"+filename)
 		if err := cmd.Run(); err != nil {
 			return fmt.Errorf("failed to install %s: %w", filename, err)
 		}
@@ -2105,7 +2116,7 @@ func installSystemdServices(systemdUser, metricsPort string) error {
 	}
 	
 	// Reload systemd
-	cmd := exec.Command("sudo", "systemctl", "daemon-reload")
+	cmd := execCommand("systemctl", "daemon-reload")
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("failed to reload systemd: %w", err)
 	}
@@ -2125,14 +2136,14 @@ func enableSystemdServices() error {
 	
 	for _, service := range services {
 		// Enable service
-		cmd := exec.Command("sudo", "systemctl", "enable", service)
+		cmd := execCommand("systemctl", "enable", service)
 		if err := cmd.Run(); err != nil {
 			fmt.Printf("⚠️  Failed to enable %s: %v\n", service, err)
 			continue
 		}
 		
 		// Start service  
-		cmd = exec.Command("sudo", "systemctl", "start", service)
+		cmd = execCommand("systemctl", "start", service)
 		if err := cmd.Run(); err != nil {
 			fmt.Printf("⚠️  Failed to start %s: %v\n", service, err)
 			continue
