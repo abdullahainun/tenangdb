@@ -364,6 +364,42 @@ show_confirmation() {
         return 0
     fi
     
+    # Check if we have a TTY available for interactive input
+    if [ ! -t 0 ] || [ ! -c /dev/tty ]; then
+        # No TTY available (piped from curl), show manual instructions
+        echo
+        print_warning "⚠️  No interactive terminal detected (likely running via curl pipe)."
+        print_warning "⚠️  Cannot confirm removal safely."
+        echo
+        print_status "To proceed with uninstall, run one of these methods:"
+        echo
+        echo "🔧 Method 1: Download and run locally"
+        echo "   curl -O https://raw.githubusercontent.com/abdullahainun/tenangdb/main/uninstall.sh"
+        echo "   chmod +x uninstall.sh"
+        if [ "$EUID" -eq 0 ]; then
+            echo "   ./uninstall.sh"
+        else
+            echo "   sudo ./uninstall.sh"
+        fi
+        echo
+        echo "🔧 Method 2: Force uninstall (skip confirmation)"
+        if [ "$EUID" -eq 0 ]; then
+            echo "   curl -sSL https://raw.githubusercontent.com/abdullahainun/tenangdb/main/uninstall.sh | bash -s -- --force"
+        else
+            echo "   curl -sSL https://raw.githubusercontent.com/abdullahainun/tenangdb/main/uninstall.sh | sudo bash -s -- --force"
+        fi
+        echo
+        echo "🔧 Method 3: Dry run first (see what will be removed)"
+        if [ "$EUID" -eq 0 ]; then
+            echo "   curl -sSL https://raw.githubusercontent.com/abdullahainun/tenangdb/main/uninstall.sh | bash -s -- --dry-run"
+        else
+            echo "   curl -sSL https://raw.githubusercontent.com/abdullahainun/tenangdb/main/uninstall.sh | sudo bash -s -- --dry-run"
+        fi
+        echo
+        print_status "Uninstall cancelled - please use one of the methods above"
+        exit 0
+    fi
+    
     echo
     print_warning "⚠️  WARNING: This will permanently remove TenangDB!"
     print_warning "⚠️  This action cannot be undone!"
@@ -376,7 +412,7 @@ show_confirmation() {
     
     echo
     echo -n "Are you sure you want to continue? Type 'yes' to confirm: "
-    read -r confirmation
+    read -r confirmation < /dev/tty
     
     if [ "$confirmation" != "yes" ]; then
         print_status "Uninstall cancelled by user"
