@@ -167,11 +167,20 @@ show_removal_preview() {
         echo "🚀 Production Components:"
         
         # Systemd services
-        if systemctl list-unit-files | grep -q "tenangdb"; then
-            echo "  ⚙️ Systemd Services:"
-            systemctl list-unit-files | grep tenangdb | while read -r service _; do
-                echo "    ✓ $service"
-            done
+        if command -v systemctl >/dev/null 2>&1; then
+            if systemctl list-unit-files 2>/dev/null | grep -q "tenangdb"; then
+                echo "  ⚙️ Systemd Services:"
+                systemctl list-unit-files 2>/dev/null | grep tenangdb | while read -r service _; do
+                    echo "    ✓ $service"
+                done
+            fi
+            # Also check service files directly
+            if ls /etc/systemd/system/tenangdb*.service >/dev/null 2>&1; then
+                echo "  ⚙️ Systemd Service Files:"
+                for service_file in /etc/systemd/system/tenangdb*.service; do
+                    [ -f "$service_file" ] && echo "    ✓ $(basename "$service_file")"
+                done
+            fi
         fi
         
         # System user
@@ -265,12 +274,21 @@ remove_systemd_services() {
     local services=("tenangdb.service" "tenangdb.timer" "tenangdb-cleanup.service" "tenangdb-cleanup.timer" "tenangdb-exporter.service")
     
     for service in "${services[@]}"; do
-        if systemctl list-unit-files | grep -q "$service"; then
+        # Check both systemctl list-unit-files and actual files
+        local service_exists=false
+        if systemctl list-unit-files 2>/dev/null | grep -q "$service"; then
+            service_exists=true
+        elif [ -f "/etc/systemd/system/$service" ]; then
+            service_exists=true
+        fi
+        
+        if [ "$service_exists" = true ]; then
             if [ "$DRY_RUN" = false ]; then
                 print_status "Stopping and disabling $service"
                 systemctl stop "$service" 2>/dev/null || true
                 systemctl disable "$service" 2>/dev/null || true
                 rm -f "/etc/systemd/system/$service"
+                print_success "Removed $service"
             else
                 echo "Would remove: $service"
             fi
@@ -458,8 +476,10 @@ verify_removal() {
     [ -f "/opt/tenangdb/tenangdb" ] && remaining_items+=("/opt/tenangdb/tenangdb")
     
     # Check systemd services
-    if systemctl list-unit-files | grep -q "tenangdb"; then
-        remaining_items+=("systemd services")
+    if command -v systemctl >/dev/null 2>&1; then
+        if systemctl list-unit-files 2>/dev/null | grep -q "tenangdb" || ls /etc/systemd/system/tenangdb*.service >/dev/null 2>&1; then
+            remaining_items+=("systemd services")
+        fi
     fi
     
     # Check system user
