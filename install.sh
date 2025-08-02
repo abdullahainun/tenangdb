@@ -675,11 +675,37 @@ run_production_setup() {
     print_warning "- Configure secure directories"
     echo
     
-    if [ "$EUID" -ne 0 ]; then
-        print_status "Switching to sudo for system setup..."
-        sudo "$INSTALL_DIR/$BINARY_NAME" init --deploy-systemd < /dev/tty
+    # Check if we have a TTY available for interactive input
+    if [ -t 0 ] && [ -c /dev/tty ]; then
+        # TTY available, run interactive setup
+        if [ "$EUID" -ne 0 ]; then
+            print_status "Switching to sudo for system setup..."
+            sudo "$INSTALL_DIR/$BINARY_NAME" init --deploy-systemd < /dev/tty
+        else
+            "$INSTALL_DIR/$BINARY_NAME" init --deploy-systemd < /dev/tty
+        fi
     else
-        "$INSTALL_DIR/$BINARY_NAME" init --deploy-systemd < /dev/tty
+        # No TTY available (piped from curl), show manual instructions
+        print_warning "No interactive terminal detected (likely running via curl pipe)."
+        print_warning "Please run the setup manually after installation:"
+        echo
+        if [ "$EUID" -ne 0 ]; then
+            echo "   sudo $BINARY_NAME init --deploy-systemd"
+        else
+            echo "   $BINARY_NAME init --deploy-systemd"
+        fi
+        echo
+        echo "Or download and run locally:"
+        echo "   curl -O https://go.ainun.cloud/tenangdb-install.sh"
+        echo "   chmod +x tenangdb-install.sh"
+        if [ "$EUID" -ne 0 ]; then
+            echo "   sudo ./tenangdb-install.sh"
+        else
+            echo "   ./tenangdb-install.sh"
+        fi
+        echo
+        print_status "Installation completed. Run the setup command above to configure TenangDB."
+        return 0
     fi
     
     if [ $? -eq 0 ]; then
