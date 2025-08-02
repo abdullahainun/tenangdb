@@ -51,6 +51,24 @@ upload:
   # rclone_config_path: ~/.config/rclone/rclone.conf
   # timeout: 300
   # retry_count: 3
+  
+  # Google Cloud Storage specific settings (for GCS destinations)
+  gcs:
+    bucket_policy_only: true    # Enable for uniform bucket-level access (recommended)
+    no_check_bucket: false      # Skip bucket existence check (for limited permissions)
+    object_acl: ""             # Object ACL (empty for uniform buckets)
+    bucket_acl: ""             # Bucket ACL (empty for uniform buckets)
+    
+    # Example configurations:
+    # For uniform bucket-level access (modern GCS buckets):
+    # bucket_policy_only: true
+    # object_acl: ""
+    # bucket_acl: ""
+    
+    # For legacy GCS buckets with ACLs:
+    # bucket_policy_only: false
+    # object_acl: "publicRead"
+    # bucket_acl: "private"
 
 # Logging settings
 logging:
