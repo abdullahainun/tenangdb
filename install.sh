@@ -677,9 +677,9 @@ run_production_setup() {
     
     if [ "$EUID" -ne 0 ]; then
         print_status "Switching to sudo for system setup..."
-        sudo "$INSTALL_DIR/$BINARY_NAME" init --deploy-systemd
+        sudo "$INSTALL_DIR/$BINARY_NAME" init --deploy-systemd < /dev/tty
     else
-        "$INSTALL_DIR/$BINARY_NAME" init --deploy-systemd
+        "$INSTALL_DIR/$BINARY_NAME" init --deploy-systemd < /dev/tty
     fi
     
     if [ $? -eq 0 ]; then
