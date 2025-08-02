@@ -143,6 +143,10 @@ func (w *SetupWizard) setupConnectionSettings(config *ProviderConfig) {
 		fmt.Print("Username is required. Database username: ")
 		if w.scanner.Scan() {
 			username = strings.TrimSpace(w.scanner.Text())
+		} else {
+			// Handle EOF or input error - exit gracefully
+			fmt.Printf("\nError: Unable to read input. Setup cancelled.\n")
+			return
 		}
 	}
 	config.Username = username

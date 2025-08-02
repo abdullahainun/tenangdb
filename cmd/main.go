@@ -1511,6 +1511,10 @@ func setupDatabaseConfig() config.DatabaseConfig {
 		fmt.Print("Username is required. Database username: ")
 		if scanner.Scan() {
 			username = strings.TrimSpace(scanner.Text())
+		} else {
+			// Handle EOF or input error - exit gracefully
+			fmt.Printf("\nError: Unable to read input. Setup cancelled.\n")
+			os.Exit(1)
 		}
 	}
 
