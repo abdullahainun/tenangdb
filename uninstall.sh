@@ -103,20 +103,51 @@ show_help() {
 # Detect installation mode
 detect_installation_mode() {
     local mode=""
+    local has_systemd=false
+    local has_system_config=false
+    local has_user_config=false
+    local has_system_user=false
     
-    # Check for systemd services
-    if systemctl list-unit-files | grep -q "tenangdb.service"; then
+    # Check for systemd services (multiple ways)
+    if command -v systemctl >/dev/null 2>&1; then
+        if systemctl list-unit-files 2>/dev/null | grep -q "tenangdb"; then
+            has_systemd=true
+        fi
+        # Also check if services exist in /etc/systemd/system/
+        if ls /etc/systemd/system/tenangdb*.service >/dev/null 2>&1 || ls /etc/systemd/system/tenangdb*.timer >/dev/null 2>&1; then
+            has_systemd=true
+        fi
+    fi
+    
+    # Check for system config
+    if [ -f "/etc/tenangdb/config.yaml" ]; then
+        has_system_config=true
+    fi
+    
+    # Check for user config
+    if [ -f "$HOME/.config/tenangdb/config.yaml" ]; then
+        has_user_config=true
+    fi
+    
+    # Check for system user
+    if id "tenangdb" >/dev/null 2>&1; then
+        has_system_user=true
+    fi
+    
+    # Determine mode based on findings
+    if [ "$has_systemd" = true ] || [ "$has_system_config" = true ] || [ "$has_system_user" = true ]; then
         mode="production"
-        print_status "Detected: Production installation (systemd services)"
-    elif [ -f "/etc/tenangdb/config.yaml" ]; then
-        mode="production"
-        print_status "Detected: Production installation (system config)"
-    elif [ -f "$HOME/.config/tenangdb/config.yaml" ]; then
+        print_status "Detected: Production installation"
+        [ "$has_systemd" = true ] && print_status "  ✓ Found systemd services"
+        [ "$has_system_config" = true ] && print_status "  ✓ Found system config"
+        [ "$has_system_user" = true ] && print_status "  ✓ Found system user"
+    elif [ "$has_user_config" = true ]; then
         mode="personal"
         print_status "Detected: Personal installation (user config)"
     else
         mode="unknown"
         print_warning "Could not detect installation mode"
+        print_warning "Will attempt to remove any remaining components"
     fi
     
     echo "$mode"
@@ -487,7 +518,8 @@ main() {
     fi
     
     # Perform removal based on mode
-    if [ "$mode" = "production" ]; then
+    if [ "$mode" = "production" ] || [ "$mode" = "unknown" ]; then
+        # For production or unknown mode, try to remove systemd services and system user
         if command -v systemctl >/dev/null 2>&1; then
             remove_systemd_services
         fi
