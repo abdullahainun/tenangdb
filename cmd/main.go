@@ -1254,6 +1254,16 @@ func runInit(configPath string, force bool, deploySystemd bool, systemdUser stri
 	fmt.Printf("========================\n\n")
 	fmt.Printf("This wizard will help you set up TenangDB with your MySQL database.\n\n")
 
+	// Check if systemd deployment requires root privileges
+	if deploySystemd && os.Geteuid() != 0 {
+		fmt.Printf("❌ Error: --deploy-systemd requires root privileges\n")
+		fmt.Printf("💡 Please run with sudo:\n")
+		fmt.Printf("   sudo tenangdb init --deploy-systemd\n\n")
+		fmt.Printf("Or run without --deploy-systemd for user-only setup:\n")
+		fmt.Printf("   tenangdb init\n\n")
+		os.Exit(1)
+	}
+
 	// Determine config file path
 	targetConfigPath := configPath
 	if targetConfigPath == "" {
