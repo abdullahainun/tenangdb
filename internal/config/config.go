@@ -90,6 +90,17 @@ type UploadConfig struct {
 	Destination      string `mapstructure:"destination"`
 	Timeout          int    `mapstructure:"timeout"`
 	RetryCount       int    `mapstructure:"retry_count"`
+	
+	// GCS-specific settings for uniform bucket-level access
+	GCS GCSConfig `mapstructure:"gcs"`
+}
+
+// GCSConfig contains Google Cloud Storage specific configuration
+type GCSConfig struct {
+	BucketPolicyOnly bool `mapstructure:"bucket_policy_only"` // Enable for uniform bucket-level access
+	NoCheckBucket    bool `mapstructure:"no_check_bucket"`    // Skip bucket existence check
+	ObjectACL        string `mapstructure:"object_acl"`       // Object ACL setting (empty for uniform buckets)
+	BucketACL        string `mapstructure:"bucket_acl"`       // Bucket ACL setting (empty for uniform buckets)
 }
 
 type LoggingConfig struct {
@@ -489,6 +500,12 @@ func setDefaults() {
 	viper.SetDefault("upload.enabled", false)
 	viper.SetDefault("upload.timeout", 300)
 	viper.SetDefault("upload.retry_count", 3)
+	
+	// GCS-specific defaults for uniform bucket-level access
+	viper.SetDefault("upload.gcs.bucket_policy_only", true)  // Enable by default for better compatibility
+	viper.SetDefault("upload.gcs.no_check_bucket", false)   // Check bucket by default
+	viper.SetDefault("upload.gcs.object_acl", "")           // Empty for uniform buckets
+	viper.SetDefault("upload.gcs.bucket_acl", "")           // Empty for uniform buckets
 
 	viper.SetDefault("logging.level", "info")
 	viper.SetDefault("logging.format", "clean")

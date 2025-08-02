@@ -152,6 +152,11 @@ func (s *Service) uploadSingleFile(ctx context.Context, filePath string) error {
 		"--checksum",
 	}
 
+	// Add GCS-specific flags for uniform bucket-level access
+	if s.isGCSDestination(destination) {
+		args = s.addGCSFlags(args)
+	}
+
 	// Add config path if specified
 	if s.config.RcloneConfigPath != "" {
 		args = append(args, "--config", s.config.RcloneConfigPath)
@@ -196,6 +201,11 @@ func (s *Service) uploadDirectoryStructure(ctx context.Context, dirPath string) 
 		"--progress",
 		"--stats", "10s",
 		"--checksum",
+	}
+
+	// Add GCS-specific flags for uniform bucket-level access
+	if s.isGCSDestination(destination) {
+		args = s.addGCSFlags(args)
 	}
 
 	// Add config path if specified
@@ -247,4 +257,62 @@ func (s *Service) CleanupRemote(ctx context.Context, retentionDays int) error {
 
 	s.logger.WithField("output", string(output)).Info("Remote cleanup completed")
 	return nil
+}
+
+// isGCSDestination checks if the destination is a Google Cloud Storage bucket
+func (s *Service) isGCSDestination(destination string) bool {
+	// Check for common GCS destination patterns
+	// Examples: "gcs:bucket", "mygcs:bucket", "googlecloud:bucket"
+	prefixes := []string{"gcs:", "mygcs:", "googlecloud:", "gc:"}
+	
+	for _, prefix := range prefixes {
+		if strings.HasPrefix(destination, prefix) {
+			return true
+		}
+	}
+	
+	return false
+}
+
+// addGCSFlags adds Google Cloud Storage specific flags for uniform bucket-level access
+func (s *Service) addGCSFlags(args []string) []string {
+	// Default GCS settings for uniform bucket-level access
+	gcsConfig := s.config.GCS
+	
+	// Auto-enable bucket policy only for GCS destinations (recommended)
+	if gcsConfig.BucketPolicyOnly || s.shouldUseBucketPolicyOnly() {
+		args = append(args, "--gcs-bucket-policy-only=true")
+		s.logger.Debug("🔧 Using GCS uniform bucket-level access mode")
+	}
+	
+	// Disable ACLs for uniform bucket access
+	if gcsConfig.ObjectACL == "" && gcsConfig.BucketPolicyOnly {
+		args = append(args, "--gcs-object-acl=")
+		args = append(args, "--gcs-bucket-acl=")
+		s.logger.Debug("🔧 Disabled GCS ACLs for uniform bucket access")
+	} else {
+		// Use custom ACL settings if specified
+		if gcsConfig.ObjectACL != "" {
+			args = append(args, "--gcs-object-acl="+gcsConfig.ObjectACL)
+		}
+		if gcsConfig.BucketACL != "" {
+			args = append(args, "--gcs-bucket-acl="+gcsConfig.BucketACL)
+		}
+	}
+	
+	// Skip bucket existence check if configured (useful for limited permissions)
+	if gcsConfig.NoCheckBucket {
+		args = append(args, "--gcs-no-check-bucket=true")
+		s.logger.Debug("🔧 Skipping GCS bucket existence check")
+	}
+	
+	return args
+}
+
+// shouldUseBucketPolicyOnly determines if bucket policy only should be enabled
+// This is a smart default for better security and compatibility
+func (s *Service) shouldUseBucketPolicyOnly() bool {
+	// Enable bucket policy only by default for GCS destinations
+	// This is the recommended approach for modern GCS buckets
+	return true
 }
