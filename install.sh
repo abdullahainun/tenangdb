@@ -761,20 +761,18 @@ show_manual_steps() {
 
 # Detect installation mode from execution context
 detect_installation_mode() {
-    # Check if running with sudo or as root
+    # Default to install-only mode (no auto-setup)
+    # Users must explicitly choose setup mode after installation
+    if [ "$AUTO_SETUP" = "" ]; then
+        AUTO_SETUP="skip"
+    fi
+    
     if [ "$EUID" -eq 0 ] || [ "$SUDO_USER" != "" ]; then
-        AUTO_SETUP="production"
-        print_status "🚀 Production mode detected (running with elevated privileges)"
-        print_status "   → Will install systemd service and system-wide configuration"
+        print_status "🚀 Installing with elevated privileges (system-wide installation)"
+        print_status "   → Installing to /usr/local/bin for all users"
     else
-        AUTO_SETUP="personal"
-        print_status "👤 Personal mode detected (running as regular user)"
-        print_status "   → Will install for current user only"
-        
-        echo
-        echo "💡 For production setup with systemd service, re-run with sudo:"
-        echo "   sudo bash <(curl -sSL https://go.ainun.cloud/tenangdb-install.sh)"
-        echo
+        print_status "👤 Installing as regular user"
+        print_status "   → Installing to /usr/local/bin (may require sudo for write access)"
     fi
 }
 
@@ -870,7 +868,26 @@ main() {
             run_personal_setup
             ;;
         "skip")
-            print_status "Installation complete. Run 'tenangdb --help' to get started."
+            echo
+            print_success "🎉 TenangDB installation completed!"
+            echo
+            print_status "📋 Next Steps - Choose your setup mode:"
+            echo
+            echo "🔧 Production Setup (System-wide with systemd):"
+            echo "   sudo tenangdb init --deploy-systemd"
+            echo "   → Automated daily backups via systemd timer"
+            echo "   → System user 'tenangdb' and secure directories"
+            echo "   → Config: /etc/tenangdb/config.yaml"
+            echo
+            echo "👤 Personal Setup (User-only):"
+            echo "   tenangdb init"
+            echo "   → Manual backup execution"
+            echo "   → Config: ~/.config/tenangdb/config.yaml"
+            echo
+            echo "📚 Help & Documentation:"
+            echo "   tenangdb --help"
+            echo "   https://github.com/$REPO"
+            echo
             ;;
         *)
             # Fallback to interactive wizard (shouldn't happen with auto-detection)
