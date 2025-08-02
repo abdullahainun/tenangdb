@@ -134,20 +134,13 @@ detect_installation_mode() {
         has_system_user=true
     fi
     
-    # Determine mode based on findings
+    # Determine mode based on findings (don't print here since we're in a subshell)
     if [ "$has_systemd" = true ] || [ "$has_system_config" = true ] || [ "$has_system_user" = true ]; then
         mode="production"
-        print_status "Detected: Production installation"
-        [ "$has_systemd" = true ] && print_status "  ✓ Found systemd services"
-        [ "$has_system_config" = true ] && print_status "  ✓ Found system config"
-        [ "$has_system_user" = true ] && print_status "  ✓ Found system user"
     elif [ "$has_user_config" = true ]; then
         mode="personal"
-        print_status "Detected: Personal installation (user config)"
     else
         mode="unknown"
-        print_warning "Could not detect installation mode"
-        print_warning "Will attempt to remove any remaining components"
     fi
     
     echo "$mode"
@@ -495,9 +488,37 @@ main() {
     # Parse arguments
     parse_args "$@"
     
-    # Check if running as root for production uninstall
+    # Detect installation mode
+    print_status "🔍 Detecting installation mode..."
     local mode
     mode=$(detect_installation_mode)
+    
+    # Display detection results and debug info
+    case "$mode" in
+        "production")
+            print_status "✅ Production installation detected"
+            # Show what we found
+            if systemctl list-unit-files 2>/dev/null | grep -q "tenangdb"; then
+                print_status "  ✓ Found systemd services in systemctl"
+            fi
+            if ls /etc/systemd/system/tenangdb*.service >/dev/null 2>&1 || ls /etc/systemd/system/tenangdb*.timer >/dev/null 2>&1; then
+                print_status "  ✓ Found systemd files in /etc/systemd/system/"
+            fi
+            if [ -f "/etc/tenangdb/config.yaml" ]; then
+                print_status "  ✓ Found system config"
+            fi
+            if id "tenangdb" >/dev/null 2>&1; then
+                print_status "  ✓ Found system user"
+            fi
+            ;;
+        "personal")
+            print_status "✅ Personal installation detected"
+            ;;
+        "unknown")
+            print_warning "❓ Unknown installation mode - will attempt cleanup anyway"
+            print_warning "  ⚠️  No systemd services, config, or system user found"
+            ;;
+    esac
     
     if [ "$mode" = "production" ] && [ "$EUID" -ne 0 ]; then
         print_error "Production uninstall requires root privileges"
