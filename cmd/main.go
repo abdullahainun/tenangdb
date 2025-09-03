@@ -919,9 +919,12 @@ func getBackupFiles(backupDir string, selectedDatabases []string) []BackupFileIn
 		isBackupFile := strings.HasSuffix(info.Name(), ".sql.gz") ||
 					   strings.HasSuffix(info.Name(), ".sql.zst") ||
 					   strings.HasSuffix(info.Name(), ".sql.xz") ||
+					   strings.HasSuffix(info.Name(), ".sql.lz4") ||
+					   strings.HasSuffix(info.Name(), ".sql") ||
 					   strings.HasSuffix(info.Name(), ".tar.gz") ||
 					   strings.HasSuffix(info.Name(), ".tar.zst") ||
-					   strings.HasSuffix(info.Name(), ".tar.xz")
+					   strings.HasSuffix(info.Name(), ".tar.xz") ||
+					   strings.HasSuffix(info.Name(), ".tar.lz4")
 		
 		// For directories, check if they contain backup files (mydumper output directories)
 		isBackupDir := info.IsDir() && containsBackupFiles(path)
@@ -979,7 +982,12 @@ func containsBackupFiles(dirPath string) bool {
 			if strings.HasSuffix(name, ".sql.gz") ||
 			   strings.HasSuffix(name, ".sql.zst") ||
 			   strings.HasSuffix(name, ".sql.xz") ||
+			   strings.HasSuffix(name, ".sql.lz4") ||
 			   strings.HasSuffix(name, ".sql") ||
+			   strings.HasSuffix(name, ".gz") ||
+			   strings.HasSuffix(name, ".zst") ||
+			   strings.HasSuffix(name, ".xz") ||
+			   strings.HasSuffix(name, ".lz4") ||
 			   name == "metadata" {
 				return true
 			}
