@@ -885,52 +885,93 @@ type BackupFileInfo struct {
 }
 
 // getBackupFiles scans backup directory and returns backup file information
+// It recursively searches for actual backup files within database directories
 func getBackupFiles(backupDir string, selectedDatabases []string) []BackupFileInfo {
 	var backupFiles []BackupFileInfo
 	
-	// Read backup directory
-	entries, err := os.ReadDir(backupDir)
-	if err != nil {
-		return backupFiles
-	}
-	
-	for _, entry := range entries {
-		// Skip non-directories and non-backup files
-		if !entry.IsDir() && !strings.HasSuffix(entry.Name(), ".tar.gz") && 
-		   !strings.HasSuffix(entry.Name(), ".tar.zst") && 
-		   !strings.HasSuffix(entry.Name(), ".tar.xz") {
-			continue
-		}
-		
-		// Check if file should be included based on database filter
-		if len(selectedDatabases) > 0 && !shouldCleanupFile(entry.Name(), selectedDatabases) {
-			continue
-		}
-		
-		// Get file info
-		fullPath := filepath.Join(backupDir, entry.Name())
-		info, err := os.Stat(fullPath)
+	// Use filepath.Walk to recursively find backup files
+	err := filepath.Walk(backupDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
-			continue
+			return nil // Skip files with errors
 		}
 		
-		// Calculate size (for directories, get total size)
+		// Skip the root directory itself
+		if path == backupDir {
+			return nil
+		}
+		
+		// Look for actual backup files (.sql.gz, .sql.zst, .sql.xz) or backup directories
+		isBackupFile := strings.HasSuffix(info.Name(), ".sql.gz") ||
+					   strings.HasSuffix(info.Name(), ".sql.zst") ||
+					   strings.HasSuffix(info.Name(), ".sql.xz") ||
+					   strings.HasSuffix(info.Name(), ".tar.gz") ||
+					   strings.HasSuffix(info.Name(), ".tar.zst") ||
+					   strings.HasSuffix(info.Name(), ".tar.xz")
+		
+		// For directories, check if they contain backup files (mydumper output directories)
+		isBackupDir := info.IsDir() && containsBackupFiles(path)
+		
+		if !isBackupFile && !isBackupDir {
+			return nil
+		}
+		
+		// Check if file/directory should be included based on database filter
+		if len(selectedDatabases) > 0 && !shouldCleanupFile(path, selectedDatabases) {
+			return nil
+		}
+		
+		// Calculate size
 		var size int64
 		if info.IsDir() {
-			size, _ = getDirSize(fullPath)
+			size, _ = getDirSize(path)
 		} else {
 			size = info.Size()
 		}
 		
+		// Use relative path for display name
+		relPath, err := filepath.Rel(backupDir, path)
+		if err != nil {
+			relPath = filepath.Base(path)
+		}
+		
 		backupFiles = append(backupFiles, BackupFileInfo{
-			Name:    entry.Name(),
-			Path:    fullPath,
+			Name:    relPath,
+			Path:    path,
 			Size:    size,
 			ModTime: info.ModTime(),
 		})
+		
+		return nil
+	})
+	
+	if err != nil {
+		return backupFiles
 	}
 	
 	return backupFiles
+}
+
+// containsBackupFiles checks if a directory contains backup files
+func containsBackupFiles(dirPath string) bool {
+	entries, err := os.ReadDir(dirPath)
+	if err != nil {
+		return false
+	}
+	
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			name := entry.Name()
+			if strings.HasSuffix(name, ".sql.gz") ||
+			   strings.HasSuffix(name, ".sql.zst") ||
+			   strings.HasSuffix(name, ".sql.xz") ||
+			   strings.HasSuffix(name, ".sql") ||
+			   name == "metadata" {
+				return true
+			}
+		}
+	}
+	
+	return false
 }
 
 // checkBackupFrequency checks if enough time has passed since last backup
