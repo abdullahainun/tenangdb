@@ -40,10 +40,34 @@ func (c *CleanupService) GetOldFiles(backupDir string, retentionDays int) ([]str
 
 	err := filepath.Walk(backupDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
-			return err
+			return nil // Skip files with errors
 		}
-
-		if !info.IsDir() && info.ModTime().Before(cutoffTime) {
+		
+		// Skip the root directory itself
+		if path == backupDir {
+			return nil
+		}
+		
+		// Look for actual backup files with supported compressions or backup directories
+		isBackupFile := strings.HasSuffix(info.Name(), ".sql.gz") ||
+					   strings.HasSuffix(info.Name(), ".sql.zst") ||
+					   strings.HasSuffix(info.Name(), ".sql.xz") ||
+					   strings.HasSuffix(info.Name(), ".sql.lz4") ||
+					   strings.HasSuffix(info.Name(), ".sql") ||
+					   strings.HasSuffix(info.Name(), ".tar.gz") ||
+					   strings.HasSuffix(info.Name(), ".tar.zst") ||
+					   strings.HasSuffix(info.Name(), ".tar.xz") ||
+					   strings.HasSuffix(info.Name(), ".tar.lz4")
+		
+		// For directories, check if they contain backup files (mydumper output directories)
+		isBackupDir := info.IsDir() && c.containsBackupFiles(path)
+		
+		if !isBackupFile && !isBackupDir {
+			return nil
+		}
+		
+		// Check if file/directory is old enough
+		if info.ModTime().Before(cutoffTime) {
 			oldFiles = append(oldFiles, path)
 		}
 
@@ -51,6 +75,34 @@ func (c *CleanupService) GetOldFiles(backupDir string, retentionDays int) ([]str
 	})
 
 	return oldFiles, err
+}
+
+// containsBackupFiles checks if a directory contains backup files
+func (c *CleanupService) containsBackupFiles(dirPath string) bool {
+	entries, err := os.ReadDir(dirPath)
+	if err != nil {
+		return false
+	}
+	
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			name := entry.Name()
+			if strings.HasSuffix(name, ".sql.gz") ||
+			   strings.HasSuffix(name, ".sql.zst") ||
+			   strings.HasSuffix(name, ".sql.xz") ||
+			   strings.HasSuffix(name, ".sql.lz4") ||
+			   strings.HasSuffix(name, ".sql") ||
+			   strings.HasSuffix(name, ".gz") ||
+			   strings.HasSuffix(name, ".zst") ||
+			   strings.HasSuffix(name, ".xz") ||
+			   strings.HasSuffix(name, ".lz4") ||
+			   name == "metadata" {
+				return true
+			}
+		}
+	}
+	
+	return false
 }
 
 // verifyFileExistsInCloud checks if a local file exists in cloud storage

@@ -22,6 +22,7 @@ import (
 	"github.com/abdullahainun/tenangdb/pkg/database"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 var (
@@ -150,19 +151,10 @@ func runBackup(configFile, logLevel string, dryRun bool, databases string, force
 		log.WithError(err).Warn("Failed to initialize file logger, using stdout")
 	}
 
-	// Initialize Prometheus metrics if enabled (before any user interaction)
+	// Initialize Prometheus metrics for recording only (no HTTP server in main binary)
 	if cfg.Metrics.Enabled {
 		metrics.Init()
-		log.WithField("port", cfg.Metrics.Port).Debug("Initializing Prometheus metrics server")
-		go func() {
-			if err := metrics.StartMetricsServer(cfg.Metrics.Port); err != nil {
-				log.WithError(err).WithField("port", cfg.Metrics.Port).Warn("Metrics server failed to start (backup will continue)")
-			} else {
-				log.WithField("port", cfg.Metrics.Port).Debug("Metrics server started successfully")
-			}
-		}()
-		// Give metrics server a moment to start and potentially fail
-		time.Sleep(200 * time.Millisecond)
+		log.Debug("Metrics recording enabled")
 	}
 
 	if dryRun {
@@ -288,8 +280,8 @@ func newCleanupCommand() *cobra.Command {
 func runCleanup(configFile, logLevel string, dryRun bool, force bool, databases string, yes bool) {
 	ctx := context.Background()
 
-	// Load configuration first to get log file path
-	cfg, err := config.LoadConfig(configFile)
+	// For cleanup, we can work with partial config if database section is missing
+	cfg, err := loadConfigForCleanup(configFile)
 	if err != nil {
 		// Use basic logger if config fails
 		log := logger.NewLogger(logLevel)
@@ -354,15 +346,25 @@ func runCleanup(configFile, logLevel string, dryRun bool, force bool, databases 
 		metricsStorage = metrics.NewMetricsStorage(metricsPath)
 	}
 
-	// Initialize backup service to access uploaded files tracking
-	backupService, err := backup.NewService(cfg, log)
-	if err != nil {
-		log.WithError(err).Fatal("Failed to initialize backup service")
+	// Initialize backup service to access uploaded files tracking (optional for cleanup)
+	var backupService *backup.Service
+	if cfg.Database.Username != "" {
+		// Only initialize backup service if database config is available
+		backupService, err = backup.NewService(cfg, log)
+		if err != nil {
+			log.WithError(err).Warn("Could not initialize backup service (continuing with age-based cleanup only)")
+		}
+	} else {
+		log.Info("No database config found, running age-based cleanup only")
 	}
 
 	if dryRun {
 		log.Info("DRY RUN MODE: No files will be actually deleted")
-		showFilesToCleanup(backupService, log)
+		if backupService != nil {
+			showFilesToCleanup(backupService, log)
+		} else {
+			log.Info("No uploaded files to cleanup (backup service not available)")
+		}
 		
 		// Show age-based cleanup files if enabled
 		if cfg.Cleanup.AgeBasedCleanup {
@@ -382,17 +384,32 @@ func runCleanup(configFile, logLevel string, dryRun bool, force bool, databases 
 	cleanupStartTime := time.Now()
 	var totalFilesRemoved int64
 	var totalBytesFreed int64
+	
+	// Record Prometheus metrics if enabled
+	if cfg.Metrics.Enabled {
+		metrics.RecordCleanupStart()
+	}
 
-	// Perform cleanup of uploaded files
-	if err := backupService.CleanupUploadedFiles(ctx); err != nil {
-		log.WithError(err).Error("Cleanup process failed")
-		cleanupDuration := time.Since(cleanupStartTime)
-		if cfg.Metrics.Enabled && metricsStorage != nil {
-			if err := metricsStorage.UpdateCleanupMetrics(cleanupDuration, false, totalFilesRemoved, totalBytesFreed); err != nil {
-				log.WithError(err).Warn("Failed to update cleanup metrics")
+	// Perform cleanup of uploaded files (only if backup service is available)
+	if backupService != nil {
+		if err := backupService.CleanupUploadedFiles(ctx); err != nil {
+			log.WithError(err).Error("Cleanup process failed")
+			cleanupDuration := time.Since(cleanupStartTime)
+			if cfg.Metrics.Enabled {
+				// Record failed cleanup in Prometheus
+				metrics.RecordCleanupEnd(cleanupDuration, false, totalFilesRemoved, totalBytesFreed)
+				
+				// Record in persistent storage
+				if metricsStorage != nil {
+					if err := metricsStorage.UpdateCleanupMetrics(cleanupDuration, false, totalFilesRemoved, totalBytesFreed); err != nil {
+						log.WithError(err).Warn("Failed to update cleanup metrics")
+					}
+				}
 			}
+			os.Exit(1)
 		}
-		os.Exit(1)
+	} else {
+		log.Info("No uploaded files to cleanup (backup service not available)")
 	}
 
 	// Perform age-based cleanup (always enabled for cleanup command)
@@ -401,22 +418,39 @@ func runCleanup(configFile, logLevel string, dryRun bool, force bool, databases 
 		maxAgeDays = 7 // Safe default: 7 days
 	}
 	
-	if err := cleanupOldBackupFiles(cfg.Backup.Directory, selectedDatabases, maxAgeDays, log); err != nil {
+	filesRemoved, bytesFreed, err := cleanupOldBackupFiles(cfg.Backup.Directory, selectedDatabases, maxAgeDays, log)
+	if err != nil {
 		log.WithError(err).Error("Age-based cleanup failed")
 		cleanupDuration := time.Since(cleanupStartTime)
-		if cfg.Metrics.Enabled && metricsStorage != nil {
-			if err := metricsStorage.UpdateCleanupMetrics(cleanupDuration, false, totalFilesRemoved, totalBytesFreed); err != nil {
-				log.WithError(err).Warn("Failed to update cleanup metrics")
+		if cfg.Metrics.Enabled {
+			// Record failed cleanup in Prometheus
+			metrics.RecordCleanupEnd(cleanupDuration, false, totalFilesRemoved, totalBytesFreed)
+			
+			// Record in persistent storage
+			if metricsStorage != nil {
+				if err := metricsStorage.UpdateCleanupMetrics(cleanupDuration, false, totalFilesRemoved, totalBytesFreed); err != nil {
+					log.WithError(err).Warn("Failed to update cleanup metrics")
+				}
 			}
 		}
 		os.Exit(1)
 	}
+	
+	// Update metrics counters
+	totalFilesRemoved += filesRemoved
+	totalBytesFreed += bytesFreed
 
 	// Record successful cleanup
 	cleanupDuration := time.Since(cleanupStartTime)
-	if cfg.Metrics.Enabled && metricsStorage != nil {
-		if err := metricsStorage.UpdateCleanupMetrics(cleanupDuration, true, totalFilesRemoved, totalBytesFreed); err != nil {
-			log.WithError(err).Warn("Failed to update cleanup metrics")
+	if cfg.Metrics.Enabled {
+		// Record in Prometheus metrics
+		metrics.RecordCleanupEnd(cleanupDuration, true, totalFilesRemoved, totalBytesFreed)
+		
+		// Record in persistent storage
+		if metricsStorage != nil {
+			if err := metricsStorage.UpdateCleanupMetrics(cleanupDuration, true, totalFilesRemoved, totalBytesFreed); err != nil {
+				log.WithError(err).Warn("Failed to update cleanup metrics")
+			}
 		}
 	}
 
@@ -474,7 +508,7 @@ func showAgeBasedFilesToCleanup(cleanupService *backup.CleanupService, backupDir
 
 	log.WithField("old_files_count", len(oldFiles)).Info("Age-based files that would be cleaned up:")
 	for _, file := range oldFiles {
-		log.WithField("file", file).Info("Would delete (age-based)")
+		log.Infof("Would delete (age-based): %s", file)
 	}
 }
 
@@ -885,52 +919,101 @@ type BackupFileInfo struct {
 }
 
 // getBackupFiles scans backup directory and returns backup file information
+// It recursively searches for actual backup files within database directories
 func getBackupFiles(backupDir string, selectedDatabases []string) []BackupFileInfo {
 	var backupFiles []BackupFileInfo
 	
-	// Read backup directory
-	entries, err := os.ReadDir(backupDir)
-	if err != nil {
-		return backupFiles
-	}
-	
-	for _, entry := range entries {
-		// Skip non-directories and non-backup files
-		if !entry.IsDir() && !strings.HasSuffix(entry.Name(), ".tar.gz") && 
-		   !strings.HasSuffix(entry.Name(), ".tar.zst") && 
-		   !strings.HasSuffix(entry.Name(), ".tar.xz") {
-			continue
-		}
-		
-		// Check if file should be included based on database filter
-		if len(selectedDatabases) > 0 && !shouldCleanupFile(entry.Name(), selectedDatabases) {
-			continue
-		}
-		
-		// Get file info
-		fullPath := filepath.Join(backupDir, entry.Name())
-		info, err := os.Stat(fullPath)
+	// Use filepath.Walk to recursively find backup files
+	err := filepath.Walk(backupDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
-			continue
+			return nil // Skip files with errors
 		}
 		
-		// Calculate size (for directories, get total size)
+		// Skip the root directory itself
+		if path == backupDir {
+			return nil
+		}
+		
+		// Look for actual backup files (.sql.gz, .sql.zst, .sql.xz) or backup directories
+		isBackupFile := strings.HasSuffix(info.Name(), ".sql.gz") ||
+					   strings.HasSuffix(info.Name(), ".sql.zst") ||
+					   strings.HasSuffix(info.Name(), ".sql.xz") ||
+					   strings.HasSuffix(info.Name(), ".sql.lz4") ||
+					   strings.HasSuffix(info.Name(), ".sql") ||
+					   strings.HasSuffix(info.Name(), ".tar.gz") ||
+					   strings.HasSuffix(info.Name(), ".tar.zst") ||
+					   strings.HasSuffix(info.Name(), ".tar.xz") ||
+					   strings.HasSuffix(info.Name(), ".tar.lz4")
+		
+		// For directories, check if they contain backup files (mydumper output directories)
+		isBackupDir := info.IsDir() && containsBackupFiles(path)
+		
+		if !isBackupFile && !isBackupDir {
+			return nil
+		}
+		
+		// Check if file/directory should be included based on database filter
+		if len(selectedDatabases) > 0 && !shouldCleanupFile(path, selectedDatabases) {
+			return nil
+		}
+		
+		// Calculate size
 		var size int64
 		if info.IsDir() {
-			size, _ = getDirSize(fullPath)
+			size, _ = getDirSize(path)
 		} else {
 			size = info.Size()
 		}
 		
+		// Use relative path for display name
+		relPath, err := filepath.Rel(backupDir, path)
+		if err != nil {
+			relPath = filepath.Base(path)
+		}
+		
 		backupFiles = append(backupFiles, BackupFileInfo{
-			Name:    entry.Name(),
-			Path:    fullPath,
+			Name:    relPath,
+			Path:    path,
 			Size:    size,
 			ModTime: info.ModTime(),
 		})
+		
+		return nil
+	})
+	
+	if err != nil {
+		return backupFiles
 	}
 	
 	return backupFiles
+}
+
+// containsBackupFiles checks if a directory contains backup files
+func containsBackupFiles(dirPath string) bool {
+	entries, err := os.ReadDir(dirPath)
+	if err != nil {
+		return false
+	}
+	
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			name := entry.Name()
+			if strings.HasSuffix(name, ".sql.gz") ||
+			   strings.HasSuffix(name, ".sql.zst") ||
+			   strings.HasSuffix(name, ".sql.xz") ||
+			   strings.HasSuffix(name, ".sql.lz4") ||
+			   strings.HasSuffix(name, ".sql") ||
+			   strings.HasSuffix(name, ".gz") ||
+			   strings.HasSuffix(name, ".zst") ||
+			   strings.HasSuffix(name, ".xz") ||
+			   strings.HasSuffix(name, ".lz4") ||
+			   name == "metadata" {
+				return true
+			}
+		}
+	}
+	
+	return false
 }
 
 // checkBackupFrequency checks if enough time has passed since last backup
@@ -1081,8 +1164,8 @@ func formatDuration(d time.Duration) string {
 	}
 }
 
-// cleanupOldBackupFiles removes backup files older than specified days
-func cleanupOldBackupFiles(backupDir string, selectedDatabases []string, maxAgeDays int, log *logger.Logger) error {
+// cleanupOldBackupFiles removes backup files older than specified days and returns metrics
+func cleanupOldBackupFiles(backupDir string, selectedDatabases []string, maxAgeDays int, log *logger.Logger) (int64, int64, error) {
 	// Get all backup files
 	allBackupFiles := getBackupFiles(backupDir, selectedDatabases)
 	
@@ -1094,7 +1177,10 @@ func cleanupOldBackupFiles(backupDir string, selectedDatabases []string, maxAgeD
 		}
 	}
 	
-	// Delete old files
+	// Delete old files and track metrics
+	var deletedFiles int64
+	var bytesFreed int64
+	
 	for _, fileInfo := range filesToDelete {
 		log.WithField("file", fileInfo.Name).
 			WithField("age_days", int(time.Since(fileInfo.ModTime).Hours()/24)).
@@ -1102,12 +1188,17 @@ func cleanupOldBackupFiles(backupDir string, selectedDatabases []string, maxAgeD
 		
 		if err := os.RemoveAll(fileInfo.Path); err != nil {
 			log.WithError(err).WithField("file", fileInfo.Path).Error("Failed to delete backup file")
-			return fmt.Errorf("failed to delete %s: %w", fileInfo.Path, err)
+			return deletedFiles, bytesFreed, fmt.Errorf("failed to delete %s: %w", fileInfo.Path, err)
 		}
+		
+		deletedFiles++
+		bytesFreed += fileInfo.Size
 	}
 	
-	log.WithField("deleted_files", len(filesToDelete)).Info("✅ Age-based cleanup completed")
-	return nil
+	log.WithField("deleted_files", deletedFiles).
+		WithField("bytes_freed", bytesFreed).
+		Info("✅ Age-based cleanup completed")
+	return deletedFiles, bytesFreed, nil
 }
 
 // formatFileSize formats file size in human readable format
@@ -2353,4 +2444,70 @@ IPAddressAllow=::1/128
 [Install]
 WantedBy=multi-user.target
 `, systemdUser, systemdUser, metricsPort)
+}
+
+// loadConfigForCleanup loads config for cleanup operations without requiring database validation
+func loadConfigForCleanup(configFile string) (*config.Config, error) {
+	// Try to load full config first
+	cfg, err := config.LoadConfig(configFile)
+	if err == nil {
+		return cfg, nil
+	}
+	
+	// If full config loading fails, try to load with minimal validation
+	return loadPartialConfig(configFile)
+}
+
+// loadPartialConfig loads config without strict database validation for cleanup operations
+func loadPartialConfig(configFile string) (*config.Config, error) {
+	viper.Reset()
+	
+	// Set defaults
+	viper.SetDefault("backup.directory", "/var/backups/tenangdb")
+	viper.SetDefault("backup.batch_size", 5)
+	viper.SetDefault("backup.concurrency", 3)
+	viper.SetDefault("cleanup.enabled", true)
+	viper.SetDefault("cleanup.age_based_cleanup", true)
+	viper.SetDefault("cleanup.max_age_days", 7)
+	viper.SetDefault("cleanup.verify_cloud_exists", false)
+	viper.SetDefault("logging.level", "info")
+	viper.SetDefault("logging.format", "clean")
+	viper.SetDefault("logging.file_format", "text")
+	viper.SetDefault("upload.enabled", false)
+	viper.SetDefault("metrics.enabled", false)
+	// Note: No port default for main binary - only used by exporter
+	
+	if configFile != "" {
+		viper.SetConfigFile(configFile)
+		viper.SetConfigType("yaml")
+		
+		if err := viper.ReadInConfig(); err != nil {
+			return nil, fmt.Errorf("failed to read config file %s: %w", configFile, err)
+		}
+	} else {
+		return nil, fmt.Errorf("config file path is required for cleanup operations")
+	}
+	
+	var cfg config.Config
+	if err := viper.Unmarshal(&cfg); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal config: %w", err)
+	}
+	
+	// Minimal validation for cleanup operations
+	if cfg.Backup.Directory == "" {
+		return nil, fmt.Errorf("backup directory is required for cleanup operations")
+	}
+	
+	// Set safe defaults if not specified
+	if cfg.Backup.BatchSize <= 0 {
+		cfg.Backup.BatchSize = 5
+	}
+	if cfg.Backup.Concurrency <= 0 {
+		cfg.Backup.Concurrency = 3
+	}
+	if cfg.Cleanup.MaxAgeDays <= 0 {
+		cfg.Cleanup.MaxAgeDays = 7 // Safe default
+	}
+	
+	return &cfg, nil
 }
