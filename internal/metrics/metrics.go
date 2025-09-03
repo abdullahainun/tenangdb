@@ -158,6 +158,57 @@ var (
 		[]string{"provider"},
 	)
 
+	// === CLEANUP METRICS ===
+	
+	// Cleanup duration metric
+	CleanupDurationSeconds = prometheus.NewHistogram(
+		prometheus.HistogramOpts{
+			Name: "tenangdb_cleanup_duration_seconds",
+			Help: "Duration of cleanup operations in seconds",
+			Buckets: []float64{1, 5, 10, 30, 60, 300, 600, 1800, 3600},
+		},
+	)
+	
+	// Cleanup success counter
+	CleanupSuccessTotal = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: "tenangdb_cleanup_success_total",
+			Help: "Total number of successful cleanup operations",
+		},
+	)
+	
+	// Cleanup failure counter
+	CleanupFailedTotal = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: "tenangdb_cleanup_failed_total",
+			Help: "Total number of failed cleanup operations",
+		},
+	)
+	
+	// Files removed counter
+	FilesRemovedTotal = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: "tenangdb_cleanup_files_removed_total",
+			Help: "Total number of files removed during cleanup",
+		},
+	)
+	
+	// Bytes freed counter
+	BytesFreedTotal = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: "tenangdb_cleanup_bytes_freed_total",
+			Help: "Total number of bytes freed during cleanup",
+		},
+	)
+	
+	// Last cleanup timestamp
+	LastCleanupTimestamp = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Name: "tenangdb_cleanup_last_timestamp",
+			Help: "Timestamp of the last cleanup operation",
+		},
+	)
+
 	// === SYSTEM METRICS ===
 	
 	// System health status
@@ -228,6 +279,14 @@ func Init() {
 		RestoreFailedTotal,
 		LastRestoreTimestamp,
 		
+		// Cleanup metrics
+		CleanupDurationSeconds,
+		CleanupSuccessTotal,
+		CleanupFailedTotal,
+		FilesRemovedTotal,
+		BytesFreedTotal,
+		LastCleanupTimestamp,
+		
 		// System metrics
 		TotalDatabases,
 		SystemHealthStatus,
@@ -289,6 +348,28 @@ func RecordRestoreEnd(database string, duration time.Duration, success bool) {
 	RestoreDurationSeconds.WithLabelValues(database, status).Observe(duration.Seconds())
 	LastRestoreTimestamp.WithLabelValues(database).Set(float64(time.Now().Unix()))
 	ActiveOperations.WithLabelValues("restore").Dec()
+}
+
+// === CLEANUP FUNCTIONS ===
+
+// RecordCleanupStart records the start of a cleanup operation
+func RecordCleanupStart() {
+	ActiveOperations.WithLabelValues("cleanup").Inc()
+}
+
+// RecordCleanupEnd records the end of a cleanup operation
+func RecordCleanupEnd(duration time.Duration, success bool, filesRemoved int64, bytesFreed int64) {
+	if success {
+		CleanupSuccessTotal.Inc()
+	} else {
+		CleanupFailedTotal.Inc()
+	}
+	
+	CleanupDurationSeconds.Observe(duration.Seconds())
+	FilesRemovedTotal.Add(float64(filesRemoved))
+	BytesFreedTotal.Add(float64(bytesFreed))
+	LastCleanupTimestamp.Set(float64(time.Now().Unix()))
+	ActiveOperations.WithLabelValues("cleanup").Dec()
 }
 
 // === UPLOAD FUNCTIONS ===

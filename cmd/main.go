@@ -151,19 +151,10 @@ func runBackup(configFile, logLevel string, dryRun bool, databases string, force
 		log.WithError(err).Warn("Failed to initialize file logger, using stdout")
 	}
 
-	// Initialize Prometheus metrics if enabled (before any user interaction)
+	// Initialize Prometheus metrics for recording only (no HTTP server in main binary)
 	if cfg.Metrics.Enabled {
 		metrics.Init()
-		log.WithField("port", cfg.Metrics.Port).Debug("Initializing Prometheus metrics server")
-		go func() {
-			if err := metrics.StartMetricsServer(cfg.Metrics.Port); err != nil {
-				log.WithError(err).WithField("port", cfg.Metrics.Port).Warn("Metrics server failed to start (backup will continue)")
-			} else {
-				log.WithField("port", cfg.Metrics.Port).Debug("Metrics server started successfully")
-			}
-		}()
-		// Give metrics server a moment to start and potentially fail
-		time.Sleep(200 * time.Millisecond)
+		log.Debug("Metrics recording enabled")
 	}
 
 	if dryRun {
@@ -393,15 +384,26 @@ func runCleanup(configFile, logLevel string, dryRun bool, force bool, databases 
 	cleanupStartTime := time.Now()
 	var totalFilesRemoved int64
 	var totalBytesFreed int64
+	
+	// Record Prometheus metrics if enabled
+	if cfg.Metrics.Enabled {
+		metrics.RecordCleanupStart()
+	}
 
 	// Perform cleanup of uploaded files (only if backup service is available)
 	if backupService != nil {
 		if err := backupService.CleanupUploadedFiles(ctx); err != nil {
 			log.WithError(err).Error("Cleanup process failed")
 			cleanupDuration := time.Since(cleanupStartTime)
-			if cfg.Metrics.Enabled && metricsStorage != nil {
-				if err := metricsStorage.UpdateCleanupMetrics(cleanupDuration, false, totalFilesRemoved, totalBytesFreed); err != nil {
-					log.WithError(err).Warn("Failed to update cleanup metrics")
+			if cfg.Metrics.Enabled {
+				// Record failed cleanup in Prometheus
+				metrics.RecordCleanupEnd(cleanupDuration, false, totalFilesRemoved, totalBytesFreed)
+				
+				// Record in persistent storage
+				if metricsStorage != nil {
+					if err := metricsStorage.UpdateCleanupMetrics(cleanupDuration, false, totalFilesRemoved, totalBytesFreed); err != nil {
+						log.WithError(err).Warn("Failed to update cleanup metrics")
+					}
 				}
 			}
 			os.Exit(1)
@@ -416,22 +418,39 @@ func runCleanup(configFile, logLevel string, dryRun bool, force bool, databases 
 		maxAgeDays = 7 // Safe default: 7 days
 	}
 	
-	if err := cleanupOldBackupFiles(cfg.Backup.Directory, selectedDatabases, maxAgeDays, log); err != nil {
+	filesRemoved, bytesFreed, err := cleanupOldBackupFiles(cfg.Backup.Directory, selectedDatabases, maxAgeDays, log)
+	if err != nil {
 		log.WithError(err).Error("Age-based cleanup failed")
 		cleanupDuration := time.Since(cleanupStartTime)
-		if cfg.Metrics.Enabled && metricsStorage != nil {
-			if err := metricsStorage.UpdateCleanupMetrics(cleanupDuration, false, totalFilesRemoved, totalBytesFreed); err != nil {
-				log.WithError(err).Warn("Failed to update cleanup metrics")
+		if cfg.Metrics.Enabled {
+			// Record failed cleanup in Prometheus
+			metrics.RecordCleanupEnd(cleanupDuration, false, totalFilesRemoved, totalBytesFreed)
+			
+			// Record in persistent storage
+			if metricsStorage != nil {
+				if err := metricsStorage.UpdateCleanupMetrics(cleanupDuration, false, totalFilesRemoved, totalBytesFreed); err != nil {
+					log.WithError(err).Warn("Failed to update cleanup metrics")
+				}
 			}
 		}
 		os.Exit(1)
 	}
+	
+	// Update metrics counters
+	totalFilesRemoved += filesRemoved
+	totalBytesFreed += bytesFreed
 
 	// Record successful cleanup
 	cleanupDuration := time.Since(cleanupStartTime)
-	if cfg.Metrics.Enabled && metricsStorage != nil {
-		if err := metricsStorage.UpdateCleanupMetrics(cleanupDuration, true, totalFilesRemoved, totalBytesFreed); err != nil {
-			log.WithError(err).Warn("Failed to update cleanup metrics")
+	if cfg.Metrics.Enabled {
+		// Record in Prometheus metrics
+		metrics.RecordCleanupEnd(cleanupDuration, true, totalFilesRemoved, totalBytesFreed)
+		
+		// Record in persistent storage
+		if metricsStorage != nil {
+			if err := metricsStorage.UpdateCleanupMetrics(cleanupDuration, true, totalFilesRemoved, totalBytesFreed); err != nil {
+				log.WithError(err).Warn("Failed to update cleanup metrics")
+			}
 		}
 	}
 
@@ -1145,8 +1164,8 @@ func formatDuration(d time.Duration) string {
 	}
 }
 
-// cleanupOldBackupFiles removes backup files older than specified days
-func cleanupOldBackupFiles(backupDir string, selectedDatabases []string, maxAgeDays int, log *logger.Logger) error {
+// cleanupOldBackupFiles removes backup files older than specified days and returns metrics
+func cleanupOldBackupFiles(backupDir string, selectedDatabases []string, maxAgeDays int, log *logger.Logger) (int64, int64, error) {
 	// Get all backup files
 	allBackupFiles := getBackupFiles(backupDir, selectedDatabases)
 	
@@ -1158,7 +1177,10 @@ func cleanupOldBackupFiles(backupDir string, selectedDatabases []string, maxAgeD
 		}
 	}
 	
-	// Delete old files
+	// Delete old files and track metrics
+	var deletedFiles int64
+	var bytesFreed int64
+	
 	for _, fileInfo := range filesToDelete {
 		log.WithField("file", fileInfo.Name).
 			WithField("age_days", int(time.Since(fileInfo.ModTime).Hours()/24)).
@@ -1166,12 +1188,17 @@ func cleanupOldBackupFiles(backupDir string, selectedDatabases []string, maxAgeD
 		
 		if err := os.RemoveAll(fileInfo.Path); err != nil {
 			log.WithError(err).WithField("file", fileInfo.Path).Error("Failed to delete backup file")
-			return fmt.Errorf("failed to delete %s: %w", fileInfo.Path, err)
+			return deletedFiles, bytesFreed, fmt.Errorf("failed to delete %s: %w", fileInfo.Path, err)
 		}
+		
+		deletedFiles++
+		bytesFreed += fileInfo.Size
 	}
 	
-	log.WithField("deleted_files", len(filesToDelete)).Info("✅ Age-based cleanup completed")
-	return nil
+	log.WithField("deleted_files", deletedFiles).
+		WithField("bytes_freed", bytesFreed).
+		Info("✅ Age-based cleanup completed")
+	return deletedFiles, bytesFreed, nil
 }
 
 // formatFileSize formats file size in human readable format
@@ -2448,6 +2475,7 @@ func loadPartialConfig(configFile string) (*config.Config, error) {
 	viper.SetDefault("logging.file_format", "text")
 	viper.SetDefault("upload.enabled", false)
 	viper.SetDefault("metrics.enabled", false)
+	// Note: No port default for main binary - only used by exporter
 	
 	if configFile != "" {
 		viper.SetConfigFile(configFile)
