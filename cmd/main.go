@@ -22,6 +22,7 @@ import (
 	"github.com/abdullahainun/tenangdb/pkg/database"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 var (
@@ -288,8 +289,8 @@ func newCleanupCommand() *cobra.Command {
 func runCleanup(configFile, logLevel string, dryRun bool, force bool, databases string, yes bool) {
 	ctx := context.Background()
 
-	// Load configuration first to get log file path
-	cfg, err := config.LoadConfig(configFile)
+	// For cleanup, we can work with partial config if database section is missing
+	cfg, err := loadConfigForCleanup(configFile)
 	if err != nil {
 		// Use basic logger if config fails
 		log := logger.NewLogger(logLevel)
@@ -354,15 +355,25 @@ func runCleanup(configFile, logLevel string, dryRun bool, force bool, databases 
 		metricsStorage = metrics.NewMetricsStorage(metricsPath)
 	}
 
-	// Initialize backup service to access uploaded files tracking
-	backupService, err := backup.NewService(cfg, log)
-	if err != nil {
-		log.WithError(err).Fatal("Failed to initialize backup service")
+	// Initialize backup service to access uploaded files tracking (optional for cleanup)
+	var backupService *backup.Service
+	if cfg.Database.Username != "" {
+		// Only initialize backup service if database config is available
+		backupService, err = backup.NewService(cfg, log)
+		if err != nil {
+			log.WithError(err).Warn("Could not initialize backup service (continuing with age-based cleanup only)")
+		}
+	} else {
+		log.Info("No database config found, running age-based cleanup only")
 	}
 
 	if dryRun {
 		log.Info("DRY RUN MODE: No files will be actually deleted")
-		showFilesToCleanup(backupService, log)
+		if backupService != nil {
+			showFilesToCleanup(backupService, log)
+		} else {
+			log.Info("No uploaded files to cleanup (backup service not available)")
+		}
 		
 		// Show age-based cleanup files if enabled
 		if cfg.Cleanup.AgeBasedCleanup {
@@ -383,16 +394,20 @@ func runCleanup(configFile, logLevel string, dryRun bool, force bool, databases 
 	var totalFilesRemoved int64
 	var totalBytesFreed int64
 
-	// Perform cleanup of uploaded files
-	if err := backupService.CleanupUploadedFiles(ctx); err != nil {
-		log.WithError(err).Error("Cleanup process failed")
-		cleanupDuration := time.Since(cleanupStartTime)
-		if cfg.Metrics.Enabled && metricsStorage != nil {
-			if err := metricsStorage.UpdateCleanupMetrics(cleanupDuration, false, totalFilesRemoved, totalBytesFreed); err != nil {
-				log.WithError(err).Warn("Failed to update cleanup metrics")
+	// Perform cleanup of uploaded files (only if backup service is available)
+	if backupService != nil {
+		if err := backupService.CleanupUploadedFiles(ctx); err != nil {
+			log.WithError(err).Error("Cleanup process failed")
+			cleanupDuration := time.Since(cleanupStartTime)
+			if cfg.Metrics.Enabled && metricsStorage != nil {
+				if err := metricsStorage.UpdateCleanupMetrics(cleanupDuration, false, totalFilesRemoved, totalBytesFreed); err != nil {
+					log.WithError(err).Warn("Failed to update cleanup metrics")
+				}
 			}
+			os.Exit(1)
 		}
-		os.Exit(1)
+	} else {
+		log.Info("No uploaded files to cleanup (backup service not available)")
 	}
 
 	// Perform age-based cleanup (always enabled for cleanup command)
@@ -474,7 +489,7 @@ func showAgeBasedFilesToCleanup(cleanupService *backup.CleanupService, backupDir
 
 	log.WithField("old_files_count", len(oldFiles)).Info("Age-based files that would be cleaned up:")
 	for _, file := range oldFiles {
-		log.WithField("file", file).Info("Would delete (age-based)")
+		log.Infof("Would delete (age-based): %s", file)
 	}
 }
 
@@ -2394,4 +2409,69 @@ IPAddressAllow=::1/128
 [Install]
 WantedBy=multi-user.target
 `, systemdUser, systemdUser, metricsPort)
+}
+
+// loadConfigForCleanup loads config for cleanup operations without requiring database validation
+func loadConfigForCleanup(configFile string) (*config.Config, error) {
+	// Try to load full config first
+	cfg, err := config.LoadConfig(configFile)
+	if err == nil {
+		return cfg, nil
+	}
+	
+	// If full config loading fails, try to load with minimal validation
+	return loadPartialConfig(configFile)
+}
+
+// loadPartialConfig loads config without strict database validation for cleanup operations
+func loadPartialConfig(configFile string) (*config.Config, error) {
+	viper.Reset()
+	
+	// Set defaults
+	viper.SetDefault("backup.directory", "/var/backups/tenangdb")
+	viper.SetDefault("backup.batch_size", 5)
+	viper.SetDefault("backup.concurrency", 3)
+	viper.SetDefault("cleanup.enabled", true)
+	viper.SetDefault("cleanup.age_based_cleanup", true)
+	viper.SetDefault("cleanup.max_age_days", 7)
+	viper.SetDefault("cleanup.verify_cloud_exists", false)
+	viper.SetDefault("logging.level", "info")
+	viper.SetDefault("logging.format", "clean")
+	viper.SetDefault("logging.file_format", "text")
+	viper.SetDefault("upload.enabled", false)
+	viper.SetDefault("metrics.enabled", false)
+	
+	if configFile != "" {
+		viper.SetConfigFile(configFile)
+		viper.SetConfigType("yaml")
+		
+		if err := viper.ReadInConfig(); err != nil {
+			return nil, fmt.Errorf("failed to read config file %s: %w", configFile, err)
+		}
+	} else {
+		return nil, fmt.Errorf("config file path is required for cleanup operations")
+	}
+	
+	var cfg config.Config
+	if err := viper.Unmarshal(&cfg); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal config: %w", err)
+	}
+	
+	// Minimal validation for cleanup operations
+	if cfg.Backup.Directory == "" {
+		return nil, fmt.Errorf("backup directory is required for cleanup operations")
+	}
+	
+	// Set safe defaults if not specified
+	if cfg.Backup.BatchSize <= 0 {
+		cfg.Backup.BatchSize = 5
+	}
+	if cfg.Backup.Concurrency <= 0 {
+		cfg.Backup.Concurrency = 3
+	}
+	if cfg.Cleanup.MaxAgeDays <= 0 {
+		cfg.Cleanup.MaxAgeDays = 7 // Safe default
+	}
+	
+	return &cfg, nil
 }
