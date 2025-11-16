@@ -192,9 +192,29 @@ func (p *MySQLProvider) CreateBackup(ctx context.Context, opts *BackupOptions) (
 
 // RestoreBackup restores a database from backup
 func (p *MySQLProvider) RestoreBackup(ctx context.Context, opts *RestoreOptions) error {
-	// Implementation will use mysql client or myloader based on backup format
-	// This is a placeholder for the full implementation
-	return fmt.Errorf("restore functionality will be implemented in the refactoring")
+	backupPath := opts.BackupPath
+	targetDB := opts.TargetDB
+
+	// Check if backup path exists
+	info, err := os.Stat(backupPath)
+	if err != nil {
+		return fmt.Errorf("backup path not found: %w", err)
+	}
+
+	// Determine restore method based on backup type
+	if info.IsDir() {
+		// Directory backup - use myloader if available
+		if p.hasMyLoader() {
+			return p.restoreWithMyLoader(ctx, backupPath, targetDB)
+		}
+		return fmt.Errorf("mydumper backup detected but myloader is not available")
+	}
+
+	// File backup - use mysql client
+	if !p.hasMySQL() {
+		return fmt.Errorf("mysql client is not available for restore")
+	}
+	return p.restoreWithMySQL(ctx, backupPath, targetDB)
 }
 
 // GetAvailableTools returns available MySQL tools
@@ -303,7 +323,7 @@ func (p *MySQLProvider) createMySQLDumpBackup(ctx context.Context, dbName string
 	}
 
 	cmd := exec.CommandContext(ctx, "mysqldump", args...)
-	
+
 	output, err := os.Create(backupPath)
 	if err != nil {
 		return "", fmt.Errorf("failed to create backup file: %w", err)
@@ -346,4 +366,73 @@ func (p *MySQLProvider) createMyDumperBackup(ctx context.Context, dbName string,
 	}
 
 	return backupDir, nil
+}
+
+// restoreWithMyLoader restores a database using myloader
+func (p *MySQLProvider) restoreWithMyLoader(ctx context.Context, backupDir, dbName string) error {
+	args := []string{
+		"--overwrite-tables",
+		"--database", dbName,
+		"--directory", backupDir,
+		fmt.Sprintf("--host=%s", p.config.Host),
+		fmt.Sprintf("--port=%d", p.config.Port),
+		fmt.Sprintf("--user=%s", p.config.Username),
+	}
+
+	if p.config.Password != "" {
+		args = append(args, fmt.Sprintf("--password=%s", p.config.Password))
+	}
+
+	// Use default threads value of 4
+	args = append(args, "--threads=4")
+
+	cmd := exec.CommandContext(ctx, "myloader", args...)
+
+	// Capture stderr for error reporting
+	var stderr []byte
+	var err error
+	stderr, err = cmd.CombinedOutput()
+
+	if err != nil {
+		return fmt.Errorf("myloader failed: %w, output: %s", err, string(stderr))
+	}
+
+	return nil
+}
+
+// restoreWithMySQL restores a database using mysql client
+func (p *MySQLProvider) restoreWithMySQL(ctx context.Context, backupPath, dbName string) error {
+	args := []string{
+		fmt.Sprintf("--host=%s", p.config.Host),
+		fmt.Sprintf("--port=%d", p.config.Port),
+		fmt.Sprintf("--user=%s", p.config.Username),
+	}
+
+	if p.config.Password != "" {
+		args = append(args, fmt.Sprintf("--password=%s", p.config.Password))
+	}
+
+	// Add database name
+	args = append(args, dbName)
+
+	cmd := exec.CommandContext(ctx, "mysql", args...)
+
+	// Open backup file
+	backupFile, err := os.Open(backupPath)
+	if err != nil {
+		return fmt.Errorf("failed to open backup file: %w", err)
+	}
+	defer backupFile.Close()
+
+	cmd.Stdin = backupFile
+
+	// Capture stderr for error reporting
+	var stderr []byte
+	stderr, err = cmd.CombinedOutput()
+
+	if err != nil {
+		return fmt.Errorf("mysql restore failed: %w, output: %s", err, string(stderr))
+	}
+
+	return nil
 }
