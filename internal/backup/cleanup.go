@@ -169,9 +169,26 @@ func (c *CleanupService) CleanupAgeBasedFiles(ctx context.Context, backupDir str
 			return err
 		}
 
-		// Skip directories
 		if info.IsDir() {
-			return nil
+			if path == backupDir {
+				return nil
+			}
+			// Only act on backup directories (mydumper output dirs)
+			if !c.containsBackupFiles(path) {
+				return nil
+			}
+			// It's a backup directory — check age, then skip descending regardless
+			if info.ModTime().Before(cutoffTime) {
+				if !c.shouldCleanupFile(path, selectedDatabases) {
+					return filepath.SkipDir
+				}
+				if c.config.VerifyCloudExists && !c.verifyFileExistsInCloud(path, backupDir) {
+					c.logger.Warnf("Directory %s is old but not found in cloud, skipping deletion for safety", path)
+					return filepath.SkipDir
+				}
+				filesToDelete = append(filesToDelete, path)
+			}
+			return filepath.SkipDir
 		}
 
 		// Check if file is old enough
@@ -207,33 +224,54 @@ func (c *CleanupService) CleanupAgeBasedFiles(ctx context.Context, backupDir str
 
 	c.logger.Infof("Found %d old files to delete (total size: %d bytes)", len(filesToDelete), totalSize)
 
-	// Delete files
+	// Delete files and directories
 	deletedCount := 0
 	deletedSize := int64(0)
-	for _, filePath := range filesToDelete {
-		info, err := os.Stat(filePath)
+	for _, path := range filesToDelete {
+		info, err := os.Stat(path)
 		if err != nil {
-			c.logger.WithError(err).Warnf("Failed to stat file %s", filePath)
+			c.logger.WithError(err).Warnf("Failed to stat %s", path)
 			continue
 		}
 
-		if err := os.Remove(filePath); err != nil {
-			c.logger.WithError(err).Errorf("Failed to delete file %s", filePath)
-			continue
+		var size int64
+		if info.IsDir() {
+			size = c.calcDirSize(path)
+			if err := os.RemoveAll(path); err != nil {
+				c.logger.WithError(err).Errorf("Failed to delete directory %s", path)
+				continue
+			}
+		} else {
+			size = info.Size()
+			if err := os.Remove(path); err != nil {
+				c.logger.WithError(err).Errorf("Failed to delete file %s", path)
+				continue
+			}
 		}
 
 		deletedCount++
-		deletedSize += info.Size()
-		c.logger.Infof("Deleted old file: %s (size: %d bytes)", filePath, info.Size())
+		deletedSize += size
+		c.logger.Infof("Deleted old backup: %s (size: %d bytes)", path, size)
 	}
 
-	c.logger.Infof("Age-based cleanup completed: deleted %d files, freed %d bytes", deletedCount, deletedSize)
+	c.logger.Infof("Age-based cleanup completed: deleted %d items, freed %d bytes", deletedCount, deletedSize)
 	return nil
 }
 
 // GetConfig returns the cleanup configuration
 func (c *CleanupService) GetConfig() *config.CleanupConfig {
 	return c.config
+}
+
+func (c *CleanupService) calcDirSize(path string) int64 {
+	var size int64
+	filepath.Walk(path, func(_ string, info os.FileInfo, err error) error {
+		if err == nil && !info.IsDir() {
+			size += info.Size()
+		}
+		return nil
+	})
+	return size
 }
 
 // shouldCleanupFile checks if a file should be cleaned up based on database filter
