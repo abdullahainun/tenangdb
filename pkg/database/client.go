@@ -87,16 +87,18 @@ func (c *Client) createMydumperBackup(ctx context.Context, dbName, backupDir, ti
 	// Build mydumper command with version-compatible arguments
 	args := c.buildMydumperArgs(dbBackupDir, dbName)
 
-	// Use defaults-file if specified, otherwise use individual connection parameters
+	// Use defaults-file if specified, otherwise write a temp credentials file
+	// to avoid exposing the password in the process list.
 	if c.config.Mydumper.DefaultsFile != "" {
 		args = append(args, fmt.Sprintf("--defaults-file=%s", c.config.Mydumper.DefaultsFile))
 	} else {
-		args = append(args, fmt.Sprintf("--host=%s", c.config.Host))
-		args = append(args, fmt.Sprintf("--port=%d", c.config.Port))
-		args = append(args, fmt.Sprintf("--user=%s", c.config.Username))
-		if c.config.Password != "" {
-			args = append(args, fmt.Sprintf("--password=%s", c.config.Password))
+		credsFile, cleanup, err := c.writeTempCredentials()
+		if err != nil {
+			os.RemoveAll(dbBackupDir)
+			return "", fmt.Errorf("failed to create credentials file: %w", err)
 		}
+		defer cleanup()
+		args = append(args, fmt.Sprintf("--defaults-file=%s", credsFile))
 	}
 
 	if c.config.Mydumper.CompressMethod != "" {
@@ -152,8 +154,16 @@ func (c *Client) createMysqldumpBackup(ctx context.Context, dbName, backupDir, t
 	fileName := fmt.Sprintf("%s-%s.sql", dbName, timestamp)
 	backupPath := filepath.Join(backupDir, fileName)
 
-	// Build mysqldump command with maximum compatibility
+	credsFile, cleanup, err := c.writeTempCredentials()
+	if err != nil {
+		return "", err
+	}
+	defer cleanup()
+
+	// Build mysqldump command with maximum compatibility.
+	// Connection params are in the defaults-file to avoid password in process list.
 	args := []string{
+		fmt.Sprintf("--defaults-file=%s", credsFile),
 		"--single-transaction",
 		"--skip-lock-tables",
 		"--complete-insert",
@@ -161,17 +171,8 @@ func (c *Client) createMysqldumpBackup(ctx context.Context, dbName, backupDir, t
 		"--hex-blob",
 		"--add-drop-table",
 		"--disable-keys",
-		fmt.Sprintf("--host=%s", c.config.Host),
-		fmt.Sprintf("--port=%d", c.config.Port),
-		fmt.Sprintf("--user=%s", c.config.Username),
+		dbName,
 	}
-
-	if c.config.Password != "" {
-		args = append(args, fmt.Sprintf("--password=%s", c.config.Password))
-	}
-
-	// Add database name
-	args = append(args, dbName)
 
 	cmd := exec.CommandContext(ctx, c.config.MysqldumpPath, args...)
 
@@ -356,16 +357,16 @@ func (c *Client) restoreWithMyloader(ctx context.Context, backupDir, dbName stri
 		fmt.Sprintf("--threads=%d", c.config.Mydumper.Myloader.Threads),
 	}
 
-	// Use defaults-file if specified, otherwise use individual connection parameters
+	// Use defaults-file if specified, otherwise write a temp credentials file.
 	if c.config.Mydumper.Myloader.DefaultsFile != "" {
 		args = append(args, fmt.Sprintf("--defaults-file=%s", c.config.Mydumper.Myloader.DefaultsFile))
 	} else {
-		args = append(args, fmt.Sprintf("--host=%s", c.config.Host))
-		args = append(args, fmt.Sprintf("--port=%d", c.config.Port))
-		args = append(args, fmt.Sprintf("--user=%s", c.config.Username))
-		if c.config.Password != "" {
-			args = append(args, fmt.Sprintf("--password=%s", c.config.Password))
+		credsFile, cleanup, err := c.writeTempCredentials()
+		if err != nil {
+			return fmt.Errorf("failed to create credentials file: %w", err)
 		}
+		defer cleanup()
+		args = append(args, fmt.Sprintf("--defaults-file=%s", credsFile))
 	}
 
 	cmd := exec.CommandContext(ctx, c.config.Mydumper.Myloader.BinaryPath, args...)
@@ -383,16 +384,15 @@ func (c *Client) restoreWithMyloader(ctx context.Context, backupDir, dbName stri
 }
 
 func (c *Client) restoreWithMysql(ctx context.Context, backupPath, dbName string) error {
-	// Build mysql command
-	args := []string{
-		fmt.Sprintf("--host=%s", c.config.Host),
-		fmt.Sprintf("--port=%d", c.config.Port),
-		fmt.Sprintf("--user=%s", c.config.Username),
-		dbName,
+	credsFile, cleanup, err := c.writeTempCredentials()
+	if err != nil {
+		return err
 	}
+	defer cleanup()
 
-	if c.config.Password != "" {
-		args = append(args, fmt.Sprintf("--password=%s", c.config.Password))
+	args := []string{
+		fmt.Sprintf("--defaults-file=%s", credsFile),
+		dbName,
 	}
 
 	cmd := exec.CommandContext(ctx, c.config.MysqlPath, args...)
@@ -468,6 +468,35 @@ func (c *Client) Close() error {
 		return c.db.Close()
 	}
 	return nil
+}
+
+// writeTempCredentials writes connection credentials to a temp file with 0600
+// permissions and returns the path plus a cleanup func. Using --defaults-file
+// prevents the password from appearing in the process list (ps aux).
+func (c *Client) writeTempCredentials() (path string, cleanup func(), err error) {
+	f, err := os.CreateTemp("", "tenangdb-*.cnf")
+	if err != nil {
+		return "", func() {}, fmt.Errorf("failed to create credentials file: %w", err)
+	}
+
+	path = f.Name()
+	cleanup = func() { os.Remove(path) }
+
+	if err := os.Chmod(path, 0600); err != nil {
+		f.Close()
+		cleanup()
+		return "", func() {}, fmt.Errorf("failed to set credentials file permissions: %w", err)
+	}
+
+	_, err = fmt.Fprintf(f, "[client]\nhost=%s\nport=%d\nuser=%s\npassword=%s\n",
+		c.config.Host, c.config.Port, c.config.Username, c.config.Password)
+	f.Close()
+	if err != nil {
+		cleanup()
+		return "", func() {}, fmt.Errorf("failed to write credentials file: %w", err)
+	}
+
+	return path, cleanup, nil
 }
 
 // ListDatabases returns a list of database names
