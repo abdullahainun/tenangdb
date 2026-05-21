@@ -339,6 +339,7 @@ func runCleanup(configFile, logLevel string, dryRun bool, force bool, databases 
 	// Initialize metrics storage only if metrics are enabled
 	var metricsStorage *metrics.MetricsStorage
 	if cfg.Metrics.Enabled {
+		metrics.Init()
 		metricsPath := cfg.Metrics.StoragePath
 		if metricsPath == "" {
 			metricsPath = "/var/lib/tenangdb/metrics.json" // fallback
@@ -634,6 +635,7 @@ func runRestore(configFile, logLevel, backupPath, targetDatabase string, yes boo
 	// Initialize metrics storage only if metrics are enabled
 	var metricsStorage *metrics.MetricsStorage
 	if cfg.Metrics.Enabled {
+		metrics.Init()
 		metricsPath := cfg.Metrics.StoragePath
 		if metricsPath == "" {
 			metricsPath = "/var/lib/tenangdb/metrics.json" // fallback
