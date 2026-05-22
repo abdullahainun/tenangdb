@@ -1,5 +1,5 @@
 # Build stage
-FROM golang:1.23-alpine AS builder
+FROM golang:1.25-alpine AS builder
 
 # Build arguments for version info
 ARG VERSION=dev
@@ -19,6 +19,9 @@ RUN go mod download
 
 # Copy source code
 COPY . .
+
+# Tidy dependencies (required after Go version bump)
+RUN go mod tidy
 
 # Build both applications with static linking and version info
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo \

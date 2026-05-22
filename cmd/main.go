@@ -303,11 +303,11 @@ func runCleanup(configFile, logLevel string, dryRun bool, force bool, databases 
 		log.WithError(err).Warn("Failed to initialize file logger, using stdout")
 	}
 
-	// Check if today is weekend (Saturday or Sunday) unless force flag is used
-	if !force {
+	// Check if today is weekend only if weekend_only is enabled in config
+	if !force && cfg.Cleanup.WeekendOnly {
 		today := time.Now().Weekday()
 		if today != time.Saturday && today != time.Sunday {
-			log.Info("Cleanup only runs on weekends. Use --force to cleanup anytime. Skipping cleanup.")
+			log.Info("Cleanup skipped: weekend_only is enabled and today is not a weekend. Use --force to override.")
 			return
 		}
 	}
@@ -315,7 +315,7 @@ func runCleanup(configFile, logLevel string, dryRun bool, force bool, databases 
 	if force {
 		log.Info("Starting forced cleanup process")
 	} else {
-		log.Info("Starting weekend cleanup process")
+		log.Info("Starting cleanup process")
 	}
 
 	// Parse databases from command line and merge with config
@@ -339,6 +339,7 @@ func runCleanup(configFile, logLevel string, dryRun bool, force bool, databases 
 	// Initialize metrics storage only if metrics are enabled
 	var metricsStorage *metrics.MetricsStorage
 	if cfg.Metrics.Enabled {
+		metrics.Init()
 		metricsPath := cfg.Metrics.StoragePath
 		if metricsPath == "" {
 			metricsPath = "/var/lib/tenangdb/metrics.json" // fallback
@@ -634,6 +635,7 @@ func runRestore(configFile, logLevel, backupPath, targetDatabase string, yes boo
 	// Initialize metrics storage only if metrics are enabled
 	var metricsStorage *metrics.MetricsStorage
 	if cfg.Metrics.Enabled {
+		metrics.Init()
 		metricsPath := cfg.Metrics.StoragePath
 		if metricsPath == "" {
 			metricsPath = "/var/lib/tenangdb/metrics.json" // fallback

@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "server",
+  "dolt_database": "tenangdb",
+  "project_id": "07f54226-2fb1-4819-b380-2129b7c809d4"
+}

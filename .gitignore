@@ -36,7 +36,7 @@ logs/
 /var/log/tenangdb/
 
 # Backup directories (for testing)
-backup/
+/backup/
 /var/backups/
 
 # IDE and editor files
@@ -70,3 +70,7 @@ coverage.html
 # Docker
 .dockerignore
 Dockerfile.local
+
+# Dolt database files (added by bd init)
+.dolt/
+*.db

@@ -428,12 +428,14 @@ func (s *Service) CleanupUploadedFiles(ctx context.Context) error {
 			continue
 		}
 
-		if err := s.removeBackupFile(filePath); err != nil {
+		size, err := s.removeBackupFile(filePath)
+		if err != nil {
 			s.logger.WithError(err).WithField("file", filePath).Error("Failed to remove uploaded file")
 			continue
 		}
 
 		cleanedFiles = append(cleanedFiles, filePath)
+		totalSize += size
 		s.logger.WithField("file", filePath).Info("Removed uploaded backup file")
 	}
 
@@ -452,35 +454,33 @@ func (s *Service) CleanupUploadedFiles(ctx context.Context) error {
 	return nil
 }
 
-// removeBackupFile safely removes a backup file with size calculation
-func (s *Service) removeBackupFile(backupPath string) error {
+// removeBackupFile safely removes a backup file and returns its size in bytes.
+func (s *Service) removeBackupFile(backupPath string) (int64, error) {
 	info, err := os.Stat(backupPath)
 	if err != nil {
-		return fmt.Errorf("failed to stat backup path: %w", err)
+		return 0, fmt.Errorf("failed to stat backup path: %w", err)
 	}
 
-	var totalSize int64
+	var size int64
 	if info.IsDir() {
-		// For mydumper directories, calculate total size and remove directory
-		totalSize, err = s.calculateDirectorySize(backupPath)
+		size, err = s.calculateDirectorySize(backupPath)
 		if err != nil {
 			s.logger.WithError(err).Warn("Failed to calculate directory size")
-			totalSize = 0
+			size = 0
 		}
 
 		if err := os.RemoveAll(backupPath); err != nil {
-			return fmt.Errorf("failed to remove directory: %w", err)
+			return 0, fmt.Errorf("failed to remove directory: %w", err)
 		}
 	} else {
-		// For mysqldump files, remove single file
-		totalSize = info.Size()
+		size = info.Size()
 		if err := os.Remove(backupPath); err != nil {
-			return fmt.Errorf("failed to remove file: %w", err)
+			return 0, fmt.Errorf("failed to remove file: %w", err)
 		}
 	}
 
-	s.logger.WithField("backup_size_mb", totalSize/(1024*1024)).Debug("Backup removed successfully")
-	return nil
+	s.logger.WithField("backup_size_mb", size/(1024*1024)).Debug("Backup removed successfully")
+	return size, nil
 }
 
 func (s *Service) calculateDirectorySize(dirPath string) (int64, error) {

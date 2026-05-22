@@ -230,7 +230,6 @@ func (s *Service) CleanupRemote(ctx context.Context, retentionDays int) error {
 		"delete",
 		s.config.Destination,
 		"--min-age", fmt.Sprintf("%dd", retentionDays),
-		"--dry-run", // Remove this flag in production
 	}
 
 	// Add config path if specified

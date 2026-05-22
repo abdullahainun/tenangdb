@@ -1,0 +1,43 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(go test ./...)",
+      "Bash(go test -v ./...)",
+      "Bash(go test -run * ./...)",
+      "Bash(go test -v -run * ./...)",
+      "Bash(go vet ./...)",
+      "Bash(make test)",
+      "Bash(make lint)",
+      "Bash(make check-deps)",
+      "Bash(make help)",
+      "Bash(rtk gain)",
+      "Bash(rtk gain --history)",
+      "Bash(bd list *)",
+      "Bash(bd ready *)"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "file=$(jq -r '.tool_input.file_path // empty' 2>/dev/null); [[ \"$file\" == *.go ]] && go vet ./... 2>&1 || true",
+            "statusMessage": "Running go vet..."
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '{\"systemMessage\": \"📋 Session selesai. Jangan lupa cek task list — ada tiket yang perlu dikerjakan?\"}'"
+          }
+        ]
+      }
+    ]
+  }
+}
