@@ -1,71 +1,35 @@
-# 🛡️ TenangDB
+# TenangDB
 
-**Backup yang Bikin Tenang** - Secure MySQL backup with intelligent automation.
-
-[![GitHub release](https://img.shields.io/github/release/abdullahainun/tenangdb.svg)](https://github.com/abdullahainun/tenangdb/releases)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Go Report Card](https://goreportcard.com/badge/github.com/abdullahainun/tenangdb)](https://goreportcard.com/report/github.com/abdullahainun/tenangdb)
-
-## ⚡ Quick Start
-
-### Docker (Recommended)
+**Backup yang Bikin Tenang** — MySQL backup automation tool.
 
 ```bash
-# Clone the repository
 git clone https://github.com/abdullahainun/tenangdb.git
 cd tenangdb
-
-# Copy and edit config
-cp configs/config.yaml config.yaml
-# ...edit config.yaml with your MySQL credentials...
-
-# Build and run
-make docker-build
-make docker-up
-
-# Run backup once
-docker compose exec tenangdb backup
-
-# Or use the init wizard
-docker compose run --rm tenangdb init
+cp configs/config.yaml config.yaml   # edit with your MySQL credentials
+make docker-build                    # build image
+docker compose up -d mysql           # start MySQL (optional)
+docker compose run --rm tenangdb backup --yes
 ```
 
-Or pull the pre-built image:
+## Features
 
-```bash
-docker pull ghcr.io/abdullahainun/tenangdb:latest
-docker run --rm -v ./config.yaml:/config.yaml:ro ghcr.io/abdullahainun/tenangdb:latest backup
-```
+- **Interactive setup** — `docker compose run --rm tenangdb init`
+- **Metrics exporter** — Prometheus endpoint at `:9090`
+- **Cloud upload** — S3, GCS, Azure via rclone
+- **Compression** — tar.gz, tar.zst, tar.xz
+- **Scheduling** — cron or systemd timer on the host
 
-### Development (Go)
+## Docs
 
-```bash
-go build -o tenangdb ./cmd
-./tenangdb --help
-```
+| Guide | Description |
+|-------|-------------|
+| [Docker](DOCKER.md) | Setup, networking, volumes |
+| [Production](PRODUCTION_DEPLOYMENT.md) | Scheduling, security, monitoring |
+| [Commands](docs/COMMANDS.md) | CLI reference |
+| [Configuration](configs/config.yaml) | Config example |
 
-## 🔧 Key Features
+## Compatibility
 
-- **🧙‍♂️ Interactive Setup**: 2-minute configuration wizard
-- **📊 Built-in Monitoring**: Prometheus metrics + health checks
-- **☁️ Cloud Integration**: S3, GCS, Azure via rclone
-- **⚡ Fast & Smart**: mydumper + intelligent error handling
-- **🧩 Compression**: tar.gz, tar.zst, tar.xz support
-
-## 📚 Documentation
-
-- **[Commands Reference](docs/COMMANDS.md)** - Complete command list
-- **[Configuration](configs/config.yaml)** - Full config examples
-- **[Docker Compose](docker-compose.yml)** - Container setup
-
-## 📋 Compatibility
-
-**Platforms:** Linux, macOS (development), Docker (production)  
+**Platform:** Linux, macOS (dev), Docker (prod)  
 **MySQL:** 5.7+, 8.0+, MariaDB 10.3+  
 **Cloud:** 40+ providers via rclone
-
----
-
-**📚 [Full Documentation](docs/)** • **🐛 [Issues](https://github.com/abdullahainun/tenangdb/issues)** • **📄 [License](LICENSE)**
-
-Built by [Ainun Abdullah](https://github.com/abdullahainun)

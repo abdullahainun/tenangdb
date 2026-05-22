@@ -1,92 +1,96 @@
 # Docker Guide
 
-## Quick Start
-
-Pull or build the image:
-
-```bash
-docker pull ghcr.io/abdullahainun/tenangdb:latest
-
-# Or build locally
-make docker-build
-```
-
-### Simple Backup
-
-```bash
-mkdir tenangdb && cd tenangdb
-
-cat > config.yaml << 'EOF'
-database:
-  host: mysql-host
-  username: backup_user
-  password: your_password
-backup:
-  databases: [your_database]
-  directory: /backups
-EOF
-
-docker run --rm \
-  -v $(pwd)/config.yaml:/config.yaml:ro \
-  -v $(pwd)/backups:/backups \
-  ghcr.io/abdullahainun/tenangdb:latest backup --config /config.yaml --yes
-```
-
-### Docker Compose
+## Setup
 
 ```bash
 git clone https://github.com/abdullahainun/tenangdb.git
 cd tenangdb
-cp configs/config.yaml config.yaml
-
-make docker-up
+cp configs/config.yaml config.yaml   # edit with your MySQL credentials
+make docker-build                    # go mod vendor + docker build
 ```
 
-## Interactive Setup
+## Usage
+
+Start dependent services (MySQL + metrics exporter):
 
 ```bash
-docker run -it --rm \
-  -v $(pwd):/workspace \
-  ghcr.io/abdullahainun/tenangdb:latest init
+docker compose up -d mysql tenangdb-exporter
+```
+
+Run a backup (oneshot):
+
+```bash
+docker compose run --rm tenangdb backup --yes
+```
+
+Run cleanup (oneshot):
+
+```bash
+docker compose run --rm tenangdb cleanup --yes --force
+```
+
+Interactive setup wizard:
+
+```bash
+docker compose run --rm tenangdb init
+```
+
+Check metrics:
+
+```bash
+curl http://localhost:9090/metrics
+```
+
+## Scheduling
+
+Add to host crontab for automated backups:
+
+```bash
+0 2 * * * cd /path/to/tenangdb && docker compose run --rm tenangdb backup --yes
+0 3 * * 6 cd /path/to/tenangdb && docker compose run --rm tenangdb cleanup --yes --force
+```
+
+## Configuration
+
+Edit `config.yaml` to set:
+
+```yaml
+database:
+  host: mysql              # container name in compose network
+  port: 3306
+  username: backup_user
+  password: your_password
+
+backup:
+  databases:
+    - production_db
+    - analytics_db
+  directory: /backups
+
+upload:
+  enabled: true
+  rclone_config_path: /root/.config/rclone/rclone.conf
+  destination: "s3:my-bucket/backups/"
 ```
 
 ## Networking
 
-### Docker Network
+Connect to an external MySQL:
 
 ```bash
+# Create network
 docker network create tenangdb-net
 
-# Start MySQL
-docker run --name mysql-db --network tenangdb-net \
-  -e MYSQL_ROOT_PASSWORD=pass -d mysql:8.0
-
-# Run backup
-docker run --rm --network tenangdb-net \
-  -v $(pwd)/config.yaml:/config.yaml:ro \
-  -v $(pwd)/backups:/backups \
-  ghcr.io/abdullahainun/tenangdb:latest backup --yes
+# Run backup on that network
+docker compose run --rm --network tenangdb-net tenangdb backup --yes
 ```
 
-## Volume Mounts
+## Volumes
 
-- **Config**: `-v $(pwd)/config.yaml:/config.yaml:ro`
-- **Backups**: `-v $(pwd)/backups:/backups`
-- **Logs**: `-v $(pwd)/logs:/logs`
-- **Metrics**: `-v $(pwd)/metrics:/var/lib/tenangdb`
-- **Rclone**: `-v ~/.config/rclone:/root/.config/rclone:ro`
-
-## Multi-Architecture
-
-Supports `linux/amd64` and `linux/arm64` — Docker pulls the correct architecture automatically.
-
-## Health Checks
-
-The docker-compose includes health checks:
-```yaml
-healthcheck:
-  test: ["CMD", "tenangdb", "version"]
-  interval: 30s
-  timeout: 10s
-  retries: 3
-```
+| Mount | Purpose |
+|-------|---------|
+| `./config.yaml:/config.yaml:ro` | Config file |
+| `./backups:/backups` | Backup output |
+| `./logs:/logs` | Application logs |
+| `./metrics:/var/lib/tenangdb` | Tracking data |
+| `~/.config/rclone:/root/.config/rclone:ro` | Rclone config |

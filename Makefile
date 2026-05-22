@@ -39,8 +39,7 @@ docker-build:
 	docker build -t ${BINARY_NAME}:${VERSION} .
 
 docker-up:
-	go mod vendor
-	docker compose up -d
+	docker compose up -d mysql tenangdb-exporter
 
 docker-down:
 	docker compose down
@@ -49,19 +48,12 @@ docker-logs:
 	docker compose logs -f
 
 help:
-	@echo "Available targets:"
-	@echo "  build       - Build the main tenangdb application"
-	@echo "  build-exporter - Build the tenangdb-exporter application"
-	@echo "  build-all   - Build both applications"
-	@echo "  clean       - Clean build artifacts"
-	@echo "  test        - Run tests"
-	@echo "  deps        - Install Go dependencies"
-	@echo "  fmt         - Format code"
-	@echo "  lint        - Lint code"
-	@echo "  security    - Check for security issues"
-	@echo ""
-	@echo "Docker targets:"
+	@echo "Targets:"
+	@echo "  build        - Build binary"
+	@echo "  test         - Run tests"
+	@echo "  fmt          - Format code"
+	@echo "  lint         - Lint code"
 	@echo "  docker-build - Build Docker image"
-	@echo "  docker-up    - Start services with docker compose"
-	@echo "  docker-down  - Stop services"
+	@echo "  docker-up    - Start mysql + exporter"
+	@echo "  docker-down  - Stop all services"
 	@echo "  docker-logs  - Follow logs"

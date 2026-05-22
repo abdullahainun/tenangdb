@@ -1,55 +1,50 @@
-# Production Deployment Guide
+# Production Deployment
 
-## Docker Compose (Recommended)
+## Docker Compose
 
 ```bash
-# Clone and configure
-git clone https://github.com/abdullahainun/tenangdb.git
-cd tenangdb
-cp configs/config.yaml config.yaml
-
-# Build the image
+git clone https://github.com/abdullahainun/tenangdb.git /opt/tenangdb
+cd /opt/tenangdb
+cp configs/config.yaml config.yaml   # configure your databases
 make docker-build
-
-# Start all services (TenangDB + metrics exporter + MySQL)
-make docker-up
-
-# Run backup
-docker compose exec tenangdb backup
 ```
 
-### Scheduled Backups
-
-For automated daily backups, add a cron entry on the host:
+Start the daemon services:
 
 ```bash
-# Edit crontab
+docker compose up -d mysql tenangdb-exporter
+```
+
+## Scheduling with Cron
+
+```bash
 crontab -e
 
-# Run backup daily at 2 AM
-0 2 * * * cd /path/to/tenangdb && docker compose exec -T tenangdb backup --yes >> /var/log/tenangdb-cron.log 2>&1
+# Backup daily at 2 AM
+0 2 * * * cd /opt/tenangdb && docker compose run --rm tenangdb backup --yes >> /var/log/tenangdb.log 2>&1
 
-# Run cleanup weekly on weekends
-0 3 * * 6 cd /path/to/tenangdb && docker compose exec -T tenangdb cleanup --yes --force >> /var/log/tenangdb-cron.log 2>&1
+# Cleanup weekly on Saturday at 3 AM
+0 3 * * 6 cd /opt/tenangdb && docker compose run --rm tenangdb cleanup --yes --force >> /var/log/tenangdb.log 2>&1
 ```
 
-### With Systemd Timer (Alternative to cron)
+## Scheduling with Systemd
+
+`/etc/systemd/system/tenangdb.service`:
 
 ```ini
-# /etc/systemd/system/tenangdb-docker.service
 [Unit]
-Description=TenangDB Backup (Docker)
+Description=TenangDB Backup
 After=docker.service
-Requires=docker.service
 
 [Service]
 Type=oneshot
-ExecStart=/usr/bin/docker compose -f /opt/tenangdb/docker-compose.yml exec -T tenangdb backup --yes
+ExecStart=/usr/bin/docker compose -f /opt/tenangdb/docker-compose.yml run --rm tenangdb backup --yes
 WorkingDirectory=/opt/tenangdb
 ```
 
+`/etc/systemd/system/tenangdb.timer`:
+
 ```ini
-# /etc/systemd/system/tenangdb-docker.timer
 [Unit]
 Description=Daily TenangDB Backup
 
@@ -61,42 +56,33 @@ Persistent=true
 WantedBy=timers.target
 ```
 
-## Kubernetes
-
-See [k8s/README.md](k8s/README.md) for Kubernetes deployment with CronJob.
-
-## Directory Structure
-
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now tenangdb.timer
 ```
-tenangdb/
-├── config.yaml          # Main configuration
-├── docker-compose.yml   # Docker services
-├── backups/             # Backup files
-│   ├── database1/
-│   └── database2/
-├── logs/                # Application logs
-│   └── tenangdb.log
-└── metrics/             # Metrics tracking
-    └── metrics.json
-```
-
-## Security
-
-1. **Non-root user**: Container runs as uid 1001 by default
-2. **Read-only config**: Mount config as read-only (`:ro`)
-3. **MySQL credentials**: Use environment variables for sensitive data
-4. **Network isolation**: Use Docker networks to isolate MySQL traffic
 
 ## Monitoring
 
-### Metrics Exporter
+Metrics exporter at `http://localhost:9090/metrics`.
 
-The docker-compose includes a metrics exporter:
+Prometheus scrape config:
 
-```bash
-curl http://localhost:9090/metrics
+```yaml
+scrape_configs:
+  - job_name: tenangdb
+    static_configs:
+      - targets: ['localhost:9090']
 ```
 
-### Grafana Dashboard
+See [grafana/README.md](grafana/README.md) for the Grafana dashboard.
 
-See [grafana/README.md](grafana/README.md) for the Grafana dashboard setup.
+## Security
+
+- Container runs as non-root (uid 1001)
+- Mount config as read-only (`:ro`)
+- Use environment variables or Docker secrets for passwords
+- Isolate MySQL on a dedicated Docker network
+
+## Kubernetes
+
+See [k8s/README.md](k8s/README.md) for CronJob deployment.
