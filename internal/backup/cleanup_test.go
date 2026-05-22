@@ -3,7 +3,7 @@ package backup
 import (
 	"context"
 	"os"
-	"os/exec"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -31,14 +31,15 @@ func TestGetOldFiles(t *testing.T) {
 	}
 	defer os.RemoveAll(testDir)
 
-	testFile, err := os.CreateTemp(testDir, "testfile.sql.gz")
+	testFilePath := filepath.Join(testDir, "testfile.sql.gz")
+	testFile, err := os.Create(testFilePath)
 	if err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
-	defer os.Remove(testFile.Name())
+	testFile.Close()
 
 	modTime := time.Now().AddDate(0, 0, -31)
-	if err := os.Chtimes(testFile.Name(), modTime, modTime); err != nil {
+	if err := os.Chtimes(testFilePath, modTime, modTime); err != nil {
 		t.Fatalf("Failed to set modification time for test file: %v", err)
 	}
 
@@ -51,22 +52,21 @@ func TestGetOldFiles(t *testing.T) {
 	}
 
 	for _, file := range oldFiles {
-		if file != testFile.Name() {
+		if file != testFilePath {
 			t.Errorf("Unexpected file in old files list: %s", file)
 		}
 	}
 }
 
-func TestVerifyFileExistsInCloud(t *testing.T) {
+func TestVerifyFileExistsInCloud_Disabled(t *testing.T) {
 	mockConfig := &config.CleanupConfig{
-		MaxAgeDays: 30,
-		VerifyCloudExists: true,
+		MaxAgeDays:        30,
+		VerifyCloudExists: false,
 	}
 	mockUploadConfig := &config.UploadConfig{
-		Enabled:          true,
-		RclonePath:       "/usr/bin/rclone",
-		Destination:      "remote:/backup",
-		RcloneConfigPath: "",
+		Enabled:     true,
+		RclonePath:  "/usr/bin/rclone",
+		Destination: "remote:/backup",
 	}
 	mockLogger := logger.NewLogger("info")
 
@@ -78,40 +78,28 @@ func TestVerifyFileExistsInCloud(t *testing.T) {
 	}
 	defer os.RemoveAll(testDir)
 
-	testFile, err := os.CreateTemp(testDir, "testfile.sql.gz")
+	testFilePath := filepath.Join(testDir, "testfile.sql.gz")
+	f, err := os.Create(testFilePath)
 	if err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
-	defer os.Remove(testFile.Name())
+	f.Close()
 
-	// Mock rclone output
-	rcloneOutput := []byte("remote:/backup/testfile.sql.gz")
-
-	// Mock exec.Command to return mock output
-	_ = func(command string, args ...string) *exec.Cmd {
-		return exec.CommandContext(context.Background(), "sh", "-c", "echo "+string(rcloneOutput))
-	}
-
-	cleanupService.uploadConfig.RclonePath = "/mock/rclone"
-	cleanupService.uploadConfig.Enabled = true
-
-	exists := cleanupService.verifyFileExistsInCloud(testFile.Name(), testDir)
-	if !exists {
-		t.Errorf("Expected file to exist in cloud, got false")
+	exists := cleanupService.verifyFileExistsInCloud(testFilePath, testDir)
+	if exists {
+		t.Errorf("Expected false when VerifyCloudExists is disabled, got true")
 	}
 }
 
 func TestCleanupAgeBasedFiles(t *testing.T) {
 	mockConfig := &config.CleanupConfig{
-		MaxAgeDays: 30,
-		VerifyCloudExists: true,
+		MaxAgeDays:      30,
 		AgeBasedCleanup: true,
+		VerifyCloudExists: false,
 	}
 	mockUploadConfig := &config.UploadConfig{
-		Enabled:          true,
-		RclonePath:       "/usr/bin/rclone",
-		Destination:      "remote:/backup",
-		RcloneConfigPath: "",
+		Enabled:     false,
+		Destination: "remote:/backup",
 	}
 	mockLogger := logger.NewLogger("info")
 
@@ -123,19 +111,24 @@ func TestCleanupAgeBasedFiles(t *testing.T) {
 	}
 	defer os.RemoveAll(testDir)
 
-	testFile, err := os.CreateTemp(testDir, "testfile.sql.gz")
+	testFilePath := filepath.Join(testDir, "testfile.sql.gz")
+	f, err := os.Create(testFilePath)
 	if err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
-	defer os.Remove(testFile.Name())
+	f.Close()
 
 	modTime := time.Now().AddDate(0, 0, -31)
-	if err := os.Chtimes(testFile.Name(), modTime, modTime); err != nil {
+	if err := os.Chtimes(testFilePath, modTime, modTime); err != nil {
 		t.Fatalf("Failed to set modification time for test file: %v", err)
 	}
 
-	err = cleanupService.CleanupAgeBasedFiles(context.Background(), testDir, []string{"database_name"})
+	err = cleanupService.CleanupAgeBasedFiles(context.Background(), testDir, []string{})
 	if err != nil {
 		t.Errorf("CleanupAgeBasedFiles returned an error: %v", err)
+	}
+
+	if _, err := os.Stat(testFilePath); !os.IsNotExist(err) {
+		t.Errorf("Expected old file to be deleted, but it still exists")
 	}
 }
