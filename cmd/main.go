@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"runtime"
@@ -1109,11 +1108,7 @@ func getTrackingFilePath(backupDir string) string {
 	// Try to use a more persistent location based on platform and user context
 	var trackingDir string
 	
-	// Check if running as systemd service (system user or specific directories exist)
-	if _, err := os.Stat("/var/lib/tenangdb"); err == nil {
-		// Systemd deployment detected - use system directory
-		trackingDir = "/var/lib/tenangdb"
-	} else if runtime.GOOS == "darwin" {
+	if runtime.GOOS == "darwin" {
 		// macOS: Use Application Support directory
 		if homeDir, err := os.UserHomeDir(); err == nil {
 			trackingDir = filepath.Join(homeDir, "Library", "Application Support", "TenangDB")
@@ -1322,40 +1317,26 @@ func getDirSize(path string) (int64, error) {
 func newInitCommand() *cobra.Command {
 	var configPath string
 	var force bool
-	var deploySystemd bool
-	var systemdUser string
 
 	cmd := &cobra.Command{
 		Use:   "init",
 		Short: "Initialize TenangDB configuration",
 		Long:  `Interactive wizard to set up TenangDB configuration, create directories, and validate dependencies.`,
 		Run: func(cmd *cobra.Command, args []string) {
-			runInit(configPath, force, deploySystemd, systemdUser)
+			runInit(configPath, force)
 		},
 	}
 
 	cmd.Flags().StringVar(&configPath, "config", "", "config file path (auto-discovery if not specified)")
 	cmd.Flags().BoolVar(&force, "force", false, "overwrite existing config file without confirmation")
-	cmd.Flags().BoolVar(&deploySystemd, "deploy-systemd", false, "automatically deploy as systemd service")
-	cmd.Flags().StringVar(&systemdUser, "systemd-user", "tenangdb", "systemd service user")
 
 	return cmd
 }
 
-func runInit(configPath string, force bool, deploySystemd bool, systemdUser string) {
+func runInit(configPath string, force bool) {
 	fmt.Printf("\n🛡️ TenangDB Setup Wizard\n")
 	fmt.Printf("========================\n\n")
 	fmt.Printf("This wizard will help you set up TenangDB with your MySQL database.\n\n")
-
-	// Check if systemd deployment requires root privileges
-	if deploySystemd && os.Geteuid() != 0 {
-		fmt.Printf("❌ Error: --deploy-systemd requires root privileges\n")
-		fmt.Printf("💡 Please run with sudo:\n")
-		fmt.Printf("   sudo tenangdb init --deploy-systemd\n\n")
-		fmt.Printf("Or run without --deploy-systemd for user-only setup:\n")
-		fmt.Printf("   tenangdb init\n\n")
-		os.Exit(1)
-	}
 
 	// Determine config file path
 	targetConfigPath := configPath
@@ -1412,11 +1393,7 @@ func runInit(configPath string, force bool, deploySystemd bool, systemdUser stri
 		}
 	}
 
-	fmt.Printf("📁 Config will be saved to: %s\n", targetConfigPath)
-	if os.Geteuid() != 0 && deploySystemd {
-		fmt.Printf("💡 Note: Run with 'sudo' to deploy systemd services system-wide\n")
-	}
-	fmt.Printf("\n")
+	fmt.Printf("📁 Config will be saved to: %s\n\n", targetConfigPath)
 
 	// Step 1: Validate dependencies
 	fmt.Printf("🔍 Step 1: Checking dependencies...\n")
@@ -1463,51 +1440,24 @@ func runInit(configPath string, force bool, deploySystemd bool, systemdUser stri
 	fmt.Printf("\n📁 Step 8: Creating directories...\n")
 	createDirectories(backupConfig.Directory, loggingConfig.FilePath, metricsConfig.StoragePath)
 
-	// Step 9: Systemd deployment (optional)
-	if deploySystemd || (!deploySystemd && promptSystemdDeployment()) {
-		fmt.Printf("\n🚀 Step 9: Deploying as systemd service...\n")
-		if os.Geteuid() != 0 {
-			fmt.Printf("❌ Systemd deployment requires root privileges\n")
-			fmt.Printf("💡 Please run: sudo tenangdb init --deploy-systemd --config %s --force\n", targetConfigPath)
-		} else {
-			if err := deployAsSystemdService(targetConfigPath, systemdUser, metricsConfig.Port); err != nil {
-				fmt.Printf("❌ Failed to deploy systemd service: %v\n", err)
-				fmt.Printf("💡 You can deploy manually later using the script in scripts/install.sh\n")
-			} else {
-				fmt.Printf("✅ Systemd service deployed successfully!\n")
-			}
-		}
-	}
-
 	// Summary
 	fmt.Printf("\n🎉 Setup Complete!\n")
 	fmt.Printf("==================\n\n")
 	fmt.Printf("✅ Configuration saved: %s\n", targetConfigPath)
 	fmt.Printf("✅ Directories created\n")
 	fmt.Printf("✅ Dependencies validated\n")
-	if deploySystemd {
-		fmt.Printf("✅ Systemd service deployed\n")
-	}
 	fmt.Printf("\n")
 	
 	fmt.Printf("🚀 Next steps:\n")
-	if deploySystemd {
-		fmt.Printf("  1. Check service status: sudo systemctl status tenangdb.timer\n")
-		fmt.Printf("  2. View logs: sudo journalctl -u tenangdb.service -f\n")
-		fmt.Printf("  3. Manual backup: sudo systemctl start tenangdb.service\n")
-		if metricsConfig.Enabled {
-			fmt.Printf("  4. View metrics: curl http://localhost:%s/metrics\n", metricsConfig.Port)
-		}
-	} else {
-		fmt.Printf("  1. Run your first backup: tenangdb backup\n")
-		if uploadConfig.Enabled {
-			fmt.Printf("  2. Check cloud upload: rclone ls %s\n", uploadConfig.Destination)
-		}
-		if metricsConfig.Enabled {
-			fmt.Printf("  3. View metrics: http://localhost:%s/metrics\n", metricsConfig.Port)
-		}
-		fmt.Printf("  4. Deploy as service: tenangdb init --deploy-systemd --force\n")
+	fmt.Printf("  1. Run your first backup: tenangdb backup\n")
+	if uploadConfig.Enabled {
+		fmt.Printf("  2. Check cloud upload: rclone ls %s\n", uploadConfig.Destination)
 	}
+	if metricsConfig.Enabled {
+		fmt.Printf("  3. View metrics: http://localhost:%s/metrics\n", metricsConfig.Port)
+	}
+	fmt.Printf("  4. For scheduled backups, use Docker:\n")
+	fmt.Printf("     https://tenangdb.ainun.cloud/docs/deployment\n")
 	fmt.Printf("\n📚 Need help? Check: tenangdb --help\n\n")
 }
 
@@ -2006,446 +1956,6 @@ func createDirectories(backupDir, logPath, metricsPath string) {
 			fmt.Printf("✅ Created directory: %s\n", dir)
 		}
 	}
-}
-
-func promptSystemdDeployment() bool {
-	// Only prompt on Linux
-	if runtime.GOOS != "linux" {
-		return false
-	}
-	
-	fmt.Printf("\n🚀 Systemd Deployment (Optional)\n")
-	fmt.Printf("=================================\n")
-	fmt.Printf("TenangDB can be deployed as a systemd service for:\n")
-	fmt.Printf("  ✅ Automated daily backups\n")
-	fmt.Printf("  ✅ Weekend cleanup\n")  
-	fmt.Printf("  ✅ Always-on metrics server\n")
-	fmt.Printf("  ✅ Auto-restart on failures\n\n")
-	
-	if os.Geteuid() != 0 {
-		fmt.Printf("⚠️  Note: This requires sudo privileges (will show instructions)\n")
-	}
-	
-	fmt.Print("Deploy as systemd service? [y/N]: ")
-	
-	scanner := bufio.NewScanner(os.Stdin)
-	if scanner.Scan() {
-		response := strings.ToLower(strings.TrimSpace(scanner.Text()))
-		return response == "y" || response == "yes"
-	}
-	
-	return false
-}
-
-func deployAsSystemdService(configPath, systemdUser, metricsPort string) error {
-	// Check if running on Linux
-	if runtime.GOOS != "linux" {
-		return fmt.Errorf("systemd deployment is only supported on Linux")
-	}
-	
-	// Get current executable path
-	execPath, err := os.Executable()
-	if err != nil {
-		return fmt.Errorf("failed to get executable path: %w", err)
-	}
-	
-	// Create systemd user if doesn't exist
-	if err := createSystemdUser(systemdUser); err != nil {
-		return fmt.Errorf("failed to create systemd user: %w", err)
-	}
-	
-	// Create system directories
-	if err := createSystemDirectories(systemdUser); err != nil {
-		return fmt.Errorf("failed to create system directories: %w", err)
-	}
-	
-	// Install binary to system location
-	if err := installBinary(execPath, systemdUser); err != nil {
-		return fmt.Errorf("failed to install binary: %w", err)
-	}
-	
-	// Copy config to system location
-	if err := installConfig(configPath); err != nil {
-		return fmt.Errorf("failed to install config: %w", err)
-	}
-	
-	// Generate and install systemd service files
-	if err := installSystemdServices(systemdUser, metricsPort); err != nil {
-		return fmt.Errorf("failed to install systemd services: %w", err)
-	}
-	
-	// Enable and start services
-	if err := enableSystemdServices(); err != nil {
-		return fmt.Errorf("failed to enable systemd services: %w", err)
-	}
-	
-	return nil
-}
-
-func createSystemdUser(username string) error {
-	fmt.Printf("Creating system user '%s'...\n", username)
-	
-	// Check if user exists
-	if _, err := exec.LookPath("id"); err != nil {
-		return fmt.Errorf("id command not found")
-	}
-	
-	cmd := exec.Command("id", username)
-	if cmd.Run() == nil {
-		fmt.Printf("✅ User '%s' already exists\n", username)
-		return nil
-	}
-	
-	// Create group
-	cmd = execCommand("groupadd", "-r", username)
-	if err := cmd.Run(); err != nil {
-		// Group might already exist, continue - this is expected
-		fmt.Printf("Group creation result (expected if exists): %v\n", err)
-	}
-	
-	// Create user
-	cmd = execCommand("useradd", "-r", "-g", username, "-s", "/bin/false", "-d", "/opt/tenangdb", username)
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to create user: %w", err)
-	}
-	
-	fmt.Printf("✅ Created system user '%s'\n", username)
-	return nil
-}
-
-func createSystemDirectories(systemdUser string) error {
-	fmt.Printf("Creating system directories...\n")
-	
-	// Directory configurations: path -> [ownership, permissions]
-	directories := map[string][]string{
-		"/opt/tenangdb":         {systemdUser + ":" + systemdUser, "755"}, // tenangdb reads binaries
-		"/etc/tenangdb":         {"root:" + systemdUser, "750"},           // root owns, tenangdb reads
-		"/var/log/tenangdb":     {systemdUser + ":" + systemdUser, "755"}, // tenangdb writes logs
-		"/var/backups/tenangdb": {systemdUser + ":" + systemdUser, "755"}, // tenangdb writes backups
-		"/var/lib/tenangdb":     {systemdUser + ":" + systemdUser, "755"}, // tenangdb writes metrics
-	}
-	
-	for dir, config := range directories {
-		ownership := config[0]
-		permissions := config[1]
-		
-		cmd := execCommand("mkdir", "-p", dir)
-		if err := cmd.Run(); err != nil {
-			return fmt.Errorf("failed to create directory %s: %w", dir, err)
-		}
-		
-		// Set ownership
-		cmd = execCommand("chown", ownership, dir)
-		if err := cmd.Run(); err != nil {
-			return fmt.Errorf("failed to set ownership for %s: %w", dir, err)
-		}
-		
-		// Set permissions
-		cmd = execCommand("chmod", permissions, dir)
-		if err := cmd.Run(); err != nil {
-			return fmt.Errorf("failed to set permissions for %s: %w", dir, err)
-		}
-		
-		fmt.Printf("✅ Created %s (owner: %s, perms: %s)\n", dir, ownership, permissions)
-	}
-	
-	fmt.Printf("✅ Created system directories\n")
-	return nil
-}
-
-func installBinary(execPath, _ string) error {
-	fmt.Printf("Installing binary to /opt/tenangdb/...\n")
-	
-	// Copy main binary
-	cmd := execCommand("cp", execPath, "/opt/tenangdb/tenangdb")
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to copy binary: %w", err)
-	}
-	
-	// Set permissions
-	cmd = execCommand("chmod", "+x", "/opt/tenangdb/tenangdb")
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to set binary permissions: %w", err)
-	}
-	
-	// Try to copy exporter binary if it exists in same directory
-	execDir := filepath.Dir(execPath)
-	exporterPath := filepath.Join(execDir, "tenangdb-exporter")
-	if _, err := os.Stat(exporterPath); err == nil {
-		cmd = execCommand("cp", exporterPath, "/opt/tenangdb/tenangdb-exporter")
-		if err := cmd.Run(); err == nil {
-			cmd = execCommand("chmod", "+x", "/opt/tenangdb/tenangdb-exporter")
-			if err := cmd.Run(); err != nil {
-				fmt.Printf("⚠️  Failed to set exporter permissions: %v\n", err)
-			} else {
-				fmt.Printf("✅ Installed tenangdb-exporter\n")
-			}
-		}
-	}
-	
-	fmt.Printf("✅ Installed binary to /opt/tenangdb/tenangdb\n")
-	return nil
-}
-
-// execCommand runs a command with or without sudo based on current privileges
-func execCommand(args ...string) *exec.Cmd {
-	if os.Geteuid() == 0 {
-		// Already running as root, no need for sudo
-		return exec.Command(args[0], args[1:]...)
-	} else {
-		// Not root, use sudo
-		return exec.Command("sudo", args...)
-	}
-}
-
-func installConfig(configPath string) error {
-	fmt.Printf("Installing configuration to /etc/tenangdb/...\n")
-	
-	targetPath := "/etc/tenangdb/config.yaml"
-	
-	// Check if source and target are the same file
-	if configPath == targetPath {
-		fmt.Printf("✅ Configuration already at target location\n")
-	} else {
-		// Copy config file
-		cmd := execCommand("cp", configPath, targetPath)
-		if err := cmd.Run(); err != nil {
-			return fmt.Errorf("failed to copy config: %w", err)
-		}
-		fmt.Printf("✅ Copied configuration to %s\n", targetPath)
-	}
-	
-	// Set ownership to tenangdb user
-	cmd := execCommand("chown", "tenangdb:tenangdb", targetPath)
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to set config ownership: %w", err)
-	}
-	
-	// Set permissions (readable by owner and group, not world-readable for security)
-	cmd = execCommand("chmod", "640", targetPath)
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to set config permissions: %w", err)
-	}
-	
-	fmt.Printf("✅ Configuration ownership and permissions set\n")
-	return nil
-}
-
-func installSystemdServices(systemdUser, metricsPort string) error {
-	fmt.Printf("Installing systemd service files...\n")
-	
-	// Generate service file content
-	services := map[string]string{
-		"tenangdb.service": generateTenangDBService(systemdUser),
-		"tenangdb.timer": generateTenangDBTimer(),
-		"tenangdb-cleanup.service": generateCleanupService(systemdUser),
-		"tenangdb-cleanup.timer": generateCleanupTimer(),
-		"tenangdb-exporter.service": generateExporterService(systemdUser, metricsPort),
-	}
-	
-	for filename, content := range services {
-		// Write service file to temp location
-		tempFile := filepath.Join("/tmp", filename)
-		if err := os.WriteFile(tempFile, []byte(content), 0644); err != nil {
-			return fmt.Errorf("failed to write %s: %w", filename, err)
-		}
-		
-		// Copy to systemd directory
-		cmd := execCommand("cp", tempFile, "/etc/systemd/system/"+filename)
-		if err := cmd.Run(); err != nil {
-			return fmt.Errorf("failed to install %s: %w", filename, err)
-		}
-		
-		// Clean up temp file
-		os.Remove(tempFile)
-		
-		fmt.Printf("✅ Installed %s\n", filename)
-	}
-	
-	// Reload systemd
-	cmd := execCommand("systemctl", "daemon-reload")
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to reload systemd: %w", err)
-	}
-	
-	fmt.Printf("✅ Systemd daemon reloaded\n")
-	return nil
-}
-
-func enableSystemdServices() error {
-	fmt.Printf("Enabling and starting systemd services...\n")
-	
-	services := []string{
-		"tenangdb.timer",
-		"tenangdb-cleanup.timer", 
-		"tenangdb-exporter.service",
-	}
-	
-	for _, service := range services {
-		// Enable service
-		cmd := execCommand("systemctl", "enable", service)
-		if err := cmd.Run(); err != nil {
-			fmt.Printf("⚠️  Failed to enable %s: %v\n", service, err)
-			continue
-		}
-		
-		// Start service  
-		cmd = execCommand("systemctl", "start", service)
-		if err := cmd.Run(); err != nil {
-			fmt.Printf("⚠️  Failed to start %s: %v\n", service, err)
-			continue
-		}
-		
-		fmt.Printf("✅ Enabled and started %s\n", service)
-	}
-	
-	return nil
-}
-
-func generateTenangDBService(systemdUser string) string {
-	return fmt.Sprintf(`[Unit]
-Description=TenangDB Backup Service
-After=network.target
-Wants=network-online.target
-After=network-online.target
-
-[Service]
-Type=oneshot
-User=%s
-Group=%s
-WorkingDirectory=/opt/tenangdb
-ExecStart=/opt/tenangdb/tenangdb backup --config /etc/tenangdb/config.yaml --yes
-StandardOutput=journal
-StandardError=journal
-TimeoutStartSec=3600
-TimeoutStopSec=300
-
-# Security settings
-NoNewPrivileges=true
-PrivateTmp=true
-ProtectSystem=strict
-ProtectHome=true
-ReadWritePaths=/var/backups/tenangdb /var/log/tenangdb /var/lib/tenangdb
-ProtectKernelTunables=true
-ProtectKernelModules=true
-ProtectControlGroups=true
-
-[Install]
-WantedBy=multi-user.target
-`, systemdUser, systemdUser)
-}
-
-func generateTenangDBTimer() string {
-	return `[Unit]
-Description=TenangDB Backup Timer
-Requires=tenangdb.service
-
-[Timer]
-OnCalendar=daily
-Persistent=true
-RandomizedDelaySec=300
-
-[Install]
-WantedBy=timers.target
-`
-}
-
-func generateCleanupService(systemdUser string) string {
-	return fmt.Sprintf(`[Unit]
-Description=TenangDB Cleanup Service
-After=network.target
-
-[Service]
-Type=oneshot
-User=%s
-Group=%s
-WorkingDirectory=/opt/tenangdb
-ExecStart=/opt/tenangdb/tenangdb cleanup --config /etc/tenangdb/config.yaml --yes
-StandardOutput=journal
-StandardError=journal
-TimeoutStartSec=1800
-TimeoutStopSec=300
-
-# Security settings
-NoNewPrivileges=true
-PrivateTmp=true
-ProtectSystem=strict
-ProtectHome=true
-ReadWritePaths=/var/backups/tenangdb /var/log/tenangdb /var/lib/tenangdb
-ProtectKernelTunables=true
-ProtectKernelModules=true
-ProtectControlGroups=true
-
-[Install]
-WantedBy=multi-user.target
-`, systemdUser, systemdUser)
-}
-
-func generateCleanupTimer() string {
-	return `[Unit]
-Description=TenangDB Cleanup Timer
-Requires=tenangdb-cleanup.service
-
-[Timer]
-OnCalendar=Sat,Sun 02:00
-Persistent=true
-RandomizedDelaySec=600
-
-[Install]
-WantedBy=timers.target
-`
-}
-
-func generateExporterService(systemdUser, metricsPort string) string {
-	return fmt.Sprintf(`[Unit]
-Description=TenangDB Metrics Exporter
-Documentation=https://tenangdb.ainun.cloud
-After=network.target
-Wants=network.target
-
-[Service]
-Type=simple
-User=%s
-Group=%s
-WorkingDirectory=/opt/tenangdb
-ExecStart=/opt/tenangdb/tenangdb-exporter --config /etc/tenangdb/config.yaml --port %s
-ExecReload=/bin/kill -HUP $MAINPID
-Restart=always
-RestartSec=5
-KillMode=mixed
-KillSignal=SIGTERM
-TimeoutStopSec=30
-
-# Output to journal
-StandardOutput=journal
-StandardError=journal
-SyslogIdentifier=tenangdb-exporter
-
-# Security settings
-NoNewPrivileges=true
-PrivateTmp=true
-ProtectSystem=strict
-ProtectHome=true
-ReadWritePaths=/var/lib/tenangdb /var/log/tenangdb
-ProtectKernelTunables=true
-ProtectKernelModules=true
-ProtectControlGroups=true
-MemoryDenyWriteExecute=true
-RestrictRealtime=true
-RestrictSUIDSGID=true
-RemoveIPC=true
-PrivateDevices=true
-
-# Network restrictions
-RestrictAddressFamilies=AF_INET AF_INET6
-IPAddressDeny=any
-IPAddressAllow=localhost 
-IPAddressAllow=127.0.0.0/8
-IPAddressAllow=::1/128
-
-[Install]
-WantedBy=multi-user.target
-`, systemdUser, systemdUser, metricsPort)
 }
 
 // loadConfigForCleanup loads config for cleanup operations without requiring database validation

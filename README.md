@@ -6,63 +6,61 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Go Report Card](https://goreportcard.com/badge/github.com/abdullahainun/tenangdb)](https://goreportcard.com/report/github.com/abdullahainun/tenangdb)
 
-*2-minute setup wizard. Production-ready systemd service. Zero configuration headaches.*
-
-## 🎬 Live Demo
-
-[![TenangDB Demo](https://asciinema.org/a/731101.svg)](https://asciinema.org/a/731101)
-
 ## ⚡ Quick Start
 
-### Production Setup (Recommended)
+### Docker (Recommended)
+
 ```bash
-curl -sSL https://go.ainun.cloud/tenangdb-install.sh | sudo bash
+# Clone the repository
+git clone https://github.com/abdullahainun/tenangdb.git
+cd tenangdb
+
+# Copy and edit config
+cp configs/config.yaml config.yaml
+# ...edit config.yaml with your MySQL credentials...
+
+# Build and run
+make docker-build
+make docker-up
+
+# Run backup once
+docker compose exec tenangdb backup
+
+# Or use the init wizard
+docker compose run --rm tenangdb init
 ```
 
-### Personal Setup
-```bash
-curl -sSL https://go.ainun.cloud/tenangdb-install.sh | bash
-```
+Or pull the pre-built image:
 
-### Docker
 ```bash
 docker pull ghcr.io/abdullahainun/tenangdb:latest
-docker run --rm ghcr.io/abdullahainun/tenangdb:latest --help
+docker run --rm -v ./config.yaml:/config.yaml:ro ghcr.io/abdullahainun/tenangdb:latest backup
+```
+
+### Development (Go)
+
+```bash
+go build -o tenangdb ./cmd
+./tenangdb --help
 ```
 
 ## 🔧 Key Features
 
-- **🧙‍♂️ Interactive Setup**: 2-minute wizard with database testing
-- **🚀 Auto Deployment**: One-command systemd service installation  
+- **🧙‍♂️ Interactive Setup**: 2-minute configuration wizard
 - **📊 Built-in Monitoring**: Prometheus metrics + health checks
 - **☁️ Cloud Integration**: S3, GCS, Azure via rclone
 - **⚡ Fast & Smart**: mydumper + intelligent error handling
+- **🧩 Compression**: tar.gz, tar.zst, tar.xz support
 
 ## 📚 Documentation
 
-- **[Installation Guide](INSTALL.md)** - Detailed setup instructions
 - **[Commands Reference](docs/COMMANDS.md)** - Complete command list
-- **[Configuration](config.yaml.example)** - Full config examples
-- **[Production Deployment](PRODUCTION_DEPLOYMENT.md)** - systemd setup
-- **[Troubleshooting](TROUBLESHOOTING.md)** - Common issues & solutions
-- **[Docker Guide](DOCKER.md)** - Container usage
-
-## 🚀 Basic Usage
-
-```bash
-# Interactive setup
-tenangdb init
-
-# Run backup
-tenangdb backup
-
-# Check status (if systemd deployed)
-sudo systemctl status tenangdb.timer
-```
+- **[Configuration](configs/config.yaml)** - Full config examples
+- **[Docker Compose](docker-compose.yml)** - Container setup
 
 ## 📋 Compatibility
 
-**Platforms:** Linux, macOS, Docker  
+**Platforms:** Linux, macOS (development), Docker (production)  
 **MySQL:** 5.7+, 8.0+, MariaDB 10.3+  
 **Cloud:** 40+ providers via rclone
 

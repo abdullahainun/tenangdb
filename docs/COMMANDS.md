@@ -23,14 +23,11 @@ tenangdb [command] [options]
 
 ### Basic Usage
 ```bash
-# Interactive setup wizard
+# Interactive setup wizard (recommended)
 tenangdb init
 
-# Setup + deploy as systemd service
-tenangdb init --deploy-systemd
-
 # Custom config location
-tenangdb init --config /etc/tenangdb/config.yaml
+tenangdb init --config tenangdb-config.yaml
 
 # Force overwrite existing config
 tenangdb init --force
@@ -40,8 +37,6 @@ tenangdb init --force
 | Option | Description | Default |
 |--------|-------------|---------|
 | `--config` | Config file path (auto-discovery if not specified) | Auto-detect |
-| `--deploy-systemd` | Automatically deploy as systemd service | `false` |
-| `--systemd-user` | Systemd service user | `tenangdb` |
 | `--force` | Overwrite existing config without confirmation | `false` |
 
 ### What Init Does
@@ -49,21 +44,12 @@ tenangdb init --force
 - ✅ **Database Testing**: Tests connection with provided credentials  
 - ✅ **Smart Config**: Generates optimized config with privilege-aware paths
 - ✅ **Directory Setup**: Creates backup, log, and metrics directories with proper ownership
-- ✅ **Systemd Deploy**: (Optional) Installs and enables systemd services without MySQL dependency
 - ✅ **Security Setup**: User isolation, proper permissions, root-owned config directory
 
 ### Examples
 ```bash
-# Basic setup for development
-tenangdb init --config ~/tenangdb-config.yaml
-
-# Production deployment with systemd
-sudo tenangdb init --deploy-systemd
-
-# Multiple environments
-sudo tenangdb init --deploy-systemd --config /etc/tenangdb/prod.yaml
-sudo tenangdb init --deploy-systemd --config /etc/tenangdb/staging.yaml \
-  --systemd-user tenangdb-staging
+# Basic setup
+tenangdb init --config tenangdb-config.yaml
 ```
 
 ## 🔄 Default Backup Command
@@ -417,6 +403,6 @@ metrics:
 ./tenangdb config  # Shows which config file is being used
 # TenangDB automatically selects user-appropriate config paths
 
-# Systemd deployment issues
-sudo ./tenangdb init --deploy-systemd --force  # Redeploy with latest fixes
+# Run init wizard
+./tenangdb init --force
 ```

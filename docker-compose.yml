@@ -1,89 +1,36 @@
-version: '3.8'
-
 services:
-  # TenangDB main backup service
   tenangdb:
-    # Use GitHub Container Registry image
+    build:
+      context: .
+      dockerfile: Dockerfile
     image: ghcr.io/abdullahainun/tenangdb:latest
-    # Or build locally:
-    # build:
-    #   context: .
-    #   dockerfile: Dockerfile
     container_name: tenangdb
     restart: unless-stopped
     volumes:
-      # Mount config file
       - ./config.yaml:/config.yaml:ro
-      # Mount backup destination
       - ./backups:/backups
-      # Mount logs directory
       - ./logs:/logs
-      # Mount metrics storage (shared with exporter)
       - ./metrics:/var/lib/tenangdb
     environment:
       - TZ=Asia/Jakarta
-    
-    # Health check example
-    healthcheck:
-      test: ["CMD", "/tenangdb", "version"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-    
-    # Resource limits
-    deploy:
-      resources:
-        limits:
-          cpus: '1.0'
-          memory: 512M
-        reservations:
-          cpus: '0.25'
-          memory: 128M
-    
-    # Run backup once (for scheduled runs, use cron or systemd timers)
-    command: ["backup"]
 
-  # TenangDB metrics exporter service
   tenangdb-exporter:
-    # Use the same image but run exporter binary
+    build:
+      context: .
+      dockerfile: Dockerfile
     image: ghcr.io/abdullahainun/tenangdb:latest
     container_name: tenangdb-exporter
     restart: unless-stopped
+    command: ["tenangdb-exporter", "--port", "9090"]
     ports:
       - "9090:9090"
     volumes:
-      # Mount config file
       - ./config.yaml:/config.yaml:ro
-      # Mount metrics storage (shared with main service)
       - ./metrics:/var/lib/tenangdb
-      # Mount logs directory
       - ./logs:/logs
     environment:
       - TZ=Asia/Jakarta
-    
-    # Run metrics exporter
-    command: ["tenangdb-exporter", "--port", "9090"]
-    
-    # Health check for exporter
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9090/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
-    
-    # Resource limits (lighter for exporter)
-    deploy:
-      resources:
-        limits:
-          cpus: '0.5'
-          memory: 256M
-        reservations:
-          cpus: '0.1'
-          memory: 64M
 
-  # Optional: Add MySQL service for testing
   mysql:
     image: mysql:8.0
     container_name: tenangdb-mysql
@@ -97,15 +44,6 @@ services:
       - mysql_data:/var/lib/mysql
     ports:
       - "3306:3306"
-    
-    # Health check for MySQL
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
 
 volumes:
   mysql_data:
-    driver: local
