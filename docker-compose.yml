@@ -3,7 +3,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: ghcr.io/abdullahainun/tenangdb:latest
     container_name: tenangdb
     restart: unless-stopped
     volumes:
@@ -18,7 +17,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: ghcr.io/abdullahainun/tenangdb:latest
     container_name: tenangdb-exporter
     restart: unless-stopped
     command: ["tenangdb-exporter", "--port", "9090"]
