@@ -5,7 +5,7 @@
 ```bash
 git clone https://github.com/abdullahainun/tenangdb.git /opt/tenangdb
 cd /opt/tenangdb
-cp configs/config.yaml config.yaml   # configure your databases
+cp config.yaml.example config.yaml   # configure your databases
 make docker-build
 ```
 

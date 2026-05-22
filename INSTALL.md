@@ -7,7 +7,7 @@ See [DOCKER.md](DOCKER.md) for full setup guide.
 ```bash
 git clone https://github.com/abdullahainun/tenangdb.git
 cd tenangdb
-cp configs/config.yaml config.yaml
+cp config.yaml.example config.yaml
 make docker-build
 ```
 

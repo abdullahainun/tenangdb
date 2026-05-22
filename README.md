@@ -5,7 +5,7 @@
 ```bash
 git clone https://github.com/abdullahainun/tenangdb.git
 cd tenangdb
-cp configs/config.yaml config.yaml   # edit with your MySQL credentials
+cp config.yaml.example config.yaml   # edit with your MySQL credentials
 make docker-build                    # build image
 docker compose up -d mysql           # start MySQL (optional)
 docker compose run --rm tenangdb backup --yes
@@ -26,7 +26,7 @@ docker compose run --rm tenangdb backup --yes
 | [Docker](DOCKER.md) | Setup, networking, volumes |
 | [Production](PRODUCTION_DEPLOYMENT.md) | Scheduling, security, monitoring |
 | [Commands](docs/COMMANDS.md) | CLI reference |
-| [Configuration](configs/config.yaml) | Config example |
+| [Configuration](config.yaml.example) | Config example |
 
 ## Compatibility
 

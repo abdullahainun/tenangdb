@@ -5,7 +5,7 @@
 ```bash
 git clone https://github.com/abdullahainun/tenangdb.git
 cd tenangdb
-cp configs/config.yaml config.yaml   # edit with your MySQL credentials
+cp config.yaml.example config.yaml   # edit with your MySQL credentials
 make docker-build                    # go mod vendor + docker build
 ```
 
