@@ -23,7 +23,6 @@ backup:
     format: "tar.gz"        # Compression format
     level: 6                # Compression level (1-9)
     keep_original: true     # Keep uncompressed backup locally
-    compress_upload: true   # Only compress for cloud upload
 ```
 
 ## 📝 Configuration Options
@@ -50,11 +49,6 @@ backup:
 - **Default**: `true`
 - **Description**: Keep uncompressed backup locally for fast restore
 
-### **compress_upload**
-- **Type**: Boolean
-- **Default**: `true`
-- **Description**: Only compress for cloud upload (hybrid approach)
-
 ## 🚀 Usage Examples
 
 ### **Basic Compression**
@@ -74,26 +68,6 @@ backup:
     format: "tar.xz"      # Best compression ratio
     level: 9              # Maximum compression
     keep_original: false  # Save local space
-```
-
-### **Hybrid Approach (Recommended)**
-```yaml
-backup:
-  compression:
-    enabled: true
-    format: "tar.gz"
-    level: 6
-    keep_original: true     # Fast local restore
-    compress_upload: true   # Efficient cloud storage
-```
-
-### **Upload-Only Compression**
-```yaml
-backup:
-  compression:
-    enabled: true
-    compress_upload: true   # Only compress for upload
-    keep_original: true     # Keep local uncompressed
 ```
 
 ## 📊 Performance Comparison
@@ -128,7 +102,6 @@ backup:
     format: "tar.gz"        # Good balance of speed/compression
     level: 6                # Default level
     keep_original: true     # Fast local restore
-    compress_upload: true   # Efficient cloud storage
 ```
 
 ### **For Development**

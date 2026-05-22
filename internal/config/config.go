@@ -52,7 +52,6 @@ type CompressionConfig struct {
 	Format        string `mapstructure:"format"`         // "tar.gz", "tar.zst", "tar.xz"
 	Level         int    `mapstructure:"level"`          // 1-9 compression level
 	KeepOriginal  bool   `mapstructure:"keep_original"`  // Keep uncompressed backup locally
-	CompressUpload bool  `mapstructure:"compress_upload"` // Only compress for upload
 }
 
 // MydumperConfig supports cross-platform mydumper versions with automatic parameter detection
@@ -442,7 +441,6 @@ func setDefaults() {
 	viper.SetDefault("backup.compression.format", "tar.gz")
 	viper.SetDefault("backup.compression.level", 6)
 	viper.SetDefault("backup.compression.keep_original", true)
-	viper.SetDefault("backup.compression.compress_upload", true)
 
 	// Platform-specific binary paths and directories
 	if runtime.GOOS == "darwin" {
