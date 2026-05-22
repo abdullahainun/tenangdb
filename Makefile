@@ -35,9 +35,11 @@ security:
 	gosec ./...
 
 docker-build:
+	go mod vendor
 	docker build -t ${BINARY_NAME}:${VERSION} .
 
 docker-up:
+	go mod vendor
 	docker compose up -d
 
 docker-down:
