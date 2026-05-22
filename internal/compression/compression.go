@@ -123,7 +123,7 @@ func (c *Compressor) writeTarTo(sourceDir string, w io.Writer) error {
 		if err != nil {
 			return err
 		}
-		relPath, err := filepath.Rel(filepath.Dir(sourceDir), path)
+		relPath, err := filepath.Rel(sourceDir, path)
 		if err != nil {
 			return err
 		}
