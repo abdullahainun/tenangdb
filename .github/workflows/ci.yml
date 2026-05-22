@@ -169,10 +169,10 @@ jobs:
         docker run --rm tenangdb:test backup --help
         
         # Test exporter binary version command
-        docker run --rm tenangdb:test tenangdb-exporter version
+        docker run --rm --entrypoint tenangdb-exporter tenangdb:test version
         
         # Test exporter binary help command
-        docker run --rm tenangdb:test tenangdb-exporter --help
+        docker run --rm --entrypoint tenangdb-exporter tenangdb:test --help
         
         # Test invalid config handling for main binary
         if docker run --rm tenangdb:test backup --config non-existent-config.yaml --dry-run 2>/dev/null; then

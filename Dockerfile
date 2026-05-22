@@ -63,4 +63,4 @@ RUN useradd -u 1001 -m -s /bin/bash tenangdb
 
 EXPOSE 9090
 
-# ENTRYPOINT is set per-service in docker-compose.yml
+ENTRYPOINT ["tenangdb"]
