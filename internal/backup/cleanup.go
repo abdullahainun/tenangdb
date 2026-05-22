@@ -189,25 +189,6 @@ func (c *CleanupService) CleanupAgeBasedFiles(ctx context.Context, backupDir str
 				filesToDelete = append(filesToDelete, path)
 			}
 			return filepath.SkipDir
-			if path == backupDir {
-				return nil
-			}
-			// Only act on backup directories (mydumper output dirs)
-			if !c.containsBackupFiles(path) {
-				return nil
-			}
-			// It's a backup directory — check age, then skip descending regardless
-			if info.ModTime().Before(cutoffTime) {
-				if !c.shouldCleanupFile(path, selectedDatabases) {
-					return filepath.SkipDir
-				}
-				if c.config.VerifyCloudExists && !c.verifyFileExistsInCloud(path, backupDir) {
-					c.logger.Warnf("Directory %s is old but not found in cloud, skipping deletion for safety", path)
-					return filepath.SkipDir
-				}
-				filesToDelete = append(filesToDelete, path)
-			}
-			return filepath.SkipDir
 		}
 
 		// Check if file is old enough
