@@ -20,6 +20,9 @@ RUN go mod download
 # Copy source code
 COPY . .
 
+# Tidy dependencies (required after Go version bump)
+RUN go mod tidy
+
 # Build both applications with static linking and version info
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo \
     -ldflags "-extldflags '-static' -X main.version=${VERSION} -X main.buildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
