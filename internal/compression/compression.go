@@ -6,29 +6,26 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/klauspost/compress/zstd"
 
 	"github.com/abdullahainun/tenangdb/internal/config"
 	"github.com/abdullahainun/tenangdb/internal/logger"
 )
 
-// Compressor handles backup compression operations
 type Compressor struct {
 	config *config.CompressionConfig
 	logger *logger.Logger
 }
 
-// NewCompressor creates a new compressor instance
 func NewCompressor(cfg *config.CompressionConfig, log *logger.Logger) *Compressor {
-	return &Compressor{
-		config: cfg,
-		logger: log,
-	}
+	return &Compressor{config: cfg, logger: log}
 }
 
-// CompressBackup compresses a backup directory
 func (c *Compressor) CompressBackup(backupDir string) (string, error) {
 	if !c.config.Enabled {
 		return backupDir, nil
@@ -37,26 +34,26 @@ func (c *Compressor) CompressBackup(backupDir string) (string, error) {
 	c.logger.WithField("backup_dir", backupDir).Info("Starting backup compression")
 	startTime := time.Now()
 
-	// Determine output file name
 	var outputFile string
+	var err error
 	switch strings.ToLower(c.config.Format) {
 	case "tar.gz", "tgz":
 		outputFile = backupDir + ".tar.gz"
+		err = c.createTarGz(backupDir, outputFile)
 	case "tar.zst":
 		outputFile = backupDir + ".tar.zst"
+		err = c.createTarZst(backupDir, outputFile)
 	case "tar.xz":
 		outputFile = backupDir + ".tar.xz"
+		err = c.createTarXz(backupDir, outputFile)
 	default:
 		return "", fmt.Errorf("unsupported compression format: %s", c.config.Format)
 	}
 
-	// Create compressed archive
-	err := c.createTarGz(backupDir, outputFile)
 	if err != nil {
 		return "", fmt.Errorf("failed to compress backup: %w", err)
 	}
 
-	// Calculate compression ratio
 	originalSize, _ := c.getDirSize(backupDir)
 	compressedSize, _ := c.getFileSize(outputFile)
 	ratio := float64(compressedSize) / float64(originalSize) * 100
@@ -67,7 +64,6 @@ func (c *Compressor) CompressBackup(backupDir string) (string, error) {
 		WithField("duration", time.Since(startTime)).
 		Info("Backup compression completed")
 
-	// Remove original directory if not keeping original
 	if !c.config.KeepOriginal {
 		if err := os.RemoveAll(backupDir); err != nil {
 			c.logger.WithError(err).Warn("Failed to remove original backup directory")
@@ -79,7 +75,6 @@ func (c *Compressor) CompressBackup(backupDir string) (string, error) {
 	return outputFile, nil
 }
 
-// DecompressBackup decompresses a backup archive for restore
 func (c *Compressor) DecompressBackup(archiveFile string) (string, error) {
 	if !c.isCompressedFile(archiveFile) {
 		return archiveFile, nil
@@ -88,12 +83,22 @@ func (c *Compressor) DecompressBackup(archiveFile string) (string, error) {
 	c.logger.WithField("archive", archiveFile).Info("Starting backup decompression")
 	startTime := time.Now()
 
-	// Determine output directory
 	outputDir := strings.TrimSuffix(archiveFile, filepath.Ext(archiveFile))
 	outputDir = strings.TrimSuffix(outputDir, ".tar")
 
-	// Extract archive
-	err := c.extractTarGz(archiveFile, outputDir)
+	lower := strings.ToLower(archiveFile)
+	var err error
+	switch {
+	case strings.HasSuffix(lower, ".tar.gz"), strings.HasSuffix(lower, ".tgz"):
+		err = c.extractTarGz(archiveFile, outputDir)
+	case strings.HasSuffix(lower, ".tar.zst"):
+		err = c.extractTarZst(archiveFile, outputDir)
+	case strings.HasSuffix(lower, ".tar.xz"):
+		err = c.extractTarXz(archiveFile, outputDir)
+	default:
+		return "", fmt.Errorf("unsupported archive format: %s", archiveFile)
+	}
+
 	if err != nil {
 		return "", fmt.Errorf("failed to decompress backup: %w", err)
 	}
@@ -105,95 +110,43 @@ func (c *Compressor) DecompressBackup(archiveFile string) (string, error) {
 	return outputDir, nil
 }
 
-// createTarGz creates a tar.gz archive from a directory
-func (c *Compressor) createTarGz(sourceDir, targetFile string) error {
-	// Create output file
-	file, err := os.Create(targetFile)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	// Create gzip writer
-	gzipWriter := gzip.NewWriter(file)
-	defer gzipWriter.Close()
-
-	// Set compression level
-	if c.config.Level >= 1 && c.config.Level <= 9 {
-		gzipWriter.Close()
-		gzipWriter, err = gzip.NewWriterLevel(file, c.config.Level)
-		if err != nil {
-			return err
-		}
-		defer gzipWriter.Close()
-	}
-
-	// Create tar writer
-	tarWriter := tar.NewWriter(gzipWriter)
+// writeTarTo writes a tar archive of sourceDir to w.
+func (c *Compressor) writeTarTo(sourceDir string, w io.Writer) error {
+	tarWriter := tar.NewWriter(w)
 	defer tarWriter.Close()
 
-	// Walk through source directory
 	return filepath.Walk(sourceDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
-
-		// Create tar header
 		header, err := tar.FileInfoHeader(info, "")
 		if err != nil {
 			return err
 		}
-
-		// Update name to be relative to source directory
 		relPath, err := filepath.Rel(filepath.Dir(sourceDir), path)
 		if err != nil {
 			return err
 		}
 		header.Name = relPath
-
-		// Write header
 		if err := tarWriter.WriteHeader(header); err != nil {
 			return err
 		}
-
-		// Write file content if it's a regular file
 		if info.Mode().IsRegular() {
-			file, err := os.Open(path)
+			f, err := os.Open(path)
 			if err != nil {
 				return err
 			}
-			defer file.Close()
-
-			_, err = io.Copy(tarWriter, file)
-			if err != nil {
-				return err
-			}
+			defer f.Close()
+			_, err = io.Copy(tarWriter, f)
+			return err
 		}
-
 		return nil
 	})
 }
 
-// extractTarGz extracts a tar.gz archive to a directory
-func (c *Compressor) extractTarGz(archiveFile, outputDir string) error {
-	// Open archive file
-	file, err := os.Open(archiveFile)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	// Create gzip reader
-	gzipReader, err := gzip.NewReader(file)
-	if err != nil {
-		return err
-	}
-	defer gzipReader.Close()
-
-	// Create tar reader
-	tarReader := tar.NewReader(gzipReader)
-
-	// Extract files
+// extractTarFrom extracts a tar archive from r into outputDir.
+func (c *Compressor) extractTarFrom(r io.Reader, outputDir string) error {
+	tarReader := tar.NewReader(r)
 	for {
 		header, err := tarReader.Next()
 		if err == io.EOF {
@@ -202,16 +155,10 @@ func (c *Compressor) extractTarGz(archiveFile, outputDir string) error {
 		if err != nil {
 			return err
 		}
-
-		// Determine file path
 		filePath := filepath.Join(outputDir, header.Name)
-
-		// Create directory if needed
 		if err := os.MkdirAll(filepath.Dir(filePath), 0755); err != nil {
 			return err
 		}
-
-		// Extract file based on type
 		switch header.Typeflag {
 		case tar.TypeDir:
 			if err := os.MkdirAll(filePath, os.FileMode(header.Mode)); err != nil {
@@ -223,29 +170,149 @@ func (c *Compressor) extractTarGz(archiveFile, outputDir string) error {
 				return err
 			}
 			defer outFile.Close()
-
 			if _, err := io.Copy(outFile, tarReader); err != nil {
 				return err
 			}
 		}
 	}
-
 	return nil
 }
 
-// isCompressedFile checks if a file is a compressed archive
-func (c *Compressor) isCompressedFile(filename string) bool {
-	ext := strings.ToLower(filepath.Ext(filename))
-	return ext == ".gz" || ext == ".zst" || ext == ".xz" || 
-		   strings.HasSuffix(strings.ToLower(filename), ".tar.gz") ||
-		   strings.HasSuffix(strings.ToLower(filename), ".tar.zst") ||
-		   strings.HasSuffix(strings.ToLower(filename), ".tar.xz")
+func (c *Compressor) createTarGz(sourceDir, targetFile string) error {
+	file, err := os.Create(targetFile)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	var gzipWriter *gzip.Writer
+	if c.config.Level >= 1 && c.config.Level <= 9 {
+		gzipWriter, err = gzip.NewWriterLevel(file, c.config.Level)
+		if err != nil {
+			return err
+		}
+	} else {
+		gzipWriter = gzip.NewWriter(file)
+	}
+	defer gzipWriter.Close()
+
+	return c.writeTarTo(sourceDir, gzipWriter)
 }
 
-// getDirSize calculates the total size of a directory
+func (c *Compressor) createTarZst(sourceDir, targetFile string) error {
+	file, err := os.Create(targetFile)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	level := zstd.SpeedDefault
+	if c.config.Level >= 7 {
+		level = zstd.SpeedBestCompression
+	} else if c.config.Level <= 2 && c.config.Level >= 1 {
+		level = zstd.SpeedFastest
+	}
+
+	encoder, err := zstd.NewWriter(file, zstd.WithEncoderLevel(level))
+	if err != nil {
+		return err
+	}
+	defer encoder.Close()
+
+	return c.writeTarTo(sourceDir, encoder)
+}
+
+func (c *Compressor) createTarXz(sourceDir, targetFile string) error {
+	outFile, err := os.Create(targetFile)
+	if err != nil {
+		return err
+	}
+	defer outFile.Close()
+
+	pr, pw := io.Pipe()
+	cmd := exec.Command("xz", "--compress", "--stdout")
+	cmd.Stdin = pr
+	cmd.Stdout = outFile
+
+	if err := cmd.Start(); err != nil {
+		pr.Close()
+		pw.Close()
+		return fmt.Errorf("xz binary not found (install xz-utils): %w", err)
+	}
+
+	var tarErr error
+	go func() {
+		tarErr = c.writeTarTo(sourceDir, pw)
+		pw.Close()
+	}()
+
+	if err := cmd.Wait(); err != nil {
+		return fmt.Errorf("xz compression failed: %w", err)
+	}
+	return tarErr
+}
+
+func (c *Compressor) extractTarGz(archiveFile, outputDir string) error {
+	file, err := os.Open(archiveFile)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	gzipReader, err := gzip.NewReader(file)
+	if err != nil {
+		return err
+	}
+	defer gzipReader.Close()
+
+	return c.extractTarFrom(gzipReader, outputDir)
+}
+
+func (c *Compressor) extractTarZst(archiveFile, outputDir string) error {
+	file, err := os.Open(archiveFile)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	decoder, err := zstd.NewReader(file)
+	if err != nil {
+		return err
+	}
+	defer decoder.Close()
+
+	return c.extractTarFrom(decoder, outputDir)
+}
+
+func (c *Compressor) extractTarXz(archiveFile, outputDir string) error {
+	cmd := exec.Command("xz", "--decompress", "--stdout", archiveFile)
+	pr, err := cmd.StdoutPipe()
+	if err != nil {
+		return err
+	}
+
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("xz binary not found (install xz-utils): %w", err)
+	}
+
+	extractErr := c.extractTarFrom(pr, outputDir)
+	if err := cmd.Wait(); err != nil {
+		return fmt.Errorf("xz decompression failed: %w", err)
+	}
+	return extractErr
+}
+
+func (c *Compressor) isCompressedFile(filename string) bool {
+	lower := strings.ToLower(filename)
+	return strings.HasSuffix(lower, ".tar.gz") ||
+		strings.HasSuffix(lower, ".tgz") ||
+		strings.HasSuffix(lower, ".tar.zst") ||
+		strings.HasSuffix(lower, ".tar.xz")
+}
+
 func (c *Compressor) getDirSize(path string) (int64, error) {
 	var size int64
-	err := filepath.Walk(path, func(path string, info os.FileInfo, err error) error {
+	err := filepath.Walk(path, func(_ string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
@@ -257,7 +324,6 @@ func (c *Compressor) getDirSize(path string) (int64, error) {
 	return size, err
 }
 
-// getFileSize returns the size of a file
 func (c *Compressor) getFileSize(path string) (int64, error) {
 	info, err := os.Stat(path)
 	if err != nil {
@@ -266,21 +332,20 @@ func (c *Compressor) getFileSize(path string) (int64, error) {
 	return info.Size(), nil
 }
 
-// formatSize formats file size in human readable format
 func (c *Compressor) formatSize(size int64) string {
 	const (
 		KB = 1024
 		MB = KB * 1024
 		GB = MB * 1024
 	)
-	
-	if size >= GB {
+	switch {
+	case size >= GB:
 		return fmt.Sprintf("%.1f GB", float64(size)/GB)
-	} else if size >= MB {
+	case size >= MB:
 		return fmt.Sprintf("%.1f MB", float64(size)/MB)
-	} else if size >= KB {
+	case size >= KB:
 		return fmt.Sprintf("%.1f KB", float64(size)/KB)
+	default:
+		return fmt.Sprintf("%d bytes", size)
 	}
-	
-	return fmt.Sprintf("%d bytes", size)
 }

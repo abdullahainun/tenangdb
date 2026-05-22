@@ -79,7 +79,7 @@ The `cleanup.weekend_only` config field exists but the actual weekend gate in `r
 
 ### Compression
 
-Only `tar.gz` is fully implemented despite config accepting `tar.zst` and `tar.xz`. All three formats call `createTarGz()` internally — the output file extension changes but the content is always gzip.
+All three formats (`tar.gz`, `tar.zst`, `tar.xz`) are fully implemented with proper compression — gzip (Go stdlib), zstd (`klauspost/compress`), and xz (external binary).
 
 ### Backup directory structure
 

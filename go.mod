@@ -2,10 +2,9 @@ module github.com/abdullahainun/tenangdb
 
 go 1.25.7
 
-toolchain go1.25.7
-
 require (
 	github.com/go-sql-driver/mysql v1.7.1
+	github.com/klauspost/compress v1.18.1
 	github.com/prometheus/client_golang v1.22.0
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.8.0
@@ -16,7 +15,6 @@ require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
-	github.com/klauspost/compress v1.18.0 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/magiconair/properties v1.8.7 // indirect
