@@ -4,6 +4,8 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: tenangdb
+    entrypoint: ["tenangdb"]
+    command: ["version"]
     volumes:
       - ./config.yaml:/config.yaml:ro
       - ./backups:/backups
@@ -18,7 +20,8 @@ services:
       dockerfile: Dockerfile
     container_name: tenangdb-exporter
     restart: unless-stopped
-    command: ["tenangdb-exporter", "--port", "9090"]
+    entrypoint: ["tenangdb-exporter"]
+    command: ["--port", "9090"]
     ports:
       - "9090:9090"
     volumes:
