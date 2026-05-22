@@ -413,12 +413,7 @@ func runCleanup(configFile, logLevel string, dryRun bool, force bool, databases 
 	}
 
 	// Perform age-based cleanup (always enabled for cleanup command)
-	maxAgeDays := cfg.Cleanup.MaxAgeDays
-	if maxAgeDays == 0 {
-		maxAgeDays = 7 // Safe default: 7 days
-	}
-	
-	filesRemoved, bytesFreed, err := cleanupOldBackupFiles(cfg.Backup.Directory, selectedDatabases, maxAgeDays, log)
+	filesRemoved, bytesFreed, err := cleanupOldBackupFiles(cfg.Backup.Directory, selectedDatabases, cfg.Cleanup.MaxAgeDays, log)
 	if err != nil {
 		log.WithError(err).Error("Age-based cleanup failed")
 		cleanupDuration := time.Since(cleanupStartTime)
@@ -842,13 +837,8 @@ func showCleanupConfirmation(_ *backup.Service, cleanupCfg *config.CleanupConfig
 	fmt.Printf("\n📋 Cleanup Summary\n")
 	fmt.Printf("=================\n\n")
 	
-	// Set safe defaults for cleanup command
-	maxAgeDays := cleanupCfg.MaxAgeDays
-	if maxAgeDays == 0 {
-		maxAgeDays = 7 // Safe default: 7 days
-	}
-	
 	// Get all backup files in directory
+	maxAgeDays := cleanupCfg.MaxAgeDays
 	allBackupFiles := getBackupFiles(backupDir, selectedDatabases)
 	
 	if len(allBackupFiles) == 0 {
