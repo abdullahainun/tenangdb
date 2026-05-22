@@ -244,32 +244,15 @@ func (c *CleanupService) CleanupAgeBasedFiles(ctx context.Context, backupDir str
 	c.logger.Infof("Found %d old files to delete (total size: %d bytes)", len(filesToDelete), totalSize)
 
 	// Delete files and directories
-	// Delete files and directories
 	deletedCount := 0
 	deletedSize := int64(0)
 	for _, path := range filesToDelete {
 		info, err := os.Stat(path)
-	for _, path := range filesToDelete {
-		info, err := os.Stat(path)
 		if err != nil {
-			c.logger.WithError(err).Warnf("Failed to stat %s", path)
 			c.logger.WithError(err).Warnf("Failed to stat %s", path)
 			continue
 		}
 
-		var size int64
-		if info.IsDir() {
-			size = c.calcDirSize(path)
-			if err := os.RemoveAll(path); err != nil {
-				c.logger.WithError(err).Errorf("Failed to delete directory %s", path)
-				continue
-			}
-		} else {
-			size = info.Size()
-			if err := os.Remove(path); err != nil {
-				c.logger.WithError(err).Errorf("Failed to delete file %s", path)
-				continue
-			}
 		var size int64
 		if info.IsDir() {
 			size = c.calcDirSize(path)
@@ -288,11 +271,8 @@ func (c *CleanupService) CleanupAgeBasedFiles(ctx context.Context, backupDir str
 		deletedCount++
 		deletedSize += size
 		c.logger.Infof("Deleted old backup: %s (size: %d bytes)", path, size)
-		deletedSize += size
-		c.logger.Infof("Deleted old backup: %s (size: %d bytes)", path, size)
 	}
 
-	c.logger.Infof("Age-based cleanup completed: deleted %d items, freed %d bytes", deletedCount, deletedSize)
 	c.logger.Infof("Age-based cleanup completed: deleted %d items, freed %d bytes", deletedCount, deletedSize)
 	return nil
 }
