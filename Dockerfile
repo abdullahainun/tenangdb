@@ -8,16 +8,15 @@ RUN apk add --no-cache git ca-certificates tzdata
 
 WORKDIR /app
 
+COPY vendor/ vendor/
 COPY go.mod go.sum ./
-RUN go mod download
-
 COPY . .
 
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo \
+RUN CGO_ENABLED=0 GOOS=linux go build -mod=vendor -a -installsuffix cgo \
     -ldflags "-extldflags '-static' -X main.version=${VERSION} -X main.buildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
     -o tenangdb ./cmd
 
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo \
+RUN CGO_ENABLED=0 GOOS=linux go build -mod=vendor -a -installsuffix cgo \
     -ldflags "-extldflags '-static' -X main.version=${VERSION} -X main.buildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
     -o tenangdb-exporter ./cmd/tenangdb-exporter
 
