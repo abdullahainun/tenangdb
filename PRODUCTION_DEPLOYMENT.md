@@ -3,16 +3,17 @@
 ## Docker Compose
 
 ```bash
-git clone https://github.com/abdullahainun/tenangdb.git /opt/tenangdb
-cd /opt/tenangdb
-cp config.yaml.example config.yaml   # configure your databases
-make docker-build
+mkdir -p /opt/tenangdb && cd /opt/tenangdb
+cp /path/to/config.yaml.example config.yaml   # configure your databases
+docker compose pull                            # pull pre-built image
 ```
 
-Start the daemon services:
+For local builds: uncomment `build:` in `docker-compose.yml`, then run `make docker-build`.
+
+Start the metrics exporter:
 
 ```bash
-docker compose up -d mysql tenangdb-exporter
+docker compose up -d tenangdb-exporter
 ```
 
 ## Scheduling with Cron

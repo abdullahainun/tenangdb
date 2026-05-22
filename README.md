@@ -3,11 +3,9 @@
 **Backup yang Bikin Tenang** — MySQL backup automation tool.
 
 ```bash
-git clone https://github.com/abdullahainun/tenangdb.git
-cd tenangdb
-cp config.yaml.example config.yaml   # edit with your MySQL credentials
-make docker-build                    # build image
-docker compose up -d mysql           # start MySQL (optional)
+# Quick start
+cp config.yaml.example config.yaml          # edit with your MySQL credentials
+docker compose pull                         # pull pre-built image
 docker compose run --rm tenangdb backup --yes
 ```
 
@@ -26,7 +24,8 @@ docker compose run --rm tenangdb backup --yes
 | [Docker](DOCKER.md) | Setup, networking, volumes |
 | [Production](PRODUCTION_DEPLOYMENT.md) | Scheduling, security, monitoring |
 | [Commands](docs/COMMANDS.md) | CLI reference |
-| [Configuration](config.yaml.example) | Config example |
+| [Configuration](config.yaml.example) | Quick config example |
+| [Full Reference](docs/CONFIGURATION.md) | All config options |
 
 ## Compatibility
 

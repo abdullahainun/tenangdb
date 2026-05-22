@@ -1,8 +1,9 @@
 services:
   tenangdb:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: ghcr.io/abdullahainun/tenangdb:latest
+    # build:                            # uncomment for local builds
+    #   context: .
+    #   dockerfile: Dockerfile
     container_name: tenangdb
     entrypoint: ["tenangdb"]
     command: ["version"]
@@ -15,9 +16,10 @@ services:
       - TZ=Asia/Jakarta
 
   tenangdb-exporter:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: ghcr.io/abdullahainun/tenangdb:latest
+    # build:                            # uncomment for local builds
+    #   context: .
+    #   dockerfile: Dockerfile
     container_name: tenangdb-exporter
     restart: unless-stopped
     entrypoint: ["tenangdb-exporter"]

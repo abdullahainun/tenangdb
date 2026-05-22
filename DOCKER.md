@@ -3,18 +3,23 @@
 ## Setup
 
 ```bash
-git clone https://github.com/abdullahainun/tenangdb.git
-cd tenangdb
-cp config.yaml.example config.yaml   # edit with your MySQL credentials
-make docker-build                    # go mod vendor + docker build
+mkdir tenangdb && cd tenangdb
+cp /path/to/config.yaml.example config.yaml   # edit with your MySQL credentials
+docker compose pull                            # pull pre-built image
+```
+
+For local builds (development): edit `docker-compose.yml` and uncomment the `build:` lines, then run:
+
+```bash
+make docker-build                             # go mod vendor + docker build
 ```
 
 ## Usage
 
-Start dependent services (MySQL + metrics exporter):
+Start the metrics exporter:
 
 ```bash
-docker compose up -d mysql tenangdb-exporter
+docker compose up -d tenangdb-exporter
 ```
 
 Run a backup (oneshot):

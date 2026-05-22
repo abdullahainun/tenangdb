@@ -36,10 +36,10 @@ security:
 
 docker-build:
 	go mod vendor
-	docker build -t ${BINARY_NAME}:${VERSION} .
+	docker build -t ghcr.io/abdullahainun/tenangdb:latest .
 
 docker-up:
-	docker compose up -d mysql tenangdb-exporter
+	docker compose up -d tenangdb-exporter
 
 docker-down:
 	docker compose down
@@ -54,6 +54,6 @@ help:
 	@echo "  fmt          - Format code"
 	@echo "  lint         - Lint code"
 	@echo "  docker-build - Build Docker image"
-	@echo "  docker-up    - Start mysql + exporter"
+	@echo "  docker-up    - Start tenangdb-exporter"
 	@echo "  docker-down  - Stop all services"
 	@echo "  docker-logs  - Follow logs"
