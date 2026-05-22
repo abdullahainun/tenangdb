@@ -1,137 +1,92 @@
-# 🐳 Docker Guide
+# Docker Guide
 
 ## Quick Start
 
-### Pull Image
+Pull or build the image:
+
 ```bash
 docker pull ghcr.io/abdullahainun/tenangdb:latest
+
+# Or build locally
+make docker-build
 ```
 
-### Method 1: Direct Backup
+### Simple Backup
 
-Create config:
 ```bash
-mkdir tenangdb-docker && cd tenangdb-docker
+mkdir tenangdb && cd tenangdb
 
-echo "database:
+cat > config.yaml << 'EOF'
+database:
   host: mysql-host
-  username: your-user
-  password: your-pass
+  username: backup_user
+  password: your_password
 backup:
-  databases: [your-db]
-  directory: /backups" > config.yaml
-```
+  databases: [your_database]
+  directory: /backups
+EOF
 
-Run backup:
-```bash
 docker run --rm \
   -v $(pwd)/config.yaml:/config.yaml:ro \
   -v $(pwd)/backups:/backups \
   ghcr.io/abdullahainun/tenangdb:latest backup --config /config.yaml --yes
 ```
 
-### Method 2: Docker Compose
+### Docker Compose
 
-Download compose file:
 ```bash
-curl -L https://raw.githubusercontent.com/abdullahainun/tenangdb/main/docker-compose.yml -o docker-compose.yml
-```
+git clone https://github.com/abdullahainun/tenangdb.git
+cd tenangdb
+cp configs/config.yaml config.yaml
 
-Start services:
-```bash
-docker-compose up -d  # Includes MySQL, TenangDB, and metrics exporter
+make docker-up
 ```
 
 ## Interactive Setup
 
-Run setup wizard in container:
 ```bash
 docker run -it --rm \
   -v $(pwd):/workspace \
-  ghcr.io/abdullahainun/tenangdb:latest init --config /workspace/config.yaml
+  ghcr.io/abdullahainun/tenangdb:latest init
 ```
 
 ## Networking
 
-### Link to MySQL Container
-```bash
-# Start MySQL
-docker run --name mysql-db -e MYSQL_ROOT_PASSWORD=pass -d mysql:8.0
+### Docker Network
 
-# Run backup with link
-docker run --rm --link mysql-db \
-  -v $(pwd)/config.yaml:/config.yaml:ro \
-  -v $(pwd)/backups:/backups \
-  ghcr.io/abdullahainun/tenangdb:latest backup --yes
-```
-
-### Use Docker Network
 ```bash
-# Create network
 docker network create tenangdb-net
 
-# Start MySQL on network
+# Start MySQL
 docker run --name mysql-db --network tenangdb-net \
   -e MYSQL_ROOT_PASSWORD=pass -d mysql:8.0
 
-# Run backup on same network
+# Run backup
 docker run --rm --network tenangdb-net \
   -v $(pwd)/config.yaml:/config.yaml:ro \
   -v $(pwd)/backups:/backups \
   ghcr.io/abdullahainun/tenangdb:latest backup --yes
 ```
 
-## Environment Variables
-
-```bash
-docker run --rm \
-  -e TZ=Asia/Jakarta \
-  -e MYSQL_HOST=mysql-server \
-  -e MYSQL_USER=backup_user \
-  -e MYSQL_PASSWORD=secure_pass \
-  -v $(pwd)/backups:/backups \
-  ghcr.io/abdullahainun/tenangdb:latest backup --yes
-```
-
 ## Volume Mounts
 
-### Essential Mounts
 - **Config**: `-v $(pwd)/config.yaml:/config.yaml:ro`
 - **Backups**: `-v $(pwd)/backups:/backups`
 - **Logs**: `-v $(pwd)/logs:/logs`
-
-### Optional Mounts
 - **Metrics**: `-v $(pwd)/metrics:/var/lib/tenangdb`
-- **rclone config**: `-v ~/.config/rclone:/root/.config/rclone:ro`
+- **Rclone**: `-v ~/.config/rclone:/root/.config/rclone:ro`
 
 ## Multi-Architecture
 
-Image supports:
-- `linux/amd64`
-- `linux/arm64`
-
-Docker automatically pulls the correct architecture.
-
-## Production with systemd
-
-```bash
-docker run -d --privileged \
-  -v /sys/fs/cgroup:/sys/fs/cgroup:ro \
-  --name tenangdb-prod \
-  ghcr.io/abdullahainun/tenangdb:latest /sbin/init
-```
+Supports `linux/amd64` and `linux/arm64` — Docker pulls the correct architecture automatically.
 
 ## Health Checks
 
-Built-in health check:
+The docker-compose includes health checks:
 ```yaml
 healthcheck:
-  test: ["CMD", "/tenangdb", "version"]
+  test: ["CMD", "tenangdb", "version"]
   interval: 30s
   timeout: 10s
   retries: 3
 ```
-
-## Security
-
-Container runs as non-root user (uid 1001) by default for security.
