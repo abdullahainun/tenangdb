@@ -28,10 +28,18 @@ func newTestCompressor(t *testing.T, format string) *Compressor {
 func createTestDir(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
-	os.WriteFile(filepath.Join(dir, "test.txt"), []byte("hello world"), 0644)
-	os.WriteFile(filepath.Join(dir, "data.bin"), bytes.Repeat([]byte{0x42}, 1000), 0644)
-	os.MkdirAll(filepath.Join(dir, "sub"), 0755)
-	os.WriteFile(filepath.Join(dir, "sub", "nested.txt"), []byte("nested"), 0644)
+	if err := os.WriteFile(filepath.Join(dir, "test.txt"), []byte("hello world"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "data.bin"), bytes.Repeat([]byte{0x42}, 1000), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(dir, "sub"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "sub", "nested.txt"), []byte("nested"), 0644); err != nil {
+		t.Fatal(err)
+	}
 	return dir
 }
 
@@ -198,7 +206,9 @@ func TestNotGzip(t *testing.T) {
 			defer f.Close()
 
 			magic := make([]byte, 2)
-			f.Read(magic)
+			if _, err := f.Read(magic); err != nil {
+				t.Fatal(err)
+			}
 			if magic[0] == 0x1f && magic[1] == 0x8b {
 				t.Fatal("output is gzip — format not properly implemented")
 			}

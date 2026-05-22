@@ -8,9 +8,9 @@ RUN apk add --no-cache git ca-certificates tzdata
 
 WORKDIR /app
 
-COPY vendor/ vendor/
 COPY go.mod go.sum ./
-COPY . .
+COPY . ./
+RUN if [ ! -d vendor ] || [ -z "$(ls -A vendor 2>/dev/null)" ]; then go mod vendor; fi
 
 RUN CGO_ENABLED=0 GOOS=linux go build -mod=vendor -a -installsuffix cgo \
     -ldflags "-extldflags '-static' -X main.version=${VERSION} -X main.buildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
