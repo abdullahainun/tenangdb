@@ -105,7 +105,10 @@ jobs:
         key: ${{ runner.os }}-go-1.25-${{ hashFiles('**/go.sum') }}
         restore-keys: |
           ${{ runner.os }}-go-1.25-
-    
+
+    - name: Tidy dependencies
+      run: go mod tidy
+
     - name: Run linting
       uses: golangci/golangci-lint-action@v6
       with:
