@@ -38,6 +38,7 @@ logs/
 # Backup directories (for testing)
 /backup/
 /var/backups/
+/backups/
 
 # IDE and editor files
 .vscode/

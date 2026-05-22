@@ -30,20 +30,21 @@ services:
       - ./logs:/logs
     environment:
       - TZ=Asia/Jakarta
+      
+# Uncomment the following section to include a MySQL database for testing
+#   mysql:
+#     image: mysql:8.0
+#     container_name: tenangdb-mysql
+#     restart: unless-stopped
+#     environment:
+#       MYSQL_ROOT_PASSWORD: rootpass
+#       MYSQL_DATABASE: testdb
+#       MYSQL_USER: testuser
+#       MYSQL_PASSWORD: testpass
+#     volumes:
+#       - mysql_data:/var/lib/mysql
+#     ports:
+#       - "3306:3306"
 
-  mysql:
-    image: mysql:8.0
-    container_name: tenangdb-mysql
-    restart: unless-stopped
-    environment:
-      MYSQL_ROOT_PASSWORD: rootpass
-      MYSQL_DATABASE: testdb
-      MYSQL_USER: testuser
-      MYSQL_PASSWORD: testpass
-    volumes:
-      - mysql_data:/var/lib/mysql
-    ports:
-      - "3306:3306"
-
-volumes:
-  mysql_data:
+# volumes:
+#   mysql_data:
