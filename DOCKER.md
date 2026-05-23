@@ -80,23 +80,23 @@ upload:
 
 ## Networking
 
-### Database di Host yang Sama (Linux)
+### Database on Same Host (Linux)
 
-Container secara default tidak bisa akses `localhost` host. Gunakan `host.docker.internal`:
+Containers cannot access the host's `localhost` by default. Use `host.docker.internal`:
 
 ```yaml
 # config.yaml
 database:
-  host: host.docker.internal   # resolve ke IP host
-  port: 3306                   # 5432 untuk PostgreSQL
+  host: host.docker.internal   # resolves to host IP
+  port: 3306                   # 5432 for PostgreSQL
 ```
 
 ```bash
-# Butuh --add-host untuk Linux (Docker 20.10+)
+# Requires --add-host on Linux (Docker 20.10+)
 docker compose run --rm --add-host host.docker.internal:host-gateway tenangdb backup --yes
 ```
 
-Atau pake `--network host` (lebih simple, container share network host):
+Or use `--network host` (container shares host network):
 
 ```yaml
 # config.yaml
@@ -108,11 +108,11 @@ database:
 docker compose run --rm --network host tenangdb backup --yes
 ```
 
-> ⚠️ `--network host` tidak bisa bareng `--add-host` dan port mapping di compose.
+> ⚠️ `--network host` cannot be combined with `--add-host` or port mapping in compose.
 
-### Database di Container Lain (Docker Compose)
+### Database in Another Container (Docker Compose)
 
-Database dan TenangDB di service compose yang sama — cukup pake nama service:
+When both services are in the same compose file, use the service name:
 
 ```yaml
 # docker-compose.yml
@@ -129,23 +129,23 @@ services:
 ```yaml
 # config.yaml
 database:
-  host: mysql    # nama service di compose
+  host: mysql    # compose service name
   port: 3306
 ```
 
-### Database di Server Remote
+### Remote Database
 
-Pake hostname/IP server langsung:
+Use the server's IP/hostname directly:
 
 ```yaml
 # config.yaml
 database:
-  host: 192.168.1.100   # atau hostname seperti db.example.com
+  host: 192.168.1.100   # or hostname like db.example.com
   port: 3306
 ```
 
 ```bash
-# Kalo beda network, buat network dulu
+# On a different network, create a shared network first
 docker network create tenangdb-net
 docker compose run --rm --network tenangdb-net tenangdb backup --yes
 ```
