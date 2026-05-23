@@ -4,23 +4,23 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TenangDB - Backup yang Bikin Tenang</title>
-    <meta name="description" content="A comprehensive MySQL backup solution that lets you sleep peacefully knowing your databases are safe, automatically backed up, uploaded to cloud storage, and ready for instant restore.">
-    <meta name="keywords" content="mysql backup, database backup, cloud backup, automated backup, go backup tool">
-    
+    <meta name="description" content="A comprehensive MySQL & PostgreSQL backup solution that lets you sleep peacefully knowing your databases are safe, automatically backed up, uploaded to cloud storage, and ready for instant restore.">
+    <meta name="keywords" content="mysql backup, postgresql backup, database backup, cloud backup, automated backup, go backup tool, postgres dump">
+
     <!-- Open Graph -->
-    <meta property="og:title" content="TenangDB - Backup yang Bikin Tenang">
-    <meta property="og:description" content="No more worries about database disasters. TenangDB has got you covered.">
+    <meta property="og:title" content="TenangDB - MySQL & PostgreSQL Backup Automation">
+    <meta property="og:description" content="Automated backup for MySQL and PostgreSQL with smart confirmations, cloud upload, and monitoring. Deploy in seconds with Docker.">
     <meta property="og:type" content="website">
-    <meta property="og:url" content="https://abdullahainun.github.io/tenangdb/">
-    
+    <meta property="og:url" content="https://tenangdb.ainun.cloud/">
+
     <!-- Favicon -->
     <link rel="icon" type="image/svg+xml" href="assets/images/favicon.svg">
-    
+
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    
+
     <!-- CSS -->
     <link rel="stylesheet" href="assets/css/style.css">
 </head>
@@ -61,7 +61,7 @@
                     <span class="gradient-text">Backup yang Bikin Tenang</span>
                 </h1>
                 <p class="hero-subtitle">
-                    Automated MySQL backup solution with intelligent automation, smart confirmations, and seamless cloud integration. Deploy in seconds with Docker.
+                    Automated backup for MySQL and PostgreSQL with intelligent automation, smart confirmations, and seamless cloud integration. Deploy in seconds with Docker.
                 </p>
                 <div class="hero-features">
                     <div class="feature-item">
@@ -70,29 +70,29 @@
                     </div>
                     <div class="feature-item">
                         <span class="feature-icon">⚡</span>
-                        <span>Fast Parallel</span>
+                        <span>Parallel Backup</span>
+                    </div>
+                    <div class="feature-item">
+                        <span class="feature-icon">🐬</span>
+                        <span>MySQL</span>
+                    </div>
+                    <div class="feature-item">
+                        <span class="feature-icon">🐘</span>
+                        <span>PostgreSQL</span>
                     </div>
                     <div class="feature-item">
                         <span class="feature-icon">☁️</span>
                         <span>Cloud Upload</span>
                     </div>
-                    <div class="feature-item">
-                        <span class="feature-icon">🔧</span>
-                        <span>Zero Config</span>
-                    </div>
-                    <div class="feature-item">
-                        <span class="feature-icon">🛡️</span>
-                        <span>Smart Safety</span>
-                    </div>
                 </div>
                 <div class="hero-stats">
                     <div class="stat-item">
-                        <span class="stat-number">40+</span>
-                        <span class="stat-label">Cloud Providers</span>
+                        <span class="stat-number">2</span>
+                        <span class="stat-label">Database Engines</span>
                     </div>
                     <div class="stat-item">
-                        <span class="stat-number">Zero</span>
-                        <span class="stat-label">Configuration</span>
+                        <span class="stat-number">40+</span>
+                        <span class="stat-label">Cloud Providers</span>
                     </div>
                     <div class="stat-item">
                         <span class="stat-number">MIT</span>
@@ -114,11 +114,11 @@
     </section>
 
     <!-- Live Demo Section -->
-    <section class="demo">
+    <section id="demo" class="demo">
         <div class="container">
             <div class="section-header">
                 <h2>🎬 See TenangDB in Action</h2>
-                <p>Watch a real backup session with multiple databases, smart confirmations, and error handling</p>
+                <p>Watch a real backup session with multiple databases, smart confirmations, and error handling (MySQL demo)</p>
             </div>
             <div class="demo-showcase">
                 <div class="asciinema-container">
@@ -135,11 +135,15 @@
                     </div>
                     <div class="highlight-item">
                         <span class="highlight-icon">🔄</span>
-                        <span>Backup frequency checking prevents redundant runs</span>
+                        <span>Automatic database discovery and backup</span>
                     </div>
                     <div class="highlight-item">
                         <span class="highlight-icon">🚀</span>
                         <span>Fast parallel processing with mydumper</span>
+                    </div>
+                    <div class="highlight-item">
+                        <span class="highlight-icon">🐘</span>
+                        <span>PostgreSQL support via pg_dump / pg_restore</span>
                     </div>
                 </div>
             </div>
@@ -157,42 +161,42 @@
                 <div class="feature-card">
                     <div class="feature-icon">🐳</div>
                     <h3>Docker Ready</h3>
-                    <p>Production container with mydumper included. Deploy in seconds with persistent volume support.</p>
+                    <p>Production container with mydumper, pg_dump, and rclone included. Deploy in seconds with persistent volume support.</p>
                 </div>
                 <div class="feature-card">
                     <div class="feature-icon">⚡</div>
                     <h3>Fast Parallel Backups</h3>
-                    <p>Lightning-fast parallel processing with mydumper. Backup multiple databases simultaneously.</p>
+                    <p>Lightning-fast parallel processing with mydumper for MySQL. PostgreSQL uses pg_dump with multi-job support. Both run concurrently across databases.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🐘</div>
+                    <h3>PostgreSQL Support</h3>
+                    <p>Full PostgreSQL 15+ support via pg_dump (custom format) and pg_restore. Compatible with any PostgreSQL version your pg_dump can reach.</p>
                 </div>
                 <div class="feature-card">
                     <div class="feature-icon">☁️</div>
-                    <h3>Multi-Cloud Support</h3>
-                    <p>Upload to AWS S3, Google Cloud, Azure, or 40+ providers via rclone integration.</p>
+                    <h3>Multi-Cloud Upload</h3>
+                    <p>Upload to AWS S3, Google Cloud, Azure, or 40+ providers via rclone integration. Supports custom rclone flags for advanced configurations.</p>
                 </div>
                 <div class="feature-card">
                     <div class="feature-icon">🔧</div>
                     <h3>Zero Configuration</h3>
-                    <p>One YAML file setup. Automated scheduling with cron. Intelligent cleanup policies.</p>
+                    <p>One YAML file setup. Automatic database discovery. Smart cleanup policies. Prometheus metrics for production monitoring.</p>
                 </div>
                 <div class="feature-card">
                     <div class="feature-icon">🔄</div>
                     <h3>Smart Restore</h3>
-                    <p>Restore databases to new names with confirmation prompts. Prevent accidental overwrites.</p>
+                    <p>Restore MySQL databases with myloader, PostgreSQL with pg_restore. New-name restoration with confirmation prompts. Prevent accidental overwrites.</p>
                 </div>
                 <div class="feature-card">
                     <div class="feature-icon">📦</div>
                     <h3>Compression & Encryption</h3>
-                    <p>Built-in compression support. Secure your backups with encryption before cloud upload.</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">⏰</div>
-                    <h3>Frequency Control</h3>
-                    <p>Smart frequency checking prevents redundant backups. Configurable backup intervals.</p>
+                    <p>Built-in compression support. Secure your backups with encryption before cloud upload. PostgreSQL custom format includes compression by default.</p>
                 </div>
                 <div class="feature-card">
                     <div class="feature-icon">🛡️</div>
                     <h3>Production Ready</h3>
-                    <p>Graceful error handling. Privilege checking. Comprehensive logging and monitoring.</p>
+                    <p>Graceful error handling. Privilege checking. Comprehensive logging with structured JSON output. Grafana dashboard and Prometheus alerting.</p>
                 </div>
             </div>
         </div>
@@ -203,7 +207,7 @@
         <div class="container">
             <div class="section-header">
                 <h2>📊 Production Monitoring</h2>
-                <p>Built-in Grafana dashboard for comprehensive backup monitoring and alerting</p>
+                <p>Built-in Grafana dashboard and Prometheus alert rules for comprehensive backup monitoring</p>
             </div>
             <div class="monitoring-showcase">
                 <div class="dashboard-preview">
@@ -212,7 +216,7 @@
                         <div class="dashboard-overlay">
                             <div class="dashboard-info">
                                 <h3>Real-time Metrics</h3>
-                                <p>Monitor backup performance, success rates, and storage usage</p>
+                                <p>Monitor backup performance, success rates, and storage usage for both MySQL and PostgreSQL</p>
                             </div>
                         </div>
                     </div>
@@ -222,7 +226,7 @@
                         <div class="metric-card">
                             <div class="metric-icon">📈</div>
                             <h4>Backup Success Rate</h4>
-                            <p>Track backup success/failure rates with detailed error analysis</p>
+                            <p>Track backup success/failure rates with detailed error analysis per database engine</p>
                         </div>
                         <div class="metric-card">
                             <div class="metric-icon">⏱️</div>
@@ -237,7 +241,7 @@
                         <div class="metric-card">
                             <div class="metric-icon">🔔</div>
                             <h4>Smart Alerts</h4>
-                            <p>Proactive notifications for backup failures and anomalies</p>
+                            <p>9 Prometheus alert rules for backup failures, stale backups, and anomalies</p>
                         </div>
                     </div>
                     <div class="monitoring-actions">
@@ -245,9 +249,9 @@
                             <span>📊</span>
                             <span>Download Dashboard</span>
                         </a>
-                        <a href="https://github.com/abdullahainun/tenangdb/tree/main/grafana" class="btn btn-secondary" target="_blank">
-                            <span>📚</span>
-                            <span>Setup Guide</span>
+                        <a href="https://github.com/abdullahainun/tenangdb/blob/main/grafana/tenangdb-alerts.yml" class="btn btn-secondary" target="_blank">
+                            <span>🔔</span>
+                            <span>Alert Rules</span>
                         </a>
                     </div>
                 </div>
@@ -260,6 +264,7 @@
         <div class="container">
             <div class="section-header">
                 <h2>Quick Start</h2>
+                <p>Get TenangDB running in under a minute with Docker</p>
             </div>
             <div class="code-showcase">
                 <div class="code-content">
@@ -276,7 +281,7 @@
                         <span class="command">nano config.yaml</span>
                     </div>
                     <div class="code-line">
-                        <span class="comment"># 3. Setup permissions</span>
+                        <span class="comment"># 3. Create backups directory</span>
                     </div>
                     <div class="code-line">
                         <span class="command">mkdir -p backups && sudo chown $(id -u):$(id -g) backups</span>
@@ -294,7 +299,7 @@
                         <span class="command">  -v $(pwd)/backups:/backups \</span>
                     </div>
                     <div class="code-line">
-                        <span class="command">  ghcr.io/abdullahainun/tenangdb:latest backup</span>
+                        <span class="command">  ghcr.io/abdullahainun/tenangdb:latest backup --yes</span>
                     </div>
                 </div>
             </div>
@@ -307,7 +312,7 @@
             <div class="installation-content">
                 <div class="installation-text">
                     <h2>Production Deployment</h2>
-                    <p>Deploy TenangDB in production with automated scheduling, monitoring, and cloud integration. Perfect for mission-critical database backup workflows.</p>
+                    <p>Deploy TenangDB in production with automated cron scheduling, Prometheus monitoring, and cloud integration. Perfect for mission-critical backup workflows across MySQL and PostgreSQL.</p>
                     <div class="installation-features">
                         <div class="feature-highlight">
                             <span class="feature-icon">⏰</span>
@@ -319,7 +324,11 @@
                         </div>
                         <div class="feature-highlight">
                             <span class="feature-icon">📊</span>
-                            <span>Comprehensive logging</span>
+                            <span>Prometheus metrics + Grafana dashboard</span>
+                        </div>
+                        <div class="feature-highlight">
+                            <span class="feature-icon">🔔</span>
+                            <span>9 Prometheus alert rules included</span>
                         </div>
                         <div class="feature-highlight">
                             <span class="feature-icon">🔒</span>
@@ -338,7 +347,7 @@
                 <div class="installation-visual">
                     <div class="code-showcase">
                         <div class="code-header">
-                            <span>Production Cron Schedule</span>
+                            <span>Daily Cron Schedule</span>
                         </div>
                         <div class="code-content">
                             <div class="code-line">
@@ -360,7 +369,7 @@
                                 <span class="command">  -v /tmp/tenangdb:/tmp/tenangdb \</span>
                             </div>
                             <div class="code-line">
-                                <span class="command">  ghcr.io/abdullahainun/tenangdb:latest backup</span>
+                                <span class="command">  ghcr.io/abdullahainun/tenangdb:latest backup --yes</span>
                             </div>
                         </div>
                     </div>
@@ -368,7 +377,6 @@
             </div>
         </div>
     </section>
-
 
     <!-- Footer -->
     <footer class="footer">
@@ -388,7 +396,7 @@
             </div>
             <div class="footer-bottom">
                 <div class="footer-bottom-content">
-                    <p>&copy; 2025 TenangDB • MIT License</p>
+                    <p>&copy; 2026 TenangDB • MIT License</p>
                 </div>
             </div>
         </div>

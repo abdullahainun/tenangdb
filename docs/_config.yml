@@ -2,9 +2,9 @@
 
 # Site settings
 title: "TenangDB - Backup yang Bikin Tenang"
-description: "A comprehensive MySQL backup solution that lets you sleep peacefully knowing your databases are safe, automatically backed up, uploaded to cloud storage, and ready for instant restore."
-url: "https://abdullahainun.github.io"
-baseurl: "/tenangdb"
+description: "Automated MySQL & PostgreSQL backup solution with smart confirmations, cloud upload, and monitoring. Deploy in seconds with Docker."
+url: "https://tenangdb.ainun.cloud"
+baseurl: ""
 
 # Repository
 repository: "abdullahainun/tenangdb"
