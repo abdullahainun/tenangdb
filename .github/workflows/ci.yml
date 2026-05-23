@@ -217,8 +217,8 @@ jobs:
             - testdb
           directory: /backups
         logging:
-          level: debug
-          format: text
+          level: info
+          format: clean
         metrics:
           enabled: false
         cleanup:
@@ -226,9 +226,6 @@ jobs:
         EOF
         
         mkdir -p /tmp/backups
-
-        # Debug: check if pg_dump is available in the test image
-        docker run --rm --network host --entrypoint sh tenangdb:test -c "which pg_dump && pg_dump --version" 2>&1 || echo "pg_dump not found in image"
 
         # Create test data in PostgreSQL
         docker run --rm --network host \
