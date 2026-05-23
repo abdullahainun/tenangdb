@@ -143,7 +143,7 @@ jobs:
     needs: [test-matrix]
     services:
       postgres:
-        image: postgres:15
+        image: postgres:17
         env:
           POSTGRES_PASSWORD: testpass
           POSTGRES_USER: testuser
@@ -230,7 +230,7 @@ jobs:
         # Create test data in PostgreSQL
         docker run --rm --network host \
           -e PGPASSWORD=testpass \
-          postgres:15 \
+          postgres:17 \
           psql -h 127.0.0.1 -U testuser -d testdb -c "CREATE TABLE ping (id serial PRIMARY KEY, ts timestamptz DEFAULT now()); INSERT INTO ping DEFAULT VALUES;"
         
         # Run backup via tenangdb Docker image
@@ -254,7 +254,7 @@ jobs:
         # Create a fresh DB and restore
         docker run --rm --network host \
           -e PGPASSWORD=testpass \
-          postgres:15 \
+          postgres:17 \
           psql -h 127.0.0.1 -U testuser -d testdb -c "CREATE DATABASE restored_db;"
         
         docker run --rm --network host \
@@ -267,7 +267,7 @@ jobs:
         # Verify restore
         RESULT=$(docker run --rm --network host \
           -e PGPASSWORD=testpass \
-          postgres:15 \
+          postgres:17 \
           psql -h 127.0.0.1 -U testuser -d restored_db -A -t -c "SELECT COUNT(*) FROM ping;")
         if [ "$RESULT" != "1" ]; then
           echo "❌ Restore verification failed: expected 1 row, got $RESULT"
