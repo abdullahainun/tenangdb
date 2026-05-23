@@ -132,7 +132,7 @@ metrics:
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `enabled` | bool | `false` | Enable Prometheus metrics |
-| `port` | string | `8080` | Metrics HTTP port |
+| `port` | string | `8080` | Metrics HTTP port (interactive mode only; in Docker, use exporter `--port` flag) |
 | `storage_path` | string | platform-specific | Persistent metrics file path |
 
 ## Example: Full Config
