@@ -80,13 +80,73 @@ upload:
 
 ## Networking
 
-Connect to an external database (MySQL/PostgreSQL):
+### Database di Host yang Sama (Linux)
+
+Container secara default tidak bisa akses `localhost` host. Gunakan `host.docker.internal`:
+
+```yaml
+# config.yaml
+database:
+  host: host.docker.internal   # resolve ke IP host
+  port: 3306                   # 5432 untuk PostgreSQL
+```
 
 ```bash
-# Create network
-docker network create tenangdb-net
+# Butuh --add-host untuk Linux (Docker 20.10+)
+docker compose run --rm --add-host host.docker.internal:host-gateway tenangdb backup --yes
+```
 
-# Run backup on that network
+Atau pake `--network host` (lebih simple, container share network host):
+
+```yaml
+# config.yaml
+database:
+  host: 127.0.0.1
+```
+
+```bash
+docker compose run --rm --network host tenangdb backup --yes
+```
+
+> ⚠️ `--network host` tidak bisa bareng `--add-host` dan port mapping di compose.
+
+### Database di Container Lain (Docker Compose)
+
+Database dan TenangDB di service compose yang sama — cukup pake nama service:
+
+```yaml
+# docker-compose.yml
+services:
+  tenangdb:
+    image: ghcr.io/abdullahainun/tenangdb:latest
+    # ...
+
+  mysql:
+    image: mysql:8.0
+    # ...
+```
+
+```yaml
+# config.yaml
+database:
+  host: mysql    # nama service di compose
+  port: 3306
+```
+
+### Database di Server Remote
+
+Pake hostname/IP server langsung:
+
+```yaml
+# config.yaml
+database:
+  host: 192.168.1.100   # atau hostname seperti db.example.com
+  port: 3306
+```
+
+```bash
+# Kalo beda network, buat network dulu
+docker network create tenangdb-net
 docker compose run --rm --network tenangdb-net tenangdb backup --yes
 ```
 
