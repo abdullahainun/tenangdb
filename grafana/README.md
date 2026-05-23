@@ -76,5 +76,5 @@ The dashboard is fully customizable. You can:
 ## 📝 Support
 
 For issues with the dashboard:
-- Check the main [INSTALL.md](../INSTALL.md) for TenangDB setup
+- Check the main [DOCKER.md](../DOCKER.md) for TenangDB setup
 - Open an issue on [GitHub](https://github.com/abdullahainun/tenangdb/issues)
