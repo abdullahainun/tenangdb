@@ -5,11 +5,19 @@
 ### 1. User Privileges & Access Control
 
 **Database User Permissions:**
+
+MySQL:
 ```sql
 CREATE USER 'tenangdb_backup'@'localhost' IDENTIFIED BY 'strong_password_here';
 GRANT SELECT, LOCK TABLES, SHOW VIEW, EVENT, TRIGGER ON *.* TO 'tenangdb_backup'@'localhost';
 GRANT RELOAD, SUPER ON *.* TO 'tenangdb_backup'@'localhost';
 FLUSH PRIVILEGES;
+```
+
+PostgreSQL:
+```sql
+CREATE ROLE tenangdb_backup WITH LOGIN PASSWORD 'strong_password_here';
+GRANT pg_read_all_data TO tenangdb_backup;
 ```
 
 ### 2. File System Security
@@ -55,7 +63,7 @@ database:
   password: "${TENANGDB_DB_PASSWORD}"
 ```
 
-### MySQL Configuration Security
+### MySQL Client Config Security
 
 ```bash
 sudo chmod 640 /etc/tenangdb/.my.cnf
@@ -110,6 +118,7 @@ docker compose logs tenangdb
 ## Additional Resources
 
 - [MySQL Security Best Practices](https://dev.mysql.com/doc/refman/8.0/en/security-guidelines.html)
+- [PostgreSQL Security](https://www.postgresql.org/docs/current/security.html)
 - [Docker Security](https://docs.docker.com/engine/security/)
 
 ---

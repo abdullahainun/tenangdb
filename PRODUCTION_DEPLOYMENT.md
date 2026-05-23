@@ -82,7 +82,7 @@ See [grafana/README.md](grafana/README.md) for the Grafana dashboard.
 - Container runs as non-root (uid 1001)
 - Mount config as read-only (`:ro`)
 - Use environment variables or Docker secrets for passwords
-- Isolate MySQL on a dedicated Docker network
+- Isolate the database on a dedicated Docker network
 
 ## Kubernetes
 

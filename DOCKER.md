@@ -4,7 +4,7 @@
 
 ```bash
 mkdir tenangdb && cd tenangdb
-cp /path/to/config.yaml.example config.yaml   # edit with your MySQL credentials
+cp /path/to/config.yaml.example config.yaml   # edit with your database credentials
 docker compose pull                            # pull pre-built image
 ```
 
@@ -61,8 +61,8 @@ Edit `config.yaml` to set:
 
 ```yaml
 database:
-  host: mysql              # container name in compose network
-  port: 3306
+  host: mysql              # container name in compose network (or postgres)
+  port: 3306                # 5432 for PostgreSQL
   username: backup_user
   password: your_password
 
@@ -80,7 +80,7 @@ upload:
 
 ## Networking
 
-Connect to an external MySQL:
+Connect to an external database (MySQL/PostgreSQL):
 
 ```bash
 # Create network

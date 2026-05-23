@@ -40,7 +40,7 @@ tenangdb init --force
 | `--force` | Overwrite existing config without confirmation | `false` |
 
 ### What Init Does
-- ✅ **Dependency Check**: Validates mydumper, mysql, rclone availability
+- ✅ **Dependency Check**: Validates mydumper, mysql, postgresql-client (pg_dump/pg_restore), rclone availability
 - ✅ **Database Testing**: Tests connection with provided credentials  
 - ✅ **Smart Config**: Generates optimized config with privilege-aware paths
 - ✅ **Directory Setup**: Creates backup, log, and metrics directories with proper ownership
@@ -370,6 +370,8 @@ make test-deps
 # Manual dependency check
 mydumper --version
 myloader --version
+pg_dump --version
+pg_restore --version
 rclone version
 ```
 

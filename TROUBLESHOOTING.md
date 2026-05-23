@@ -26,7 +26,7 @@ netstat -tlnp | grep :8080        # Check what's using port 8080
 
 ### Docker Issues
 
-#### Container can't connect to MySQL
+#### Container can't connect to database
 ```bash
 # Make sure MySQL container is accessible on the same network
 docker network ls
@@ -52,6 +52,24 @@ FLUSH PRIVILEGES;
 ```yaml
 database:
   timeout: 30s
+```
+
+## PostgreSQL Setup Issues
+
+### Access denied errors
+```sql
+CREATE ROLE tenangdb WITH LOGIN PASSWORD 'secure_password';
+GRANT CONNECT ON DATABASE your_database TO tenangdb;
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO tenangdb;
+```
+
+### Connection timeouts
+```yaml
+database:
+  type: postgresql
+  host: 127.0.0.1
+  port: 5432
+  timeout: 30
 ```
 
 ## Cloud Upload Issues

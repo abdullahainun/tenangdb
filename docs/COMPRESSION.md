@@ -81,7 +81,7 @@ backup:
 ## 🔄 Backup & Restore Flow
 
 ### **Backup Process**
-1. **Mydumper backup** → `/backups/db-2025-01-10_10-30-15/`
+1. **Database backup** → `/backups/db-2025-01-10_10-30-15/`
 2. **Compression** → `/backups/db-2025-01-10_10-30-15.tar.gz`
 3. **Upload** → Cloud storage (compressed file)
 4. **Cleanup** → Remove original if `keep_original: false`
@@ -89,7 +89,7 @@ backup:
 ### **Restore Process**
 1. **Auto-detection** → Detects compressed backup
 2. **Decompression** → Temporary directory
-3. **Restore** → Myloader/MySQL restore
+3. **Restore** → Database restore via pg_restore / myloader / mysql
 4. **Cleanup** → Remove temporary decompressed files
 
 ## 💡 Best Practices
@@ -151,8 +151,8 @@ tenangdb restore --backup-path /backup/db-2025-01-10/ --database restored_db
 🗜️ Decompressing backup for restore
 ✅ Backup decompressed successfully
    Decompressed path: /tmp/restore-db-2025-01-10/
-🚀 Starting myloader restore
-✅ Myloader restore completed successfully
+🚀 Starting database restore
+✅ Database restore completed successfully
 🗑️ Cleaned up decompressed backup
 ```
 

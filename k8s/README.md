@@ -13,7 +13,7 @@ TenangDB deployment consists of:
 
 - Kubernetes cluster (1.20+)
 - `kubectl` configured to access your cluster
-- MySQL/MariaDB service accessible from cluster
+- MySQL/MariaDB/PostgreSQL service accessible from cluster
 - Local storage class or persistent storage available
 
 ## 🚀 Quick Start
@@ -34,10 +34,10 @@ Edit `configmap.yaml` to update your database settings:
 
 ```yaml
 database:
-  host: 192.168.1.100  # Your MySQL server IP/hostname
-  port: 3306
-  username: tenangdb    # Database user (hardcoded in config)
-  password: "secure_password"  # Database password (hardcoded in config)
+  host: 192.168.1.100  # Your database server IP/hostname
+  port: 3306            # 5432 for PostgreSQL
+  username: tenangdb
+  password: "secure_password"
 ```
 
 Then apply the updated config:
@@ -100,8 +100,8 @@ Update `configmap.yaml` with your database settings:
 
 ```yaml
 database:
-  host: your-mysql-server
-  port: 3306
+  host: your-database-server
+  port: 3306            # 5432 for PostgreSQL
   username: backup-user
   password: "your-password"
   timeout: 30
@@ -214,6 +214,7 @@ kubectl get jobs -n tenangdb --field-selector=status.failed=1
 
 Create a dedicated backup user with minimal permissions:
 
+MySQL:
 ```sql
 -- Create backup user
 CREATE USER 'tenangdb'@'%' IDENTIFIED BY 'secure_password';
@@ -227,6 +228,12 @@ GRANT SHOW VIEW ON *.* TO 'tenangdb'@'%';
 -- GRANT SELECT, LOCK TABLES ON database2.* TO 'tenangdb'@'%';
 
 FLUSH PRIVILEGES;
+```
+
+PostgreSQL:
+```sql
+CREATE ROLE tenangdb WITH LOGIN PASSWORD 'secure_password';
+GRANT pg_read_all_data TO tenangdb;
 ```
 
 ### Pod Security
@@ -271,6 +278,10 @@ kubectl delete -f fix-permissions-job.yaml
 2. **Database Connection Failed**
    ```bash
    # Test connectivity from cluster
+   kubectl run db-test --image=postgres:15 --rm -it --restart=Never -n tenangdb -- \
+     psql -h 192.168.43.117 -U tenangdb -d postgres
+
+   # Or for MySQL:
    kubectl run mysql-test --image=mysql:8.0 --rm -it --restart=Never -n tenangdb -- \
      mysql -h 192.168.43.117 -u tenangdb -p
    ```
@@ -315,6 +326,7 @@ To increase storage capacity:
 - [Kubernetes CronJob Documentation](https://kubernetes.io/docs/concepts/workloads/controllers/cron-jobs/)
 - [Kubernetes Persistent Volumes](https://kubernetes.io/docs/concepts/storage/persistent-volumes/)
 - [mydumper Documentation](https://mydumper.readthedocs.io/)
+- [PostgreSQL Documentation](https://www.postgresql.org/docs/current/)
 
 ## 🚀 Production Considerations
 
