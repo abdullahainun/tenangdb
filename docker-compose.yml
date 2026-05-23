@@ -33,7 +33,8 @@ services:
     environment:
       - TZ=Asia/Jakarta
       
-# Uncomment the following section to include a MySQL database for testing
+# Uncomment the following sections to include databases for testing:
+
 #   mysql:
 #     image: mysql:8.0
 #     container_name: tenangdb-mysql
@@ -48,5 +49,19 @@ services:
 #     ports:
 #       - "3306:3306"
 
+#   postgres:
+#     image: postgres:15
+#     container_name: tenangdb-postgres
+#     restart: unless-stopped
+#     environment:
+#       POSTGRES_PASSWORD: testpass
+#       POSTGRES_USER: testuser
+#       POSTGRES_DB: testdb
+#     volumes:
+#       - postgres_data:/var/lib/postgresql/data
+#     ports:
+#       - "5432:5432"
+
 # volumes:
 #   mysql_data:
+#   postgres_data:
