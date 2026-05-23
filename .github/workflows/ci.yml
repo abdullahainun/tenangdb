@@ -207,7 +207,7 @@ jobs:
         cat > /tmp/pg-config.yaml << EOF
         database:
           type: postgresql
-          host: localhost
+          host: 127.0.0.1
           port: 5432
           username: testuser
           password: testpass
@@ -228,8 +228,10 @@ jobs:
         mkdir -p /tmp/backups
         
         # Create test data in PostgreSQL
-        docker run --rm --network host postgres:15 \
-          psql -h localhost -U testuser -d testdb -c "CREATE TABLE ping (id serial PRIMARY KEY, ts timestamptz DEFAULT now()); INSERT INTO ping DEFAULT VALUES;"
+        docker run --rm --network host \
+          -e PGPASSWORD=testpass \
+          postgres:15 \
+          psql -h 127.0.0.1 -U testuser -d testdb -c "CREATE TABLE ping (id serial PRIMARY KEY, ts timestamptz DEFAULT now()); INSERT INTO ping DEFAULT VALUES;"
         
         # Run backup via tenangdb Docker image
         docker run --rm --network host \
@@ -246,19 +248,27 @@ jobs:
         fi
         echo "✅ PostgreSQL backup created: $BACKUP_FILE"
         
+        # Get relative path from /tmp/backups mount point
+        BACKUP_REL="${BACKUP_FILE#/tmp/backups/}"
+        
         # Create a fresh DB and restore
-        docker run --rm --network host postgres:15 \
-          psql -h localhost -U testuser -c "CREATE DATABASE restored_db;"
+        docker run --rm --network host \
+          -e PGPASSWORD=testpass \
+          postgres:15 \
+          psql -h 127.0.0.1 -U testuser -c "CREATE DATABASE restored_db;"
         
         docker run --rm --network host \
           -v /tmp/backups:/backups:ro \
+          -e PGPASSWORD=testpass \
           --entrypoint sh \
           tenangdb:test \
-          -c "PGPASSWORD=testpass pg_restore -h localhost -U testuser -d restored_db --clean --if-exists /backups/$(basename $BACKUP_FILE)"
+          -c "pg_restore -h 127.0.0.1 -U testuser -d restored_db --clean --if-exists /backups/$BACKUP_REL"
         
         # Verify restore
-        RESULT=$(docker run --rm --network host postgres:15 \
-          psql -h localhost -U testuser -d restored_db -A -t -c "SELECT COUNT(*) FROM ping;")
+        RESULT=$(docker run --rm --network host \
+          -e PGPASSWORD=testpass \
+          postgres:15 \
+          psql -h 127.0.0.1 -U testuser -d restored_db -A -t -c "SELECT COUNT(*) FROM ping;")
         if [ "$RESULT" != "1" ]; then
           echo "❌ Restore verification failed: expected 1 row, got $RESULT"
           exit 1

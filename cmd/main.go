@@ -1615,13 +1615,13 @@ func setupBackupConfig(dbConfig config.DatabaseConfig) config.BackupConfig {
 		fmt.Printf("❌ Could not connect to database: %v\n", err)
 		fmt.Printf("You'll need to manually specify databases.\n")
 	}
-	
+
 	var availableDatabases []string
-	if dbClient != nil {
+	if err == nil {
 		defer dbClient.Close()
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
-		
+
 		if dbs, err := dbClient.ListDatabases(ctx); err == nil {
 			availableDatabases = dbs
 		}
