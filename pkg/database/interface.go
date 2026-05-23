@@ -11,3 +11,4 @@ type DatabaseClient interface {
 }
 
 var _ DatabaseClient = (*MySQLClient)(nil)
+var _ DatabaseClient = (*PostgreSQLClient)(nil)
