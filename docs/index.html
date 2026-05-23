@@ -38,7 +38,7 @@
                 <div class="terminal-dots">
                     <span></span><span></span><span></span>
                 </div>
-                <pre><span class="tp">$</span> curl -L https://go.ainun.cloud/tenangdb-config.yaml.example -o config.yaml
+                <pre><span class="tp">$</span> curl -L https://raw.githubusercontent.com/abdullahainun/tenangdb/main/config.yaml.example -o config.yaml
 <span class="cm">  # edit config.yaml with your database credentials</span>
 <span class="tp">$</span> docker run --rm -v $(pwd)/config.yaml:/config.yaml ghcr.io/abdullahainun/tenangdb backup --yes</pre>
             </div>
