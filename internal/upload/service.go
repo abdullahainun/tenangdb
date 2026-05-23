@@ -152,6 +152,9 @@ func (s *Service) uploadSingleFile(ctx context.Context, filePath string) error {
 		"--checksum",
 	}
 
+	// Add any extra rclone flags from config
+	args = append(args, s.config.ExtraFlags...)
+
 	// Add config path if specified
 	if s.config.RcloneConfigPath != "" {
 		args = append(args, "--config", s.config.RcloneConfigPath)
@@ -198,6 +201,9 @@ func (s *Service) uploadDirectoryStructure(ctx context.Context, dirPath string) 
 		"--checksum",
 	}
 
+	// Add any extra rclone flags from config
+	args = append(args, s.config.ExtraFlags...)
+
 	// Add config path if specified
 	if s.config.RcloneConfigPath != "" {
 		args = append(args, "--config", s.config.RcloneConfigPath)
@@ -231,6 +237,9 @@ func (s *Service) CleanupRemote(ctx context.Context, retentionDays int) error {
 		s.config.Destination,
 		"--min-age", fmt.Sprintf("%dd", retentionDays),
 	}
+
+	// Add any extra rclone flags from config
+	args = append(args, s.config.ExtraFlags...)
 
 	// Add config path if specified
 	if s.config.RcloneConfigPath != "" {

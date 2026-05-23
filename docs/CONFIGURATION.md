@@ -108,6 +108,7 @@ metrics:
 | `destination` | string | — | Remote destination (e.g. `remote:path`) |
 | `timeout` | int | `300` | Upload timeout in seconds |
 | `retry_count` | int | `3` | Failed upload retry count |
+| `extra_flags` | []string | `[]` | Extra rclone flags (e.g. `["--gcs-bucket-policy-only"]` for GCS uniform access) |
 
 ### logging
 

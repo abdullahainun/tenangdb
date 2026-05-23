@@ -84,12 +84,13 @@ type MyloaderConfig struct {
 }
 
 type UploadConfig struct {
-	Enabled          bool   `mapstructure:"enabled"`
-	RclonePath       string `mapstructure:"rclone_path"`
-	RcloneConfigPath string `mapstructure:"rclone_config_path"`
-	Destination      string `mapstructure:"destination"`
-	Timeout          int    `mapstructure:"timeout"`
-	RetryCount       int    `mapstructure:"retry_count"`
+	Enabled          bool     `mapstructure:"enabled"`
+	RclonePath       string   `mapstructure:"rclone_path"`
+	RcloneConfigPath string   `mapstructure:"rclone_config_path"`
+	Destination      string   `mapstructure:"destination"`
+	Timeout          int      `mapstructure:"timeout"`
+	RetryCount       int      `mapstructure:"retry_count"`
+	ExtraFlags       []string `mapstructure:"extra_flags"`
 }
 
 type LoggingConfig struct {

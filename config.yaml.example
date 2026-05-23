@@ -34,6 +34,7 @@ backup:
 upload:
   enabled: false
   destination: "remote:backup-folder"
+  # extra_flags: ["--gcs-bucket-policy-only"]  # For GCS uniform buckets
 
 logging:
   level: info
