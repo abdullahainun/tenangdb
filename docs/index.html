@@ -4,90 +4,101 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TenangDB — Backup yang Bikin Tenang</title>
-    <meta name="description" content="MySQL & PostgreSQL backup automation. Docker-ready, cloud upload, metrics exporter.">
+    <meta name="description" content="MySQL & PostgreSQL backup automation. Deploy in seconds, upload anywhere.">
     <meta name="keywords" content="mysql backup, postgresql backup, database backup, cloud backup">
 
     <meta property="og:title" content="TenangDB — MySQL & PostgreSQL Backup">
-    <meta property="og:description" content="Automated backup for MySQL and PostgreSQL. Deploy in seconds with Docker.">
+    <meta property="og:description" content="Set it once. Never worry again.">
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://tenangdb.ainun.dev/">
 
     <link rel="icon" type="image/svg+xml" href="assets/images/favicon.svg">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz@14..32&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="assets/css/style.css">
 </head>
 <body>
-    <header class="topbar">
-        <div class="inner">
-            <span class="mark">TenangDB</span>
-            <nav>
+    <header>
+        <nav>
+            <a href="/" class="wordmark">TenangDB</a>
+            <div class="nav-end">
                 <a href="https://github.com/abdullahainun/tenangdb">GitHub</a>
-                <a href="https://github.com/abdullahainun/tenangdb/releases">Release</a>
-            </nav>
-        </div>
+                <a href="https://github.com/abdullahainun/tenangdb/releases">Releases</a>
+            </div>
+        </nav>
     </header>
 
     <main>
-        <section class="intro">
-            <h1>Backup yang&nbsp;Bikin&nbsp;Tenang</h1>
-            <p class="sub">MySQL &amp; PostgreSQL backup automation — run it, forget it.</p>
-            <div class="code">
-                <pre>cp config.yaml.example config.yaml      # edit credentials
-docker compose run --rm tenangdb backup --yes</pre>
+        <section class="bleed">
+            <h1>Backup yang Bikin Tenang</h1>
+            <p class="lede">MySQL & PostgreSQL backup automation. Set it once, never worry again.</p>
+            <div class="terminal">
+                <span class="prompt">$</span>
+                <span class="cmd">docker compose run --rm tenangdb backup --yes</span>
+            </div>
+            <div class="badges">
+                <span>v1.3.1</span>
+                <span>MIT License</span>
+                <span>Docker Ready</span>
             </div>
         </section>
 
-        <section class="sect" id="features">
-            <h2>What it does</h2>
-            <ul class="list">
-                <li><strong>Interactive setup</strong> — <code>docker compose run --rm tenangdb init</code></li>
-                <li><strong>Metrics exporter</strong> — Prometheus endpoint at <code>:9090</code></li>
-                <li><strong>Cloud upload</strong> — S3, GCS, Azure via rclone (40+ providers)</li>
-                <li><strong>Compression</strong> — tar.gz, tar.zst, tar.xz</li>
-                <li><strong>Scheduling</strong> — cron or systemd timer on the host</li>
-            </ul>
-        </section>
-
-        <section class="sect" id="docs">
-            <h2>Docs</h2>
-            <div class="table-wrap">
-                <table>
-                    <thead>
-                        <tr><td>Guide</td><td>Description</td></tr>
-                    </thead>
-                    <tbody>
-                        <tr><td><a href="https://github.com/abdullahainun/tenangdb/blob/main/DOCKER.md">Docker</a></td><td>Setup, networking, volumes</td></tr>
-                        <tr><td><a href="https://github.com/abdullahainun/tenangdb/blob/main/PRODUCTION_DEPLOYMENT.md">Production</a></td><td>Scheduling, security, monitoring</td></tr>
-                        <tr><td><a href="https://github.com/abdullahainun/tenangdb/blob/main/docs/COMMANDS.md">Commands</a></td><td>CLI reference</td></tr>
-                        <tr><td><a href="https://github.com/abdullahainun/tenangdb/blob/main/config.yaml.example">Configuration</a></td><td>Quick config example</td></tr>
-                        <tr><td><a href="https://github.com/abdullahainun/tenangdb/blob/main/docs/CONFIGURATION.md">Full Reference</a></td><td>All config options</td></tr>
-                        <tr><td><a href="https://github.com/abdullahainun/tenangdb/blob/main/docs/DATABASE_USER_SETUP.md">Database User Setup</a></td><td>Create MySQL/PostgreSQL users</td></tr>
-                    </tbody>
-                </table>
+        <section class="narrow">
+            <h2>Capabilities</h2>
+            <div class="cols">
+                <div class="col">
+                    <h3>Interactive Setup</h3>
+                    <p><code>docker compose run --rm tenangdb init</code> walks you through the config. No YAML guessing.</p>
+                </div>
+                <div class="col">
+                    <h3>Metrics &amp; Monitoring</h3>
+                    <p>Prometheus endpoint at <code>:9090</code>. Grafana dashboard and 9 alert rules included.</p>
+                </div>
+                <div class="col">
+                    <h3>Cloud Upload</h3>
+                    <p>S3, GCS, Azure, and 40+ providers via rclone. Custom flags supported.</p>
+                </div>
+                <div class="col">
+                    <h3>Compression</h3>
+                    <p>tar.gz, tar.zst, tar.xz. PostgreSQL custom format includes compression.</p>
+                </div>
+                <div class="col">
+                    <h3>Scheduling</h3>
+                    <p>cron or systemd timer. Simple, reliable, no extra infra.</p>
+                </div>
             </div>
         </section>
 
-        <section class="sect" id="compat">
+        <section class="narrow">
+            <h2>Documentation</h2>
+            <table>
+                <thead>
+                    <tr><th>Guide</th><th>Description</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td><a href="https://github.com/abdullahainun/tenangdb/blob/main/DOCKER.md">Docker</a></td><td>Setup, networking, volumes</td></tr>
+                    <tr><td><a href="https://github.com/abdullahainun/tenangdb/blob/main/PRODUCTION_DEPLOYMENT.md">Production</a></td><td>Scheduling, security, monitoring</td></tr>
+                    <tr><td><a href="https://github.com/abdullahainun/tenangdb/blob/main/docs/COMMANDS.md">Commands</a></td><td>CLI reference</td></tr>
+                    <tr><td><a href="https://github.com/abdullahainun/tenangdb/blob/main/config.yaml.example">Configuration</a></td><td>Quick config example</td></tr>
+                    <tr><td><a href="https://github.com/abdullahainun/tenangdb/blob/main/docs/CONFIGURATION.md">Full Reference</a></td><td>All config options</td></tr>
+                    <tr><td><a href="https://github.com/abdullahainun/tenangdb/blob/main/docs/DATABASE_USER_SETUP.md">Database User Setup</a></td><td>Create MySQL/PostgreSQL users</td></tr>
+                </tbody>
+            </table>
+        </section>
+
+        <section class="narrow">
             <h2>Compatibility</h2>
-            <div class="table-wrap">
-                <table>
-                    <tbody>
-                        <tr><td>Platform</td><td>Linux, macOS (dev), Docker (prod)</td></tr>
-                        <tr><td>MySQL</td><td>5.7+, 8.0+, MariaDB 10.3+</td></tr>
-                        <tr><td>PostgreSQL</td><td>12+ (pg_dump &ge; server version)</td></tr>
-                        <tr><td>Cloud</td><td>40+ providers via rclone</td></tr>
-                    </tbody>
-                </table>
-            </div>
+            <table>
+                <tbody>
+                    <tr><th>Platform</th><td>Linux, macOS (dev), Docker (prod)</td></tr>
+                    <tr><th>MySQL</th><td>5.7+, 8.0+, MariaDB 10.3+</td></tr>
+                    <tr><th>PostgreSQL</th><td>12+ (pg_dump &ge; server version)</td></tr>
+                    <tr><th>Cloud</th><td>40+ providers via rclone</td></tr>
+                </tbody>
+            </table>
         </section>
     </main>
 
-    <footer class="footer">
-        <div class="inner">
-            <p>&copy; 2026 TenangDB &middot; MIT License &middot; by <a href="https://github.com/abdullahainun">@abdullahainun</a></p>
-        </div>
+    <footer>
+        <p>&copy; 2026 TenangDB &middot; MIT License &middot; <a href="https://github.com/abdullahainun">@abdullahainun</a></p>
     </footer>
 </body>
 </html>

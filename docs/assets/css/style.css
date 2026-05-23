@@ -4,237 +4,277 @@
     box-sizing: border-box;
 }
 
+::selection {
+    background: #c4803a44;
+}
+
 body {
-    font-family: "Inter", -apple-system, system-ui, sans-serif;
-    font-optical-sizing: auto;
-    background: #f7f5f0;
-    color: #1a1814;
-    line-height: 1.65;
-    padding: 2rem 1.5rem 4rem;
-    min-height: 100vh;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    background: #f6f3ed;
+    color: #201b14;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+}
+
+/* Layout */
+
+header {
+    padding: 1.5rem 2rem 0;
+    max-width: 720px;
+    margin: 0 auto;
+}
+
+nav {
     display: flex;
-    flex-direction: column;
+    justify-content: space-between;
+    align-items: center;
+}
+
+nav a {
+    text-decoration: none;
+    color: #201b14;
+    font-size: 0.925rem;
+}
+
+nav a:hover {
+    color: #c4803a;
+}
+
+.wordmark {
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    font-size: 1.05rem;
+}
+
+.nav-end {
+    display: flex;
+    gap: 1.5rem;
+}
+
+main {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 0 2rem;
+}
+
+/* Bleed */
+
+.bleed {
+    background: #c4803a;
+    color: #fcf7ef;
+    margin: 2rem -999rem 3rem;
+    padding: 4.5rem 999rem 4rem;
+    border-radius: 0;
+}
+
+.bleed h1 {
+    font-size: 2.8rem;
+    font-weight: 650;
+    line-height: 1.1;
+    letter-spacing: -0.03em;
+    margin-bottom: 0.75rem;
+    color: #fcf7ef;
+}
+
+.lede {
+    font-size: 1.2rem;
+    color: rgba(252, 247, 239, 0.85);
+    margin-bottom: 2rem;
+    line-height: 1.5;
+    max-width: 32em;
+}
+
+.terminal {
+    background: rgba(0, 0, 0, 0.25);
+    border-radius: 10px;
+    padding: 1rem 1.25rem;
+    font-family: "SF Mono", "Cascadia Code", "Fira Code", ui-monospace, monospace;
+    font-size: 0.85rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    overflow-x: auto;
+    white-space: nowrap;
+    margin-bottom: 1.5rem;
+    backdrop-filter: blur(4px);
+}
+
+.prompt {
+    color: rgba(252, 247, 239, 0.5);
+    user-select: none;
+}
+
+.cmd {
+    color: #fcf7ef;
+}
+
+.badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.badges span {
+    font-size: 0.8rem;
+    padding: 0.25rem 0.7rem;
+    border-radius: 5px;
+    background: rgba(0, 0, 0, 0.15);
+    color: rgba(252, 247, 239, 0.85);
+    font-weight: 500;
+}
+
+/* Sections */
+
+.narrow {
+    margin-bottom: 3.5rem;
+}
+
+h2 {
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #8a7654;
+    margin-bottom: 1.25rem;
+}
+
+h3 {
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 0.35rem;
+    color: #201b14;
+}
+
+p {
+    font-size: 0.925rem;
+    color: #4a3f30;
+    line-height: 1.6;
+}
+
+p code {
+    font-family: "SF Mono", "Cascadia Code", "Fira Code", ui-monospace, monospace;
+    font-size: 0.82em;
+    background: #e8dfd0;
+    padding: 0.1em 0.4em;
+    border-radius: 4px;
+    color: #201b14;
+}
+
+/* Capabilities grid */
+
+.cols {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.75rem;
+}
+
+.col p {
+    font-size: 0.875rem;
+}
+
+/* Table */
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.925rem;
+}
+
+thead th {
+    font-weight: 600;
+    text-align: left;
+    padding: 0.5rem 0.75rem 0.5rem 0;
+    color: #8a7654;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    border-bottom: 1px solid #e0d6c4;
+}
+
+tbody th {
+    font-weight: 500;
+    text-align: left;
+    padding: 0.6rem 0.75rem 0.6rem 0;
+    color: #201b14;
+    white-space: nowrap;
+    vertical-align: top;
+}
+
+tbody td {
+    padding: 0.6rem 0;
+    color: #4a3f30;
+    vertical-align: top;
+}
+
+tbody tr:not(:last-child) th,
+tbody tr:not(:last-child) td {
+    border-bottom: 1px solid #ece4d8;
 }
 
 a {
-    color: #c7512b;
+    color: #c4803a;
     text-decoration: underline;
     text-underline-offset: 2px;
     text-decoration-thickness: 1px;
 }
 
 a:hover {
-    color: #1a1814;
+    color: #8a5c25;
 }
 
-.inner {
-    max-width: 640px;
+/* Footer */
+
+footer {
+    max-width: 720px;
     margin: 0 auto;
-    width: 100%;
+    padding: 2rem 2rem 3rem;
 }
 
-/* top bar */
-
-.topbar {
-    margin-bottom: 4rem;
+footer p {
+    font-size: 0.825rem;
+    color: #8a7654;
 }
 
-.topbar .inner {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+footer a {
+    color: #8a7654;
 }
 
-.mark {
-    font-weight: 600;
-    font-size: 0.95rem;
-    color: #1a1814;
-    letter-spacing: -0.01em;
-}
-
-.topbar nav {
-    display: flex;
-    gap: 1.25rem;
-}
-
-.topbar nav a {
-    font-size: 0.9rem;
-    color: #6b5f54;
-    text-decoration: none;
-}
-
-.topbar nav a:hover {
-    color: #1a1814;
-}
-
-/* intro */
-
-.intro {
-    margin-bottom: 3.5rem;
-}
-
-h1 {
-    font-size: 2.8rem;
-    font-weight: 650;
-    line-height: 1.15;
-    letter-spacing: -0.03em;
-    margin-bottom: 0.75rem;
-    color: #1a1814;
-}
-
-.sub {
-    font-size: 1.15rem;
-    color: #6b5f54;
-    margin-bottom: 1.75rem;
-    line-height: 1.5;
-}
-
-/* code block */
-
-.code {
-    background: #f0ece6;
-    border-radius: 10px;
-    padding: 1.1rem 1.3rem;
-    border: 1px solid #e2dbd1;
-    font-size: 0.85rem;
-    line-height: 1.65;
-    overflow-x: auto;
-}
-
-.code pre {
-    font-family: "SF Mono", "Cascadia Code", "Fira Code", "JetBrains Mono", ui-monospace, monospace;
-    color: #2a2520;
-    white-space: pre;
-}
-
-/* sections */
-
-.sect {
-    margin-bottom: 2.75rem;
-}
-
-h2 {
-    font-size: 1.05rem;
-    font-weight: 600;
-    color: #1a1814;
-    margin-bottom: 0.75rem;
-    letter-spacing: -0.01em;
-}
-
-/* list */
-
-.list {
-    list-style: none;
-    padding: 0;
-}
-
-.list li {
-    position: relative;
-    padding: 0.45rem 0 0.45rem 1.4rem;
-    color: #3d352e;
-    font-size: 0.95rem;
-    line-height: 1.55;
-}
-
-.list li::before {
-    content: "—";
-    position: absolute;
-    left: 0;
-    color: #c7512b;
-}
-
-.list li code {
-    font-family: "SF Mono", "Cascadia Code", "Fira Code", "JetBrains Mono", ui-monospace, monospace;
-    font-size: 0.84em;
-    background: #f0ece6;
-    padding: 0.1em 0.4em;
-    border-radius: 4px;
-    color: #2a2520;
-}
-
-/* table */
-
-.table-wrap {
-    overflow-x: auto;
-    border-radius: 10px;
-    border: 1px solid #e2dbd1;
-    background: #fcfbf9;
-}
-
-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.9rem;
-}
-
-thead tr td {
-    font-weight: 600;
-    color: #1a1814;
-    border-bottom: 1px solid #e2dbd1;
-}
-
-td {
-    padding: 0.7rem 1rem;
-    color: #3d352e;
-    vertical-align: top;
-    line-height: 1.5;
-}
-
-tbody tr:not(:last-child) td {
-    border-bottom: 1px solid #ece7df;
-}
-
-td:first-child {
-    white-space: nowrap;
-    font-weight: 500;
-    color: #1a1814;
-    padding-right: 1.5rem;
-}
-
-/* footer */
-
-.footer {
-    margin-top: auto;
-    padding-top: 2rem;
-}
-
-.footer p {
-    font-size: 0.85rem;
-    color: #8a7f75;
-}
-
-/* responsive */
+/* Responsive */
 
 @media (max-width: 520px) {
-    body {
-        padding: 1.5rem 1rem 3rem;
+    header {
+        padding: 1rem 1.25rem 0;
     }
-
-    h1 {
+    main {
+        padding: 0 1.25rem;
+    }
+    .bleed {
+        margin: 1.5rem -999rem 2.5rem;
+        padding: 3rem 999rem 2.5rem;
+    }
+    .bleed h1 {
         font-size: 2rem;
     }
-
-    .sub {
+    .lede {
         font-size: 1rem;
     }
-
-    .topbar {
-        margin-bottom: 2.5rem;
+    .terminal {
+        font-size: 0.78rem;
+        padding: 0.75rem 1rem;
     }
-
-    td:first-child {
-        white-space: normal;
+    .cols {
+        grid-template-columns: 1fr;
+        gap: 1.25rem;
+    }
+    footer {
+        padding: 1.5rem 1.25rem 2.5rem;
     }
 }
 
-/* print */
-
 @media print {
-    body {
-        background: white;
-        padding: 0;
-    }
-    .topbar nav {
-        display: none;
-    }
+    body { background: white; }
+    .bleed { background: white !important; color: #201b14 !important; }
+    .bleed h1 { color: #201b14 !important; }
+    .terminal { background: #f0ece4; }
+    .cmd { color: #201b14; }
 }
