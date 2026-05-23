@@ -97,6 +97,65 @@ h1 {
     margin-bottom: 0.6rem;
 }
 
+/* prerequisites */
+
+.prereq {
+    background: #f8f6f2;
+    border: 1px solid #eee;
+    border-radius: 10px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 1.25rem;
+    font-size: 0.875rem;
+}
+
+.prereq-title {
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #8a8a8a;
+    margin-bottom: 0.6rem;
+}
+
+.prereq-item {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.2rem 0;
+    font-family: "SF Mono", "Cascadia Code", "Fira Code", ui-monospace, monospace;
+    font-size: 0.85rem;
+}
+
+.prereq-icon {
+    color: #b0b0b0;
+    user-select: none;
+    width: 1.2rem;
+}
+
+.prereq-item code {
+    font-family: inherit;
+    font-size: inherit;
+    background: #eee;
+    padding: 0.05em 0.3em;
+    border-radius: 4px;
+    color: #1a1a1a;
+}
+
+.prereq-item a {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    font-size: 0.85rem;
+}
+
+.prereq-note {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    color: #8a8a8a;
+    font-size: 0.82rem;
+}
+
+.prereq-note a {
+    font-size: inherit;
+}
+
 /* terminal box */
 
 .terminal-box {
