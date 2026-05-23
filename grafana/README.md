@@ -27,6 +27,32 @@ curl -X POST \
 - ✅ Prometheus data source configured
 - ✅ TenangDB metrics endpoint enabled (`http://localhost:8080/metrics`)
 
+## 🚨 Alert Rules
+
+Alert rules for Prometheus are available in [`tenangdb-alerts.yml`](tenangdb-alerts.yml):
+
+| Alert | Severity | Trigger |
+|-------|----------|---------|
+| `TenangDBBackupFailed` | critical | Backup failure detected |
+| `TenangDBBackupStale` | warning | No backup in >26 hours |
+| `TenangDBBackupSizeDropped` | warning | Backup size <50% of 7-day avg |
+| `TenangDBUploadFailed` | high | Upload failure detected |
+| `TenangDBRestoreFailed` | critical | Restore failure detected |
+| `TenangDBCleanupFailed` | high | Cleanup failure detected |
+| `TenangDBSystemUnhealthy` | critical | Health check failed |
+| `TenangDBProcessStuck` | high | Backup active >30 minutes |
+| `TenangDBNoBackupData` | high | Metrics not reported |
+
+**Usage:**
+```bash
+# Copy to your Prometheus rules directory
+cp tenangdb-alerts.yml /etc/prometheus/rules/
+
+# Add to prometheus.yml:
+rule_files:
+  - "rules/tenangdb-alerts.yml"
+```
+
 ## ⚙️ Prometheus Configuration
 
 Add this to your `prometheus.yml`:

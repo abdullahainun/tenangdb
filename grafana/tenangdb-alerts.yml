@@ -1,0 +1,113 @@
+groups:
+  - name: tenangdb
+    interval: 1m
+    rules:
+      - alert: TenangDBBackupFailed
+        expr: |
+          increase(tenangdb_backup_failed_total[5m]) > 0
+        for: 0m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Backup failed for database {{ $labels.database }}"
+          description: >
+            Backup for database {{ $labels.database }} has failed.
+            Total failures: {{ $value | humanize }} in the last 5 minutes.
+
+      - alert: TenangDBBackupStale
+        expr: |
+          time() - max(tenangdb_backup_last_timestamp) > 93600
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "No recent backup for database {{ $labels.database }}"
+          description: >
+            Last backup for {{ $labels.database }} was more than 26 hours ago
+            ({{ $value | humanizeDuration }}). Expected daily backups.
+
+      - alert: TenangDBBackupSizeDropped
+        expr: |
+          tenangdb_backup_size_bytes <
+          (avg_over_time(tenangdb_backup_size_bytes[7d]) * 0.5)
+          and tenangdb_backup_size_bytes > 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Backup size dropped significantly for {{ $labels.database }}"
+          description: >
+            Backup size for {{ $labels.database }} is {{ $value | humanize1024 }}B,
+            less than 50% of the 7-day average. Possible data integrity issue.
+
+      - alert: TenangDBUploadFailed
+        expr: |
+          increase(tenangdb_upload_failed_total[5m]) > 0
+        for: 0m
+        labels:
+          severity: high
+        annotations:
+          summary: "Upload failed for database {{ $labels.database }}"
+          description: >
+            Cloud upload for {{ $labels.database }} backup has failed.
+            Total failures: {{ $value | humanize }} in the last 5 minutes.
+
+      - alert: TenangDBRestoreFailed
+        expr: |
+          increase(tenangdb_restore_failed_total[5m]) > 0
+        for: 0m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Restore operation failed for database {{ $labels.database }}"
+          description: >
+            Restore for database {{ $labels.database }} has failed.
+            Total failures: {{ $value | humanize }} in the last 5 minutes.
+
+      - alert: TenangDBCleanupFailed
+        expr: |
+          increase(tenangdb_cleanup_failed_total[5m]) > 0
+        for: 0m
+        labels:
+          severity: high
+        annotations:
+          summary: "Cleanup operation failed"
+          description: >
+            Cleanup operation has failed.
+            Total failures: {{ $value | humanize }} in the last 5 minutes.
+
+      - alert: TenangDBSystemUnhealthy
+        expr: |
+          tenangdb_system_health == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "TenangDB system is unhealthy"
+          description: >
+            TenangDB system health check failed. The backup process may not
+            function correctly. Check the logs and metrics endpoint.
+
+      - alert: TenangDBProcessStuck
+        expr: |
+          tenangdb_backup_process_active == 1
+        for: 30m
+        labels:
+          severity: high
+        annotations:
+          summary: "Backup process appears stuck"
+          description: >
+            Backup process has been active for more than 30 minutes.
+            This may indicate a hung or stalled backup operation.
+
+      - alert: TenangDBNoBackupData
+        expr: |
+          absent(tenangdb_backup_last_timestamp) == 1
+        for: 5m
+        labels:
+          severity: high
+        annotations:
+          summary: "No backup metrics data available"
+          description: >
+            TenangDB backup metrics are not being reported. The exporter
+            may be down or not yet configured.
