@@ -102,16 +102,21 @@ h1 {
 .terminal-box {
     background: #1a1a2e;
     border-radius: 10px;
-    padding: 0.85rem 1.25rem;
     margin-bottom: 1.25rem;
     box-shadow: 0 2px 12px rgba(0,0,0,0.08);
-    overflow-x: auto;
+    overflow: hidden;
+}
+
+.terminal-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.7rem 1rem 0.5rem;
 }
 
 .terminal-dots {
     display: flex;
     gap: 6px;
-    margin-bottom: 0.6rem;
 }
 
 .terminal-dots span {
@@ -129,7 +134,9 @@ h1 {
     font-size: 0.85rem;
     color: #e8e8e8;
     margin: 0;
+    padding: 0 1.25rem 1rem;
     white-space: pre;
+    overflow-x: auto;
 }
 
 .tp {
@@ -142,6 +149,30 @@ h1 {
     color: #6b6b8a;
     font-style: italic;
     user-select: none;
+}
+
+/* copy button */
+
+.cpy {
+    background: none;
+    border: 1px solid #3a3a5a;
+    color: #8a8aaa;
+    font-size: 0.72rem;
+    font-family: inherit;
+    padding: 0.2rem 0.6rem;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.cpy:hover {
+    background: #2a2a4a;
+    color: #ddd;
+}
+
+.cpy-ok {
+    border-color: #27ca3f;
+    color: #27ca3f;
 }
 
 /* badges */

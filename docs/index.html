@@ -35,8 +35,11 @@
             <p class="lede">MySQL &amp; PostgreSQL backup automation. Set it once, run it forever.</p>
             <p class="step-hint">Get started in three commands:</p>
             <div class="terminal-box">
-                <div class="terminal-dots">
-                    <span></span><span></span><span></span>
+                <div class="terminal-bar">
+                    <div class="terminal-dots">
+                        <span></span><span></span><span></span>
+                    </div>
+                    <button class="cpy" onclick="copyCmd()" title="Copy commands">Copy</button>
                 </div>
                 <pre><span class="tp">$</span> curl -L https://raw.githubusercontent.com/abdullahainun/tenangdb/main/config.yaml.example -o config.yaml
 <span class="cm">  # edit config.yaml with your database credentials</span>
@@ -118,5 +121,24 @@
     <footer>
         <p>&copy; 2026 TenangDB &middot; MIT License &middot; <a href="https://github.com/abdullahainun">@abdullahainun</a></p>
     </footer>
+
+    <script>
+    function copyCmd() {
+        const text = [
+            'curl -L https://raw.githubusercontent.com/abdullahainun/tenangdb/main/config.yaml.example -o config.yaml',
+            'docker run --rm -v $(pwd)/config.yaml:/config.yaml ghcr.io/abdullahainun/tenangdb backup --yes'
+        ].join('\n');
+        navigator.clipboard.writeText(text).then(() => {
+            const btn = document.querySelector('.cpy');
+            const orig = btn.textContent;
+            btn.textContent = 'Copied';
+            btn.classList.add('cpy-ok');
+            setTimeout(() => {
+                btn.textContent = orig;
+                btn.classList.remove('cpy-ok');
+            }, 1500);
+        });
+    }
+    </script>
 </body>
 </html>
