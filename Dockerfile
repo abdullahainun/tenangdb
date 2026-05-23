@@ -31,7 +31,7 @@ RUN ARCH=$(uname -m) && \
     chmod 755 /usr/bin/rclone && \
     rm -rf /tmp/rclone-*
 
-FROM ubuntu:22.04
+FROM ubuntu:24.04
 
 ARG VERSION=dev
 ARG COMMIT_SHA=unknown
@@ -58,7 +58,7 @@ RUN apt-get update && \
     && echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list \
     && apt-get update \
     && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-    postgresql-client-16 \
+    postgresql-client-17 \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
