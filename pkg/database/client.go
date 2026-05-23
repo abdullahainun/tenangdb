@@ -56,7 +56,12 @@ func NewMySQLClient(config *config.DatabaseConfig) (*MySQLClient, error) {
 }
 
 func NewClient(cfg *config.DatabaseConfig) (DatabaseClient, error) {
-	return NewMySQLClient(cfg)
+	switch cfg.Type {
+	case "postgresql":
+		return NewPostgreSQLClient(cfg)
+	default:
+		return NewMySQLClient(cfg)
+	}
 }
 
 func (c *MySQLClient) CreateBackup(ctx context.Context, dbName, backupDir string) (string, error) {
