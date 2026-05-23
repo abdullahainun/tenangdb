@@ -103,6 +103,13 @@ nav {
     margin-bottom: 1.25rem;
 }
 
+.code-block code {
+    font: inherit;
+    color: inherit;
+    background: none;
+    padding: 0;
+}
+
 .badges {
     display: flex;
     flex-wrap: wrap;
