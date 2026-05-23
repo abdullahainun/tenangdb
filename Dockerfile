@@ -8,9 +8,10 @@ RUN apk add --no-cache git ca-certificates tzdata curl unzip
 WORKDIR /app
 
 COPY go.mod go.sum ./
-RUN go mod vendor
+RUN go mod download
 
 COPY . ./
+RUN go mod vendor
 
 RUN --mount=type=cache,target=/root/.cache/go-build \
     CGO_ENABLED=0 GOOS=linux go build -mod=vendor -a -installsuffix cgo \
