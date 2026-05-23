@@ -91,6 +91,12 @@ h1 {
     margin-bottom: 1.75rem;
 }
 
+.step-hint {
+    font-size: 0.85rem;
+    color: #8a8a8a;
+    margin-bottom: 0.6rem;
+}
+
 /* terminal box */
 
 .terminal-box {
@@ -123,13 +129,19 @@ h1 {
     font-size: 0.85rem;
     color: #e8e8e8;
     margin: 0;
-    white-space: nowrap;
+    white-space: pre;
 }
 
 .tp {
     color: #27ca3f;
     user-select: none;
     margin-right: 0.6rem;
+}
+
+.cm {
+    color: #6b6b8a;
+    font-style: italic;
+    user-select: none;
 }
 
 /* badges */

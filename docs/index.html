@@ -33,11 +33,14 @@
         <section class="hero">
             <h1>Backup yang Bikin Tenang</h1>
             <p class="lede">MySQL &amp; PostgreSQL backup automation. Set it once, run it forever.</p>
+            <p class="step-hint">Get started in three commands:</p>
             <div class="terminal-box">
                 <div class="terminal-dots">
                     <span></span><span></span><span></span>
                 </div>
-                <pre><span class="tp">$</span> docker compose run --rm tenangdb backup --yes</pre>
+                <pre><span class="tp">$</span> curl -L https://go.ainun.cloud/tenangdb-config.yaml.example -o config.yaml
+<span class="cm">  # edit config.yaml with your database credentials</span>
+<span class="tp">$</span> docker run --rm -v $(pwd)/config.yaml:/config.yaml ghcr.io/abdullahainun/tenangdb backup --yes</pre>
             </div>
             <div class="badges">
                 <span>v1.3.1</span>
