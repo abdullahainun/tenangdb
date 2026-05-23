@@ -35,8 +35,9 @@ metrics:
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `host` | string | `localhost` | MySQL hostname |
-| `port` | int | `3306` | MySQL port |
+| `type` | string | `mysql` | Database engine: `mysql` or `postgresql` |
+| `host` | string | `localhost` | Database hostname |
+| `port` | int | `3306` | Database port |
 | `username` | string | — | MySQL username (required) |
 | `password` | string | — | MySQL password (required) |
 | `timeout` | int | `30` | Connection timeout in seconds |
@@ -139,6 +140,7 @@ metrics:
 
 ```yaml
 database:
+  type: mysql
   host: mysql
   port: 3306
   username: backup_user

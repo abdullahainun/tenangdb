@@ -22,6 +22,7 @@ type Config struct {
 }
 
 type DatabaseConfig struct {
+	Type          string          `mapstructure:"type"`
 	Host          string          `mapstructure:"host"`
 	Port          int             `mapstructure:"port"`
 	Username      string          `mapstructure:"username"`
@@ -407,6 +408,7 @@ func FindRclonePath() string {
 }
 
 func setDefaults() {
+	viper.SetDefault("database.type", "mysql")
 	viper.SetDefault("database.host", "localhost")
 	viper.SetDefault("database.port", 3306)
 	viper.SetDefault("database.timeout", 30)
