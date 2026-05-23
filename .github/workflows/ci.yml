@@ -237,7 +237,7 @@ jobs:
         docker run --rm --network host \
           -v /tmp/pg-config.yaml:/config.yaml:ro \
           -v /tmp/backups:/backups \
-          tenangdb:test backup --config /config.yaml
+          tenangdb:test backup --config /config.yaml --yes
         
         # Verify backup file exists
         BACKUP_FILE=$(find /tmp/backups -name '*.dump' 2>/dev/null | head -1)
