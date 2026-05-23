@@ -9,8 +9,8 @@ Practical guide to create database users for TenangDB backup & restore.
 ```sql
 CREATE USER 'tenangdb'@'%' IDENTIFIED BY 'your-strong-password';
 
--- Backup: SELECT + SHOW DATABASES + LOCK TABLES
-GRANT SELECT, SHOW DATABASES, LOCK TABLES, EVENT, TRIGGER ON *.* TO 'tenangdb'@'%';
+-- Backup: SELECT + SHOW DATABASES + SHOW VIEW + LOCK TABLES
+GRANT SELECT, SHOW DATABASES, SHOW VIEW, LOCK TABLES, EVENT, TRIGGER ON *.* TO 'tenangdb'@'%';
 GRANT REPLICATION CLIENT ON *.* TO 'tenangdb'@'%';
 
 -- Restore: CREATE + DROP + INSERT
@@ -34,6 +34,7 @@ mysql -u tenangdb -p -h 127.0.0.1 -e "SELECT @@version;"
 |-------|---------|
 | `SELECT` | Read data for backup |
 | `SHOW DATABASES` | Detect available databases |
+| `SHOW VIEW` | Read view definitions (required by mydumper) |
 | `LOCK TABLES` | Consistent backup (mydumper) |
 | `EVENT, TRIGGER` | Backup event scheduler + triggers |
 | `REPLICATION CLIENT` | Check binary log position (mydumper) |
