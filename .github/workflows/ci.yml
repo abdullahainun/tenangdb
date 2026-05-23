@@ -255,7 +255,7 @@ jobs:
         docker run --rm --network host \
           -e PGPASSWORD=testpass \
           postgres:15 \
-          psql -h 127.0.0.1 -U testuser -c "CREATE DATABASE restored_db;"
+          psql -h 127.0.0.1 -U testuser -d testdb -c "CREATE DATABASE restored_db;"
         
         docker run --rm --network host \
           -v /tmp/backups:/backups:ro \
