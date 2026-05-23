@@ -1,5 +1,7 @@
 # TenangDB minimal config example.
 # See docs/CONFIGURATION.md for all available options.
+
+# MySQL (default when database.type is omitted, or set to "mysql")
 database:
   type: mysql
   host: 127.0.0.1
@@ -12,6 +14,15 @@ database:
     myloader:
       enabled: true
       threads: 4
+
+# PostgreSQL (set database.type to "postgresql")
+# database:
+#   type: postgresql
+#   host: 127.0.0.1
+#   port: 5432
+#   username: backup_user
+#   password: "secure_password"
+#   timeout: 30
 
 backup:
   databases:

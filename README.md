@@ -1,10 +1,10 @@
 # TenangDB
 
-**Backup yang Bikin Tenang** — MySQL backup automation tool.
+**Backup yang Bikin Tenang** — MySQL & PostgreSQL backup automation tool.
 
 ```bash
 # Quick start
-cp config.yaml.example config.yaml          # edit with your MySQL credentials
+cp config.yaml.example config.yaml          # edit with your database credentials
 docker compose pull                         # pull pre-built image
 docker compose run --rm tenangdb backup --yes
 ```
@@ -31,4 +31,5 @@ docker compose run --rm tenangdb backup --yes
 
 **Platform:** Linux, macOS (dev), Docker (prod)  
 **MySQL:** 5.7+, 8.0+, MariaDB 10.3+  
+**PostgreSQL:** 12+  
 **Cloud:** 40+ providers via rclone

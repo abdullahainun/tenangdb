@@ -37,9 +37,9 @@ metrics:
 |-----|------|---------|-------------|
 | `type` | string | `mysql` | Database engine: `mysql` or `postgresql` |
 | `host` | string | `localhost` | Database hostname |
-| `port` | int | `3306` | Database port |
-| `username` | string | — | MySQL username (required) |
-| `password` | string | — | MySQL password (required) |
+| `port` | int | `3306` | Database port (`5432` for PostgreSQL) |
+| `username` | string | — | Database username (required) |
+| `password` | string | — | Database password (required) |
 | `timeout` | int | `30` | Connection timeout in seconds |
 | `mysqldump_path` | string | auto-detect | Path to mysqldump binary |
 | `mysql_path` | string | auto-detect | Path to mysql client binary |
@@ -70,6 +70,8 @@ metrics:
 | `binary_path` | string | auto-detect | Path to myloader binary |
 | `defaults_file` | string | — | Path to my.cnf defaults file |
 | `threads` | int | `4` | Number of restore threads |
+
+> **PostgreSQL:** When `type: postgresql`, the `mydumper` sub-config is ignored. Backups use `pg_dump --format=custom`, restore uses `pg_restore --clean --if-exists`, and database listing uses `psql -l -q -A -t`. Authentication uses `PGPASSWORD` env var.
 
 ### backup
 
