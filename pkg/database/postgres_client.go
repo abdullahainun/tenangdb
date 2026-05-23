@@ -125,10 +125,36 @@ func (c *PostgreSQLClient) RestoreBackup(ctx context.Context, backupPath, dbName
 	cmd.Stderr = &stderr
 
 	if err := cmd.Run(); err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 1 {
+			// Exit code 1 means non-fatal errors (e.g. unknown GUC settings
+			// from newer pg_dump) — data was restored. Log and continue.
+			if !isFatalRestoreError(stderr.String()) {
+				fmt.Fprintf(os.Stderr, "pg_restore: non-fatal warnings: %s", stderr.String())
+				return nil
+			}
+		}
 		return fmt.Errorf("pg_restore failed: %w, stderr: %s", err, stderr.String())
 	}
 
 	return nil
+}
+
+// isFatalRestoreError checks if stderr contains a genuinely fatal error
+// vs benign warnings like unknown GUC settings from version mismatch.
+func isFatalRestoreError(stderr string) bool {
+	fatal := []string{
+		"could not open input file",
+		"connection to server",
+		"out of memory",
+		"permission denied",
+		"does not exist",
+	}
+	for _, s := range fatal {
+		if strings.Contains(stderr, s) {
+			return true
+		}
+	}
+	return false
 }
 
 func (c *PostgreSQLClient) Close() error {

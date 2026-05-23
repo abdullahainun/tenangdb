@@ -72,7 +72,7 @@ metrics:
 | `threads` | int | `4` | Number of restore threads |
 
 > **PostgreSQL:** When `type: postgresql`, the `mydumper` sub-config is ignored. Backups use `pg_dump --format=custom`, restore uses `pg_restore --clean --if-exists`, and database listing uses `psql -l -q -A -t`. Authentication uses `PGPASSWORD` env var.  
-> **Version compatibility:** `pg_dump` must be >= server version. The official Docker image ships `postgresql-client-17`. For native installs, ensure your system `pg_dump` is recent enough for your PostgreSQL server.
+> **Version compatibility:** `pg_dump` must be >= server version. The Docker image ships `postgresql-client-17` — it can dump/restore PG17 and all older versions. Restoring to a version older than pg_dump may produce non-fatal warnings about unknown settings (data is restored correctly).
 
 ### backup
 

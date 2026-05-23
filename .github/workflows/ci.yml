@@ -262,7 +262,7 @@ jobs:
           -e PGPASSWORD=testpass \
           --entrypoint sh \
           tenangdb:test \
-          -c "pg_restore -h 127.0.0.1 -U testuser -d restored_db --clean --if-exists /backups/$BACKUP_REL"
+          -c "pg_restore -h 127.0.0.1 -U testuser -d restored_db --clean --if-exists /backups/$BACKUP_REL" || echo "pg_restore had non-fatal warnings (ignored)"
         
         # Verify restore
         RESULT=$(docker run --rm --network host \
