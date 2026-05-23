@@ -22,7 +22,7 @@ make lint      # golangci-lint run
 make security  # gosec ./...
 
 # Dependency checks
-make check-deps   # verify mysqldump/mydumper/rclone present
+make check-deps   # verify mysqldump/mydumper/pg_dump/rclone present
 make deps         # go mod tidy + download
 ```
 
@@ -38,7 +38,7 @@ Two binaries from one repo:
 runBackup()
   → config.LoadConfig()          # platform-aware: /etc/tenangdb or ~/.config/tenangdb
   → backup.NewService()
-      → database.NewClient()     # connects to MySQL, pings on init
+      → database.NewClient()   # connects to MySQL/PostgreSQL based on config
       → upload.NewService()      # wraps rclone, only if upload.enabled
       → compression.NewCompressor()
   → service.Run()
@@ -49,13 +49,18 @@ runBackup()
       → metricsStorage.Update*()      # write to metrics.json
 ```
 
-### Two parallel database code paths
+### Database client architecture
 
-**Active path** — `pkg/database/client.go` (`database.Client`): used by all production commands. Contains full mysqldump and mydumper implementations including version-aware mydumper args (`isMydumperVersionCompatible()` detects v0.9.x legacy vs v0.19.x modern via `--help` output parsing).
+`pkg/database/` uses a `DatabaseClient` interface with two implementations:
 
-**WIP path** — `pkg/database/mysql_provider.go` + `provider.go` + `factory.go`: a provider-interface refactor (supports future PostgreSQL via `PostgreSQLConfig`). Currently contains placeholder implementations and is **not wired into any command**. `RestoreBackup()` here returns a hardcoded error.
+- **`MySQLClient`** (`client.go`): mysqldump + mydumper/myloader, including version-aware mydumper args (`isMydumperVersionCompatible()` detects v0.9.x legacy vs v0.19.x modern via `--help` output parsing).
+- **`PostgreSQLClient`** (`postgres_client.go`): pg_dump/pg_restore/psql wrappers.
 
-When modifying backup or restore logic, always work in `client.go`, not `mysql_provider.go`.
+**Factory** — `NewClient(cfg)` at `client.go:58` dispatches based on `cfg.Type`:
+- `"postgresql"` → `NewPostgreSQLClient(cfg)`
+- default (including `"mysql"` or empty) → `NewMySQLClient(cfg)`
+
+Config: `database.type` field (`mysql`|`postgresql`, default `mysql`).
 
 ### Metrics — two layers
 
@@ -83,4 +88,4 @@ All three formats (`tar.gz`, `tar.zst`, `tar.xz`) are fully implemented with pro
 
 ### Backup directory structure
 
-Backups are organised as: `{backup.directory}/{database}/{YYYY-MM}/{database}-{timestamp}/` (mydumper) or `{backup.directory}/{database}/{YYYY-MM}/{database}-{timestamp}.sql` (mysqldump). Upload service parses this structure in `extractBackupInfo()` to replicate it in cloud storage.
+Backups are organised as: `{backup.directory}/{database}/{YYYY-MM}/{database}-{timestamp}/` (mydumper), `{backup.directory}/{database}/{YYYY-MM}/{database}-{timestamp}.sql` (mysqldump), or `{backup.directory}/{database}/{YYYY-MM}/{database}-{timestamp}.dump` (pg_dump custom format). Upload service parses this structure in `extractBackupInfo()` to replicate it in cloud storage.
