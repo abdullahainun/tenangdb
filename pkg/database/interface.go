@@ -9,3 +9,5 @@ type DatabaseClient interface {
 	Close() error
 	ListDatabases(ctx context.Context) ([]string, error)
 }
+
+var _ DatabaseClient = (*MySQLClient)(nil)
