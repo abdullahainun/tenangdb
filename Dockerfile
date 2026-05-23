@@ -1,26 +1,35 @@
-# Build stage
 FROM golang:1.25-alpine AS builder
 
 ARG VERSION=dev
 ARG COMMIT_SHA=unknown
 
-RUN apk add --no-cache git ca-certificates tzdata
+RUN apk add --no-cache git ca-certificates tzdata curl unzip
 
 WORKDIR /app
 
 COPY go.mod go.sum ./
-COPY . ./
-RUN if [ ! -d vendor ] || [ -z "$(ls -A vendor 2>/dev/null)" ]; then go mod vendor; fi
+RUN go mod vendor
 
-RUN CGO_ENABLED=0 GOOS=linux go build -mod=vendor -a -installsuffix cgo \
+COPY . ./
+
+RUN --mount=type=cache,target=/root/.cache/go-build \
+    CGO_ENABLED=0 GOOS=linux go build -mod=vendor -a -installsuffix cgo \
     -ldflags "-extldflags '-static' -X main.version=${VERSION} -X main.buildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
     -o tenangdb ./cmd
 
-RUN CGO_ENABLED=0 GOOS=linux go build -mod=vendor -a -installsuffix cgo \
+RUN --mount=type=cache,target=/root/.cache/go-build \
+    CGO_ENABLED=0 GOOS=linux go build -mod=vendor -a -installsuffix cgo \
     -ldflags "-extldflags '-static' -X main.version=${VERSION} -X main.buildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
     -o tenangdb-exporter ./cmd/tenangdb-exporter
 
-# Runtime stage
+RUN ARCH=$(uname -m) && \
+    if [ "$ARCH" = "aarch64" ]; then RCLONE_ARCH="arm64"; else RCLONE_ARCH="amd64"; fi && \
+    curl -sSL "https://downloads.rclone.org/rclone-current-linux-${RCLONE_ARCH}.zip" -o /tmp/rclone.zip && \
+    unzip -q /tmp/rclone.zip -d /tmp && \
+    mv /tmp/rclone-*/rclone /usr/bin/rclone && \
+    chmod 755 /usr/bin/rclone && \
+    rm -rf /tmp/rclone-*
+
 FROM ubuntu:22.04
 
 ARG VERSION=dev
@@ -35,27 +44,16 @@ LABEL org.opencontainers.image.licenses="MIT"
 LABEL org.opencontainers.image.source="https://github.com/abdullahainun/tenangdb"
 
 RUN apt-get update && \
-    DEBIAN_FRONTEND=noninteractive apt-get install -y \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
     mydumper \
     mysql-client \
     xz-utils \
     ca-certificates \
-    tzdata \
-    unzip \
-    curl \
     bash \
     && rm -rf /var/lib/apt/lists/*
 
-RUN ARCH=$(dpkg --print-architecture) && \
-    if [ "$ARCH" = "arm64" ]; then RCLONE_ARCH="arm64"; else RCLONE_ARCH="amd64"; fi && \
-    curl -sSL https://downloads.rclone.org/rclone-current-linux-${RCLONE_ARCH}.zip -o rclone.zip && \
-    unzip -q rclone.zip && \
-    cp rclone-*/rclone /usr/bin/ && \
-    chown root:root /usr/bin/rclone && \
-    chmod 755 /usr/bin/rclone && \
-    rm -rf rclone-*
-
 COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
+COPY --from=builder /usr/bin/rclone /usr/bin/rclone
 COPY --from=builder /app/tenangdb /usr/local/bin/tenangdb
 COPY --from=builder /app/tenangdb-exporter /usr/local/bin/tenangdb-exporter
 

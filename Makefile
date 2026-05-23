@@ -35,7 +35,6 @@ security:
 	gosec ./...
 
 docker-build:
-	go mod vendor
 	docker build -t ghcr.io/abdullahainun/tenangdb:latest .
 
 docker-up:
