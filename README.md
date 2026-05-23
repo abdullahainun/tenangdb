@@ -26,6 +26,7 @@ docker compose run --rm tenangdb backup --yes
 | [Commands](docs/COMMANDS.md) | CLI reference |
 | [Configuration](config.yaml.example) | Quick config example |
 | [Full Reference](docs/CONFIGURATION.md) | All config options |
+| [Database User Setup](docs/DATABASE_USER_SETUP.md) | Create MySQL/PostgreSQL users for TenangDB |
 
 ## Compatibility
 
