@@ -31,5 +31,5 @@ docker compose run --rm tenangdb backup --yes
 
 **Platform:** Linux, macOS (dev), Docker (prod)  
 **MySQL:** 5.7+, 8.0+, MariaDB 10.3+  
-**PostgreSQL:** 12+  
+**PostgreSQL:** 12+ (pg_dump >= server version required)
 **Cloud:** 40+ providers via rclone

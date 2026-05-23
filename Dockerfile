@@ -58,7 +58,7 @@ RUN apt-get update && \
     && echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list \
     && apt-get update \
     && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-    postgresql-client-15 \
+    postgresql-client-16 \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
