@@ -18,12 +18,12 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 )
 
-type Client struct {
+type MySQLClient struct {
 	config *config.DatabaseConfig
 	db     *sql.DB
 }
 
-func NewClient(config *config.DatabaseConfig) (*Client, error) {
+func NewMySQLClient(config *config.DatabaseConfig) (*MySQLClient, error) {
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/",
 		config.Username,
 		config.Password,
@@ -49,13 +49,17 @@ func NewClient(config *config.DatabaseConfig) (*Client, error) {
 		return nil, fmt.Errorf("failed to ping database: %w", err)
 	}
 
-	return &Client{
+	return &MySQLClient{
 		config: config,
 		db:     db,
 	}, nil
 }
 
-func (c *Client) CreateBackup(ctx context.Context, dbName, backupDir string) (string, error) {
+func NewClient(cfg *config.DatabaseConfig) (DatabaseClient, error) {
+	return NewMySQLClient(cfg)
+}
+
+func (c *MySQLClient) CreateBackup(ctx context.Context, dbName, backupDir string) (string, error) {
 	now := time.Now()
 	timestamp := now.Format("2006-01-02_15-04-05")
 
@@ -77,7 +81,7 @@ func (c *Client) CreateBackup(ctx context.Context, dbName, backupDir string) (st
 	return c.createMysqldumpBackup(ctx, dbName, organizedBackupDir, timestamp)
 }
 
-func (c *Client) createMydumperBackup(ctx context.Context, dbName, backupDir, timestamp string) (string, error) {
+func (c *MySQLClient) createMydumperBackup(ctx context.Context, dbName, backupDir, timestamp string) (string, error) {
 	// Create database-specific directory
 	dbBackupDir := filepath.Join(backupDir, fmt.Sprintf("%s-%s", dbName, timestamp))
 	if err := os.MkdirAll(dbBackupDir, 0755); err != nil {
@@ -150,7 +154,7 @@ func (c *Client) createMydumperBackup(ctx context.Context, dbName, backupDir, ti
 	return dbBackupDir, nil
 }
 
-func (c *Client) createMysqldumpBackup(ctx context.Context, dbName, backupDir, timestamp string) (string, error) {
+func (c *MySQLClient) createMysqldumpBackup(ctx context.Context, dbName, backupDir, timestamp string) (string, error) {
 	fileName := fmt.Sprintf("%s-%s.sql", dbName, timestamp)
 	backupPath := filepath.Join(backupDir, fileName)
 
@@ -223,7 +227,7 @@ func (c *Client) createMysqldumpBackup(ctx context.Context, dbName, backupDir, t
 	return backupPath, nil
 }
 
-func (c *Client) verifyBackupFile(backupPath string) error {
+func (c *MySQLClient) verifyBackupFile(backupPath string) error {
 	info, err := os.Stat(backupPath)
 	if err != nil {
 		return fmt.Errorf("backup file not found: %w", err)
@@ -254,7 +258,7 @@ func (c *Client) verifyBackupFile(backupPath string) error {
 	return nil
 }
 
-func (c *Client) verifyMydumperBackup(backupDir string) error {
+func (c *MySQLClient) verifyMydumperBackup(backupDir string) error {
 	// Check if metadata file exists
 	metadataFile := filepath.Join(backupDir, "metadata")
 	if _, err := os.Stat(metadataFile); err != nil {
@@ -288,11 +292,11 @@ func (c *Client) verifyMydumperBackup(backupDir string) error {
 	return nil
 }
 
-func (c *Client) CreateDirectory(path string) error {
+func (c *MySQLClient) CreateDirectory(path string) error {
 	return os.MkdirAll(path, 0755)
 }
 
-func (c *Client) RestoreBackup(ctx context.Context, backupPath, dbName string) error {
+func (c *MySQLClient) RestoreBackup(ctx context.Context, backupPath, dbName string) error {
 	// Create a temporary logger for compression operations
 	log := logger.NewLogger("info")
 	
@@ -348,7 +352,7 @@ func (c *Client) RestoreBackup(ctx context.Context, backupPath, dbName string) e
 	return c.restoreWithMysql(ctx, finalBackupPath, dbName)
 }
 
-func (c *Client) restoreWithMyloader(ctx context.Context, backupDir, dbName string) error {
+func (c *MySQLClient) restoreWithMyloader(ctx context.Context, backupDir, dbName string) error {
 	// Build myloader command
 	args := []string{
 		"--overwrite-tables",
@@ -383,7 +387,7 @@ func (c *Client) restoreWithMyloader(ctx context.Context, backupDir, dbName stri
 	return nil
 }
 
-func (c *Client) restoreWithMysql(ctx context.Context, backupPath, dbName string) error {
+func (c *MySQLClient) restoreWithMysql(ctx context.Context, backupPath, dbName string) error {
 	credsFile, cleanup, err := c.writeTempCredentials()
 	if err != nil {
 		return err
@@ -418,7 +422,7 @@ func (c *Client) restoreWithMysql(ctx context.Context, backupPath, dbName string
 	return nil
 }
 
-func (c *Client) buildMydumperArgs(dbBackupDir, dbName string) []string {
+func (c *MySQLClient) buildMydumperArgs(dbBackupDir, dbName string) []string {
 	// Start with common arguments available in all supported mydumper versions
 	// Supports: v0.9.1+ (Ubuntu 18.04), v0.10.0+ (most Linux distros), v0.19.3+ (macOS Homebrew)
 	args := []string{
@@ -443,7 +447,7 @@ func (c *Client) buildMydumperArgs(dbBackupDir, dbName string) []string {
 	return args
 }
 
-func (c *Client) isMydumperVersionCompatible() bool {
+func (c *MySQLClient) isMydumperVersionCompatible() bool {
 	// Detect mydumper version by checking for modern parameters in --help output
 	// Returns true for v0.19.x+ (modern), false for v0.9.1-v0.10.x (legacy)
 	// Tested versions:
@@ -463,7 +467,7 @@ func (c *Client) isMydumperVersionCompatible() bool {
 		   strings.Contains(outputStr, "--trx-tables")
 }
 
-func (c *Client) Close() error {
+func (c *MySQLClient) Close() error {
 	if c.db != nil {
 		return c.db.Close()
 	}
@@ -473,7 +477,7 @@ func (c *Client) Close() error {
 // writeTempCredentials writes connection credentials to a temp file with 0600
 // permissions and returns the path plus a cleanup func. Using --defaults-file
 // prevents the password from appearing in the process list (ps aux).
-func (c *Client) writeTempCredentials() (path string, cleanup func(), err error) {
+func (c *MySQLClient) writeTempCredentials() (path string, cleanup func(), err error) {
 	f, err := os.CreateTemp("", "tenangdb-*.cnf")
 	if err != nil {
 		return "", func() {}, fmt.Errorf("failed to create credentials file: %w", err)
@@ -500,7 +504,7 @@ func (c *Client) writeTempCredentials() (path string, cleanup func(), err error)
 }
 
 // ListDatabases returns a list of database names
-func (c *Client) ListDatabases(ctx context.Context) ([]string, error) {
+func (c *MySQLClient) ListDatabases(ctx context.Context) ([]string, error) {
 	query := "SHOW DATABASES"
 	rows, err := c.db.QueryContext(ctx, query)
 	if err != nil {
@@ -547,7 +551,7 @@ func isCommonWarning(line string) bool {
 }
 
 // isCompressedBackup checks if backup is compressed
-func (c *Client) isCompressedBackup(backupPath string) bool {
+func (c *MySQLClient) isCompressedBackup(backupPath string) bool {
 	ext := strings.ToLower(filepath.Ext(backupPath))
 	return ext == ".gz" || ext == ".zst" || ext == ".xz" || 
 		   strings.HasSuffix(strings.ToLower(backupPath), ".tar.gz") ||

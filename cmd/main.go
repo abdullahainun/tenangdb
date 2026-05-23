@@ -1208,7 +1208,7 @@ func formatFileSize(size int64) string {
 }
 
 // showRestoreConfirmation displays a confirmation prompt for restore operation
-func showRestoreConfirmation(backupPath, targetDatabase string, dbClient *database.Client, ctx context.Context, log *logger.Logger) bool {
+func showRestoreConfirmation(backupPath, targetDatabase string, dbClient database.DatabaseClient, ctx context.Context, log *logger.Logger) bool {
 	fmt.Printf("\n⚠️  Database Restore Warning\n")
 	fmt.Printf("===========================\n\n")
 	
@@ -1274,7 +1274,7 @@ func showRestoreConfirmation(backupPath, targetDatabase string, dbClient *databa
 }
 
 // checkDatabaseExists checks if a database exists
-func checkDatabaseExists(dbClient *database.Client, ctx context.Context, databaseName string) (bool, error) {
+func checkDatabaseExists(dbClient database.DatabaseClient, ctx context.Context, databaseName string) (bool, error) {
 	databases, err := dbClient.ListDatabases(ctx)
 	if err != nil {
 		return false, err

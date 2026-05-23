@@ -19,7 +19,7 @@ import (
 type Service struct {
 	config         *config.Config
 	logger         *logger.Logger
-	dbClient       *database.Client
+	dbClient       database.DatabaseClient
 	uploader       *upload.Service
 	compressor     *compression.Compressor
 	stats          *Statistics
