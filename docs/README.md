@@ -4,7 +4,7 @@ Modern, clean website for TenangDB - built for GitHub Pages deployment.
 
 ## 🚀 Live Website
 
-Visit the live website at: https://tenangdb.ainun.cloud
+Visit the live website at: https://tenangdb.ainun.dev
 
 ## 🏗️ Architecture
 

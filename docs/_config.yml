@@ -3,7 +3,7 @@
 # Site settings
 title: "TenangDB - Backup yang Bikin Tenang"
 description: "Automated MySQL & PostgreSQL backup solution with smart confirmations, cloud upload, and monitoring. Deploy in seconds with Docker."
-url: "https://tenangdb.ainun.cloud"
+url: "https://tenangdb.ainun.dev"
 baseurl: ""
 
 # Repository
