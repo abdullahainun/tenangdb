@@ -13,13 +13,16 @@
     <meta property="og:url" content="https://tenangdb.ainun.dev/">
 
     <link rel="icon" type="image/svg+xml" href="assets/images/favicon.svg">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Epilogue:wght@500;600;650;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="assets/css/style.css">
 </head>
 <body>
     <header>
         <nav>
             <a href="/" class="wordmark">TenangDB</a>
-            <div class="nav-links">
+            <div class="nav-end">
                 <a href="https://github.com/abdullahainun/tenangdb">GitHub</a>
                 <a href="https://github.com/abdullahainun/tenangdb/releases">Releases</a>
             </div>
@@ -28,9 +31,14 @@
 
     <main>
         <section class="hero">
-            <h1>Backup yang&nbsp;Bikin&nbsp;Tenang</h1>
-            <p class="hero-sub">MySQL &amp; PostgreSQL backup automation. Set it once, run it&nbsp;forever.</p>
-            <div class="code-block"><code>docker compose run --rm tenangdb backup --yes</code></div>
+            <h1>Backup yang Bikin Tenang</h1>
+            <p class="lede">MySQL &amp; PostgreSQL backup automation. Set it once, run it forever.</p>
+            <div class="terminal-box">
+                <div class="terminal-dots">
+                    <span></span><span></span><span></span>
+                </div>
+                <pre><span class="tp">$</span> docker compose run --rm tenangdb backup --yes</pre>
+            </div>
             <div class="badges">
                 <span>v1.3.1</span>
                 <span>MIT License</span>
@@ -42,41 +50,30 @@
 
         <section class="sect">
             <h2>Capabilities</h2>
-            <div class="features">
-                <div class="feature-item">
-                    <span class="feature-marker">01</span>
-                    <div class="feature-item-body">
-                        <h3>Interactive setup</h3>
-                        <p>Run <code>docker compose run --rm tenangdb init</code> to configure everything interactively. No&nbsp;YAML guessing.</p>
-                    </div>
+            <div class="grid-2">
+                <div class="card">
+                    <h3>Interactive setup</h3>
+                    <p>Run <code>tenangdb init</code> for a guided wizard. It checks dependencies, tests connections, and generates your config.</p>
                 </div>
-                <div class="feature-item">
-                    <span class="feature-marker">02</span>
-                    <div class="feature-item-body">
-                        <h3>Metrics &amp; monitoring</h3>
-                        <p>Prometheus endpoint at <code>:9090</code>. Grafana dashboard and 9 alert rules included out of the box.</p>
-                    </div>
+                <div class="card">
+                    <h3>Metrics &amp; monitoring</h3>
+                    <p>Prometheus endpoint at <code>:9090</code>. Grafana dashboard and 9 alert rules included — know when things go wrong.</p>
                 </div>
-                <div class="feature-item">
-                    <span class="feature-marker">03</span>
-                    <div class="feature-item-body">
-                        <h3>Cloud upload</h3>
-                        <p>S3, GCS, Azure, and 40+ providers via rclone. Custom flags supported via <code>upload.extra_flags</code>.</p>
-                    </div>
+                <div class="card">
+                    <h3>Cloud upload</h3>
+                    <p>S3, GCS, Azure, and 40+ providers via rclone. Custom flags supported via <code>upload.extra_flags</code>.</p>
                 </div>
-                <div class="feature-item">
-                    <span class="feature-marker">04</span>
-                    <div class="feature-item-body">
-                        <h3>Compression</h3>
-                        <p>tar.gz, tar.zst, tar.xz. PostgreSQL custom format includes compression by default.</p>
-                    </div>
+                <div class="card">
+                    <h3>Compression</h3>
+                    <p>tar.gz, tar.zst, tar.xz. PostgreSQL custom format includes compression by default.</p>
                 </div>
-                <div class="feature-item">
-                    <span class="feature-marker">05</span>
-                    <div class="feature-item-body">
-                        <h3>Scheduling</h3>
-                        <p>cron or systemd timer. Standard Unix scheduling, no extra infra needed.</p>
-                    </div>
+                <div class="card">
+                    <h3>Scheduling</h3>
+                    <p>cron or systemd timer. Standard Unix scheduling, no extra infra, no lock-in.</p>
+                </div>
+                <div class="card">
+                    <h3>Two engines</h3>
+                    <p>MySQL 5.7+ (via mydumper or mysqldump) and PostgreSQL 12+ (via pg_dump). One config, both supported.</p>
                 </div>
             </div>
         </section>
