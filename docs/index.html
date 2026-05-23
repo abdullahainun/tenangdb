@@ -3,406 +3,91 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TenangDB - Backup yang Bikin Tenang</title>
-    <meta name="description" content="A comprehensive MySQL & PostgreSQL backup solution that lets you sleep peacefully knowing your databases are safe, automatically backed up, uploaded to cloud storage, and ready for instant restore.">
-    <meta name="keywords" content="mysql backup, postgresql backup, database backup, cloud backup, automated backup, go backup tool, postgres dump">
+    <title>TenangDB — Backup yang Bikin Tenang</title>
+    <meta name="description" content="MySQL & PostgreSQL backup automation. Docker-ready, cloud upload, metrics exporter.">
+    <meta name="keywords" content="mysql backup, postgresql backup, database backup, cloud backup">
 
-    <!-- Open Graph -->
-    <meta property="og:title" content="TenangDB - MySQL & PostgreSQL Backup Automation">
-    <meta property="og:description" content="Automated backup for MySQL and PostgreSQL with smart confirmations, cloud upload, and monitoring. Deploy in seconds with Docker.">
+    <meta property="og:title" content="TenangDB — MySQL & PostgreSQL Backup">
+    <meta property="og:description" content="Automated backup for MySQL and PostgreSQL. Deploy in seconds with Docker.">
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://tenangdb.ainun.dev/">
 
-    <!-- Favicon -->
     <link rel="icon" type="image/svg+xml" href="assets/images/favicon.svg">
-
-    <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-
-    <!-- CSS -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz@14..32&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="assets/css/style.css">
 </head>
 <body>
-    <!-- Navigation -->
-    <nav class="navbar">
-        <div class="container">
-            <div class="nav-brand">
-                <div class="logo">
-                    <span class="logo-icon">🛡️</span>
-                    <span class="logo-text">TenangDB</span>
-                </div>
-            </div>
-            <div class="nav-links">
-                <a href="#demo" class="nav-link">Live Demo</a>
-                <a href="#features" class="nav-link">Features</a>
-                <a href="#monitoring" class="nav-link">Monitoring</a>
-                <a href="#get-started" class="nav-link">Quick Start</a>
-                <a href="https://github.com/abdullahainun/tenangdb" class="nav-link" target="_blank">GitHub</a>
-                <a href="#get-started" class="btn btn-primary">Get Started</a>
-            </div>
-            <div class="nav-toggle">
-                <span></span>
-                <span></span>
-                <span></span>
-            </div>
+    <header class="topbar">
+        <div class="inner">
+            <span class="mark">TenangDB</span>
+            <nav>
+                <a href="https://github.com/abdullahainun/tenangdb">GitHub</a>
+                <a href="https://github.com/abdullahainun/tenangdb/releases">Release</a>
+            </nav>
         </div>
-    </nav>
+    </header>
 
-    <!-- Hero Section -->
-    <section class="hero">
-        <div class="container">
-            <div class="hero-content">
-                <div class="hero-badge">
-                    <span>🚀 Open Source • Production Ready • MIT License</span>
-                </div>
-                <h1 class="hero-title">
-                    <span class="gradient-text">Backup yang Bikin Tenang</span>
-                </h1>
-                <p class="hero-subtitle">
-                    Automated backup for MySQL and PostgreSQL with intelligent automation, smart confirmations, and seamless cloud integration. Deploy in seconds with Docker.
-                </p>
-                <div class="hero-features">
-                    <div class="feature-item">
-                        <span class="feature-icon">🐳</span>
-                        <span>Docker Ready</span>
-                    </div>
-                    <div class="feature-item">
-                        <span class="feature-icon">⚡</span>
-                        <span>Parallel Backup</span>
-                    </div>
-                    <div class="feature-item">
-                        <span class="feature-icon">🐬</span>
-                        <span>MySQL</span>
-                    </div>
-                    <div class="feature-item">
-                        <span class="feature-icon">🐘</span>
-                        <span>PostgreSQL</span>
-                    </div>
-                    <div class="feature-item">
-                        <span class="feature-icon">☁️</span>
-                        <span>Cloud Upload</span>
-                    </div>
-                </div>
-                <div class="hero-stats">
-                    <div class="stat-item">
-                        <span class="stat-number">2</span>
-                        <span class="stat-label">Database Engines</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-number">40+</span>
-                        <span class="stat-label">Cloud Providers</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-number">MIT</span>
-                        <span class="stat-label">License</span>
-                    </div>
-                </div>
-                <div class="hero-actions">
-                    <a href="#get-started" class="btn btn-primary btn-large">
-                        <span>Get Started</span>
-                        <span class="btn-icon">→</span>
-                    </a>
-                    <a href="https://github.com/abdullahainun/tenangdb" class="btn btn-secondary btn-large" target="_blank">
-                        <span class="btn-icon">📦</span>
-                        <span>View on GitHub</span>
-                    </a>
-                </div>
+    <main>
+        <section class="intro">
+            <h1>Backup yang&nbsp;Bikin&nbsp;Tenang</h1>
+            <p class="sub">MySQL &amp; PostgreSQL backup automation — run it, forget it.</p>
+            <div class="code">
+                <pre>cp config.yaml.example config.yaml      # edit credentials
+docker compose run --rm tenangdb backup --yes</pre>
             </div>
-        </div>
-    </section>
+        </section>
 
-    <!-- Live Demo Section -->
-    <section id="demo" class="demo">
-        <div class="container">
-            <div class="section-header">
-                <h2>🎬 See TenangDB in Action</h2>
-                <p>Watch a real backup session with multiple databases, smart confirmations, and error handling (MySQL demo)</p>
-            </div>
-            <div class="demo-showcase">
-                <div class="asciinema-container">
-                    <script id="asciicast-728588" src="https://asciinema.org/a/728588.js" async></script>
-                </div>
-                <div class="demo-highlights">
-                    <div class="highlight-item">
-                        <span class="highlight-icon">✅</span>
-                        <span>Smart confirmations with backup summary</span>
-                    </div>
-                    <div class="highlight-item">
-                        <span class="highlight-icon">⚠️</span>
-                        <span>Graceful error handling for insufficient privileges</span>
-                    </div>
-                    <div class="highlight-item">
-                        <span class="highlight-icon">🔄</span>
-                        <span>Automatic database discovery and backup</span>
-                    </div>
-                    <div class="highlight-item">
-                        <span class="highlight-icon">🚀</span>
-                        <span>Fast parallel processing with mydumper</span>
-                    </div>
-                    <div class="highlight-item">
-                        <span class="highlight-icon">🐘</span>
-                        <span>PostgreSQL support via pg_dump / pg_restore</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
+        <section class="sect" id="features">
+            <h2>What it does</h2>
+            <ul class="list">
+                <li><strong>Interactive setup</strong> — <code>docker compose run --rm tenangdb init</code></li>
+                <li><strong>Metrics exporter</strong> — Prometheus endpoint at <code>:9090</code></li>
+                <li><strong>Cloud upload</strong> — S3, GCS, Azure via rclone (40+ providers)</li>
+                <li><strong>Compression</strong> — tar.gz, tar.zst, tar.xz</li>
+                <li><strong>Scheduling</strong> — cron or systemd timer on the host</li>
+            </ul>
+        </section>
 
-    <!-- Features Section -->
-    <section id="features" class="features">
-        <div class="container">
-            <div class="section-header">
-                <h2>Powerful Features</h2>
-                <p>Everything you need for production-ready database backups</p>
+        <section class="sect" id="docs">
+            <h2>Docs</h2>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr><td>Guide</td><td>Description</td></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td><a href="https://github.com/abdullahainun/tenangdb/blob/main/DOCKER.md">Docker</a></td><td>Setup, networking, volumes</td></tr>
+                        <tr><td><a href="https://github.com/abdullahainun/tenangdb/blob/main/PRODUCTION_DEPLOYMENT.md">Production</a></td><td>Scheduling, security, monitoring</td></tr>
+                        <tr><td><a href="https://github.com/abdullahainun/tenangdb/blob/main/docs/COMMANDS.md">Commands</a></td><td>CLI reference</td></tr>
+                        <tr><td><a href="https://github.com/abdullahainun/tenangdb/blob/main/config.yaml.example">Configuration</a></td><td>Quick config example</td></tr>
+                        <tr><td><a href="https://github.com/abdullahainun/tenangdb/blob/main/docs/CONFIGURATION.md">Full Reference</a></td><td>All config options</td></tr>
+                        <tr><td><a href="https://github.com/abdullahainun/tenangdb/blob/main/docs/DATABASE_USER_SETUP.md">Database User Setup</a></td><td>Create MySQL/PostgreSQL users</td></tr>
+                    </tbody>
+                </table>
             </div>
-            <div class="features-grid">
-                <div class="feature-card">
-                    <div class="feature-icon">🐳</div>
-                    <h3>Docker Ready</h3>
-                    <p>Production container with mydumper, pg_dump, and rclone included. Deploy in seconds with persistent volume support.</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">⚡</div>
-                    <h3>Fast Parallel Backups</h3>
-                    <p>Lightning-fast parallel processing with mydumper for MySQL. PostgreSQL uses pg_dump with multi-job support. Both run concurrently across databases.</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">🐘</div>
-                    <h3>PostgreSQL Support</h3>
-                    <p>Full PostgreSQL 15+ support via pg_dump (custom format) and pg_restore. Compatible with any PostgreSQL version your pg_dump can reach.</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">☁️</div>
-                    <h3>Multi-Cloud Upload</h3>
-                    <p>Upload to AWS S3, Google Cloud, Azure, or 40+ providers via rclone integration. Supports custom rclone flags for advanced configurations.</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">🔧</div>
-                    <h3>Zero Configuration</h3>
-                    <p>One YAML file setup. Automatic database discovery. Smart cleanup policies. Prometheus metrics for production monitoring.</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">🔄</div>
-                    <h3>Smart Restore</h3>
-                    <p>Restore MySQL databases with myloader, PostgreSQL with pg_restore. New-name restoration with confirmation prompts. Prevent accidental overwrites.</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">📦</div>
-                    <h3>Compression & Encryption</h3>
-                    <p>Built-in compression support. Secure your backups with encryption before cloud upload. PostgreSQL custom format includes compression by default.</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">🛡️</div>
-                    <h3>Production Ready</h3>
-                    <p>Graceful error handling. Privilege checking. Comprehensive logging with structured JSON output. Grafana dashboard and Prometheus alerting.</p>
-                </div>
-            </div>
-        </div>
-    </section>
+        </section>
 
-    <!-- Monitoring Section -->
-    <section id="monitoring" class="monitoring">
-        <div class="container">
-            <div class="section-header">
-                <h2>📊 Production Monitoring</h2>
-                <p>Built-in Grafana dashboard and Prometheus alert rules for comprehensive backup monitoring</p>
+        <section class="sect" id="compat">
+            <h2>Compatibility</h2>
+            <div class="table-wrap">
+                <table>
+                    <tbody>
+                        <tr><td>Platform</td><td>Linux, macOS (dev), Docker (prod)</td></tr>
+                        <tr><td>MySQL</td><td>5.7+, 8.0+, MariaDB 10.3+</td></tr>
+                        <tr><td>PostgreSQL</td><td>12+ (pg_dump &ge; server version)</td></tr>
+                        <tr><td>Cloud</td><td>40+ providers via rclone</td></tr>
+                    </tbody>
+                </table>
             </div>
-            <div class="monitoring-showcase">
-                <div class="dashboard-preview">
-                    <div class="dashboard-container">
-                        <img src="https://github.com/abdullahainun/tenangdb/blob/main/grafana/dashboard.png?raw=true" alt="TenangDB Grafana Dashboard" class="dashboard-image">
-                        <div class="dashboard-overlay">
-                            <div class="dashboard-info">
-                                <h3>Real-time Metrics</h3>
-                                <p>Monitor backup performance, success rates, and storage usage for both MySQL and PostgreSQL</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="monitoring-features">
-                    <div class="monitoring-grid">
-                        <div class="metric-card">
-                            <div class="metric-icon">📈</div>
-                            <h4>Backup Success Rate</h4>
-                            <p>Track backup success/failure rates with detailed error analysis per database engine</p>
-                        </div>
-                        <div class="metric-card">
-                            <div class="metric-icon">⏱️</div>
-                            <h4>Performance Metrics</h4>
-                            <p>Monitor backup duration, compression ratios, and throughput</p>
-                        </div>
-                        <div class="metric-card">
-                            <div class="metric-icon">💾</div>
-                            <h4>Storage Analytics</h4>
-                            <p>Track storage usage, retention policies, and cost optimization</p>
-                        </div>
-                        <div class="metric-card">
-                            <div class="metric-icon">🔔</div>
-                            <h4>Smart Alerts</h4>
-                            <p>9 Prometheus alert rules for backup failures, stale backups, and anomalies</p>
-                        </div>
-                    </div>
-                    <div class="monitoring-actions">
-                        <a href="https://github.com/abdullahainun/tenangdb/blob/main/grafana/dashboard.json" class="btn btn-primary" target="_blank">
-                            <span>📊</span>
-                            <span>Download Dashboard</span>
-                        </a>
-                        <a href="https://github.com/abdullahainun/tenangdb/blob/main/grafana/tenangdb-alerts.yml" class="btn btn-secondary" target="_blank">
-                            <span>🔔</span>
-                            <span>Alert Rules</span>
-                        </a>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
+        </section>
+    </main>
 
-    <!-- Quick Start Section -->
-    <section id="get-started" class="quick-start">
-        <div class="container">
-            <div class="section-header">
-                <h2>Quick Start</h2>
-                <p>Get TenangDB running in under a minute with Docker</p>
-            </div>
-            <div class="code-showcase">
-                <div class="code-content">
-                    <div class="code-line">
-                        <span class="comment"># 1. Download config template</span>
-                    </div>
-                    <div class="code-line">
-                        <span class="command">curl -L https://go.ainun.cloud/tenangdb-config.yaml.example -o config.yaml</span>
-                    </div>
-                    <div class="code-line">
-                        <span class="comment"># 2. Edit with your database credentials</span>
-                    </div>
-                    <div class="code-line">
-                        <span class="command">nano config.yaml</span>
-                    </div>
-                    <div class="code-line">
-                        <span class="comment"># 3. Create backups directory</span>
-                    </div>
-                    <div class="code-line">
-                        <span class="command">mkdir -p backups && sudo chown $(id -u):$(id -g) backups</span>
-                    </div>
-                    <div class="code-line">
-                        <span class="comment"># 4. Run backup</span>
-                    </div>
-                    <div class="code-line">
-                        <span class="command">docker run --user $(id -u):$(id -g) \</span>
-                    </div>
-                    <div class="code-line">
-                        <span class="command">  -v $(pwd)/config.yaml:/config.yaml \</span>
-                    </div>
-                    <div class="code-line">
-                        <span class="command">  -v $(pwd)/backups:/backups \</span>
-                    </div>
-                    <div class="code-line">
-                        <span class="command">  ghcr.io/abdullahainun/tenangdb:latest backup --yes</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Production Section -->
-    <section id="production" class="installation">
-        <div class="container">
-            <div class="installation-content">
-                <div class="installation-text">
-                    <h2>Production Deployment</h2>
-                    <p>Deploy TenangDB in production with automated cron scheduling, Prometheus monitoring, and cloud integration. Perfect for mission-critical backup workflows across MySQL and PostgreSQL.</p>
-                    <div class="installation-features">
-                        <div class="feature-highlight">
-                            <span class="feature-icon">⏰</span>
-                            <span>Automated cron scheduling</span>
-                        </div>
-                        <div class="feature-highlight">
-                            <span class="feature-icon">🔄</span>
-                            <span>Volume persistence for tracking</span>
-                        </div>
-                        <div class="feature-highlight">
-                            <span class="feature-icon">📊</span>
-                            <span>Prometheus metrics + Grafana dashboard</span>
-                        </div>
-                        <div class="feature-highlight">
-                            <span class="feature-icon">🔔</span>
-                            <span>9 Prometheus alert rules included</span>
-                        </div>
-                        <div class="feature-highlight">
-                            <span class="feature-icon">🔒</span>
-                            <span>Secure credential management</span>
-                        </div>
-                    </div>
-                    <div class="installation-actions">
-                        <a href="https://github.com/abdullahainun/tenangdb" class="btn btn-primary" target="_blank">
-                            View Documentation
-                        </a>
-                        <a href="#demo" class="btn btn-secondary">
-                            See Demo
-                        </a>
-                    </div>
-                </div>
-                <div class="installation-visual">
-                    <div class="code-showcase">
-                        <div class="code-header">
-                            <span>Daily Cron Schedule</span>
-                        </div>
-                        <div class="code-content">
-                            <div class="code-line">
-                                <span class="comment"># Daily backup at 2 AM with persistence</span>
-                            </div>
-                            <div class="code-line">
-                                <span class="command">0 2 * * * docker run --rm \</span>
-                            </div>
-                            <div class="code-line">
-                                <span class="command">  --user $(id -u):$(id -g) \</span>
-                            </div>
-                            <div class="code-line">
-                                <span class="command">  -v /etc/tenangdb/config.yaml:/config.yaml \</span>
-                            </div>
-                            <div class="code-line">
-                                <span class="command">  -v /var/backups/tenangdb:/backups \</span>
-                            </div>
-                            <div class="code-line">
-                                <span class="command">  -v /tmp/tenangdb:/tmp/tenangdb \</span>
-                            </div>
-                            <div class="code-line">
-                                <span class="command">  ghcr.io/abdullahainun/tenangdb:latest backup --yes</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Footer -->
     <footer class="footer">
-        <div class="container">
-            <div class="footer-content">
-                <div class="footer-brand">
-                    <div class="logo">
-                        <span class="logo-icon">🛡️</span>
-                        <span class="logo-text">TenangDB</span>
-                    </div>
-                    <div class="footer-social">
-                        <a href="https://github.com/abdullahainun/tenangdb" target="_blank" class="social-link">
-                            GitHub
-                        </a>
-                    </div>
-                </div>
-            </div>
-            <div class="footer-bottom">
-                <div class="footer-bottom-content">
-                    <p>&copy; 2026 TenangDB • MIT License</p>
-                </div>
-            </div>
+        <div class="inner">
+            <p>&copy; 2026 TenangDB &middot; MIT License &middot; by <a href="https://github.com/abdullahainun">@abdullahainun</a></p>
         </div>
     </footer>
-
-    <!-- JavaScript -->
-    <script src="assets/js/main.js"></script>
 </body>
 </html>
