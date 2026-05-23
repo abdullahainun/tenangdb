@@ -156,6 +156,24 @@ h1 {
     font-size: inherit;
 }
 
+/* networking hint */
+
+.net-hint {
+    font-size: 0.8rem;
+    color: #8a8a8a;
+    margin-top: 0.75rem;
+    line-height: 1.5;
+}
+
+.net-hint code {
+    font-family: "SF Mono", "Cascadia Code", "Fira Code", ui-monospace, monospace;
+    font-size: 0.85em;
+    background: #f0f0f0;
+    padding: 0.1em 0.35em;
+    border-radius: 4px;
+    color: #1a1a1a;
+}
+
 /* terminal box */
 
 .terminal-box {
