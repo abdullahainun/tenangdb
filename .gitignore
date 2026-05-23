@@ -75,3 +75,6 @@ Dockerfile.local
 # Dolt database files (added by bd init)
 .dolt/
 *.db
+
+# opencode local configuration and skills
+.opencode/
