@@ -104,7 +104,10 @@ h1 {
     border-radius: 10px;
     margin-bottom: 1.25rem;
     box-shadow: 0 2px 12px rgba(0,0,0,0.08);
-    overflow: hidden;
+}
+
+.terminal-scroll {
+    overflow-x: auto;
 }
 
 .terminal-bar {
@@ -136,7 +139,6 @@ h1 {
     margin: 0;
     padding: 0 1.25rem 1rem;
     white-space: pre;
-    overflow-x: auto;
 }
 
 .tp {

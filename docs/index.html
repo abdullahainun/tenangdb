@@ -41,9 +41,11 @@
                     </div>
                     <button class="cpy" onclick="copyCmd()" title="Copy commands">Copy</button>
                 </div>
+                <div class="terminal-scroll">
                 <pre><span class="tp">$</span> curl -L https://raw.githubusercontent.com/abdullahainun/tenangdb/main/config.yaml.example -o config.yaml
 <span class="cm">  # edit config.yaml with your database credentials</span>
 <span class="tp">$</span> docker run --rm -v $(pwd)/config.yaml:/config.yaml ghcr.io/abdullahainun/tenangdb backup --yes</pre>
+                </div>
             </div>
             <div class="badges">
                 <span>v1.3.1</span>
