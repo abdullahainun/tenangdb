@@ -83,13 +83,14 @@ func newBackupCommand() *cobra.Command {
 	var databases string
 	var force bool
 	var yes bool
+	var retryFailed bool
 
 	cmd := &cobra.Command{
 		Use:   "backup",
 		Short: "Run database backup",
 		Long:  `Backup databases to local directory with optional cloud upload.`,
 		Run: func(cmd *cobra.Command, args []string) {
-			runBackup(configFile, logLevel, dryRun, databases, force, yes)
+			runBackup(configFile, logLevel, dryRun, databases, force, yes, retryFailed)
 		},
 	}
 
@@ -99,11 +100,12 @@ func newBackupCommand() *cobra.Command {
 	cmd.Flags().StringVar(&databases, "databases", "", "comma-separated list of databases to backup (overrides config)")
 	cmd.Flags().BoolVar(&force, "force", false, "skip backup frequency confirmation prompts")
 	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "skip confirmation prompts (for automated mode)")
+	cmd.Flags().BoolVar(&retryFailed, "retry-failed", false, "retry only databases that failed in the previous backup run")
 
 	return cmd
 }
 
-func runBackup(configFile, logLevel string, dryRun bool, databases string, force bool, yes bool) {
+func runBackup(configFile, logLevel string, dryRun bool, databases string, force bool, yes bool, retryFailed bool) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -129,7 +131,23 @@ func runBackup(configFile, logLevel string, dryRun bool, databases string, force
 		log := logger.NewLogger(logLevel)
 		log.Infof("Using databases from command line: %v", selectedDatabases)
 	}
-	
+
+	// Override databases from previous run failures if --retry-failed is specified
+	if retryFailed {
+		failedDBs, err := loadFailedDatabases(cfg.Backup.Directory)
+		if err != nil {
+			log := logger.NewLogger(logLevel)
+			log.WithError(err).Fatal("Failed to load failed databases from previous run")
+		}
+		if len(failedDBs) == 0 {
+			log := logger.NewLogger(logLevel)
+			log.Fatal("No failed databases found from previous backup run")
+		}
+		cfg.Backup.Databases = failedDBs
+		log := logger.NewLogger(logLevel)
+		log.Infof("Retrying failed databases from previous run: %v", failedDBs)
+	}
+
 	// Override skip confirmation if force or yes flag is used
 	if force || yes {
 		cfg.Backup.SkipConfirmation = true
@@ -207,14 +225,30 @@ func runBackup(configFile, logLevel string, dryRun bool, databases string, force
 		stats := backupService.GetStatistics()
 		if stats.FailedBackups == 0 {
 			log.Info("✅ All backup process completed successfully")
+			// Clear any previous failed databases tracking file
+			if err := clearFailedDatabases(cfg.Backup.Directory); err != nil {
+				log.WithError(err).Warn("Failed to clear failed databases tracking file")
+			}
 		} else if stats.SuccessfulBackups > 0 {
 			log.WithFields(map[string]interface{}{
 				"successful": stats.SuccessfulBackups,
 				"failed":     stats.FailedBackups,
 				"total":      stats.TotalDatabases,
 			}).Warn("⚠️  Backup process completed with partial success")
+			// Save failed databases for potential retry
+			failedDBs := backupService.GetFailedDatabases()
+			if err := saveFailedDatabases(cfg.Backup.Directory, failedDBs); err != nil {
+				log.WithError(err).Warn("Failed to save failed databases tracking file")
+			} else {
+				log.Infof("Use 'tenangdb backup --retry-failed' to retry: %v", failedDBs)
+			}
 		} else {
 			log.WithField("failed", stats.FailedBackups).Error("❌ All database backups failed")
+			// Save all databases as failed for potential retry
+			failedDBs := backupService.GetFailedDatabases()
+			if err := saveFailedDatabases(cfg.Backup.Directory, failedDBs); err != nil {
+				log.WithError(err).Warn("Failed to save failed databases tracking file")
+			}
 			os.Exit(1)
 		}
 	case <-sigChan:
@@ -246,7 +280,7 @@ func run(cmd *cobra.Command, args []string) {
 	log.Debug("DEPRECATED: Running tenangdb without 'backup' subcommand is deprecated. Use 'tenangdb backup' instead.")
 	
 	// Call the new backup function for backward compatibility
-	runBackup(configFile, logLevel, dryRun, databases, false, false)
+	runBackup(configFile, logLevel, dryRun, databases, false, false, false)
 }
 
 func newCleanupCommand() *cobra.Command {
@@ -1126,6 +1160,70 @@ func getTrackingFilePath(backupDir string) string {
 	
 	trackingFile := fmt.Sprintf(".tenangdb_backup_tracking_%s.json", hasher)
 	return filepath.Join(trackingDir, trackingFile)
+}
+
+// getFailedDBTrackingFilePath returns the path for failed databases tracking file
+func getFailedDBTrackingFilePath(backupDir string) string {
+	trackingFile := getTrackingFilePath(backupDir)
+	return strings.Replace(trackingFile, "_tracking_", "_failed_", 1)
+}
+
+// saveFailedDatabases saves the list of failed databases to a tracking file
+func saveFailedDatabases(backupDir string, failedDBs []string) error {
+	if len(failedDBs) == 0 {
+		return nil
+	}
+
+	trackingFile := getFailedDBTrackingFilePath(backupDir)
+
+	if err := os.MkdirAll(filepath.Dir(trackingFile), 0755); err != nil {
+		return fmt.Errorf("failed to create tracking directory: %w", err)
+	}
+
+	tracking := struct {
+		FailedDatabases []string `json:"failed_databases"`
+		Timestamp       time.Time `json:"timestamp"`
+	}{
+		FailedDatabases: failedDBs,
+		Timestamp:       time.Now(),
+	}
+
+	data, err := json.Marshal(tracking)
+	if err != nil {
+		return err
+	}
+
+	return os.WriteFile(trackingFile, data, 0644)
+}
+
+// loadFailedDatabases reads the list of failed databases from a tracking file
+func loadFailedDatabases(backupDir string) ([]string, error) {
+	trackingFile := getFailedDBTrackingFilePath(backupDir)
+
+	data, err := os.ReadFile(trackingFile)
+	if err != nil {
+		return nil, fmt.Errorf("no previous failed backup data found (use --databases flag instead): %w", err)
+	}
+
+	var tracking struct {
+		FailedDatabases []string `json:"failed_databases"`
+		Timestamp       time.Time `json:"timestamp"`
+	}
+
+	if err := json.Unmarshal(data, &tracking); err != nil {
+		return nil, fmt.Errorf("failed to parse failed backup data: %w", err)
+	}
+
+	return tracking.FailedDatabases, nil
+}
+
+// clearFailedDatabases removes the failed databases tracking file
+func clearFailedDatabases(backupDir string) error {
+	trackingFile := getFailedDBTrackingFilePath(backupDir)
+	if err := os.Remove(trackingFile); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	return nil
 }
 
 // formatDuration formats duration in human readable format

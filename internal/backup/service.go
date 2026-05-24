@@ -17,15 +17,16 @@ import (
 )
 
 type Service struct {
-	config         *config.Config
-	logger         *logger.Logger
-	dbClient       database.DatabaseClient
-	uploader       *upload.Service
-	compressor     *compression.Compressor
-	stats          *Statistics
-	uploadedFiles  map[string]time.Time // Track uploaded files with timestamp
-	metricsStorage *metrics.MetricsStorage
-	mu             sync.RWMutex
+	config          *config.Config
+	logger          *logger.Logger
+	dbClient        database.DatabaseClient
+	uploader        *upload.Service
+	compressor      *compression.Compressor
+	stats           *Statistics
+	uploadedFiles   map[string]time.Time // Track uploaded files with timestamp
+	failedDatabases []string             // Track failed database names
+	metricsStorage  *metrics.MetricsStorage
+	mu              sync.RWMutex
 }
 
 type Statistics struct {
@@ -82,6 +83,7 @@ func NewService(cfg *config.Config, log *logger.Logger) (*Service, error) {
 func (s *Service) Run(ctx context.Context) error {
 	s.mu.Lock()
 	s.stats.StartTime = time.Now()
+	s.failedDatabases = nil
 	s.mu.Unlock()
 
 	// Initialize metrics only if enabled
@@ -216,6 +218,7 @@ func (s *Service) processDatabase(ctx context.Context, dbName string) {
 			"error":    err.Error(),
 		}).Error("❌ " + dbName + " backup failed")
 		s.incrementFailedBackups()
+		s.trackFailedDatabase(dbName)
 		if s.config.Metrics.Enabled {
 			metrics.RecordBackupEnd(dbName, backupDuration, false, 0)
 			if s.metricsStorage != nil {
@@ -382,6 +385,22 @@ func (s *Service) GetStatistics() Statistics {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return *s.stats
+}
+
+// trackFailedDatabase records a database that failed to backup
+func (s *Service) trackFailedDatabase(dbName string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.failedDatabases = append(s.failedDatabases, dbName)
+}
+
+// GetFailedDatabases returns the list of databases that failed during the backup run
+func (s *Service) GetFailedDatabases() []string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	result := make([]string, len(s.failedDatabases))
+	copy(result, s.failedDatabases)
+	return result
 }
 
 // markFileAsUploaded marks a file as successfully uploaded
