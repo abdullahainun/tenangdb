@@ -18,6 +18,7 @@ import (
 	"github.com/abdullahainun/tenangdb/internal/config"
 	"github.com/abdullahainun/tenangdb/internal/logger"
 	"github.com/abdullahainun/tenangdb/internal/metrics"
+	"github.com/abdullahainun/tenangdb/internal/upload"
 	"github.com/abdullahainun/tenangdb/pkg/database"
 
 	"github.com/spf13/cobra"
@@ -70,6 +71,9 @@ func main() {
 
 	// Add init command
 	rootCmd.AddCommand(newInitCommand())
+
+	// Add upload command
+	rootCmd.AddCommand(newUploadCommand())
 
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
@@ -2110,4 +2114,76 @@ func loadPartialConfig(configFile string) (*config.Config, error) {
 	}
 	
 	return &cfg, nil
+}
+
+func newUploadCommand() *cobra.Command {
+	var configFile string
+	var logLevel string
+	var sourcePath string
+	var dryRun bool
+
+	cmd := &cobra.Command{
+		Use:   "upload",
+		Short: "Upload an existing backup to cloud storage",
+		Long:  `Upload an existing backup file or directory to cloud storage using rclone, without running a backup first.`,
+		Run: func(cmd *cobra.Command, args []string) {
+			runUpload(configFile, logLevel, sourcePath, dryRun)
+		},
+	}
+
+	cmd.Flags().StringVar(&configFile, "config", "", "config file path (auto-discovery if not specified)")
+	cmd.Flags().StringVar(&logLevel, "log-level", "info", "log level (debug, info, warn, error)")
+	cmd.Flags().StringVarP(&sourcePath, "source-path", "s", "", "path to backup file or directory to upload (required)")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "show what would be uploaded without actually uploading")
+
+	if err := cmd.MarkFlagRequired("source-path"); err != nil {
+		fmt.Printf("Error: Failed to mark source-path flag as required: %v\n", err)
+	}
+
+	return cmd
+}
+
+func runUpload(configFile, logLevel, sourcePath string, dryRun bool) {
+	ctx := context.Background()
+
+	cfg, err := config.LoadConfig(configFile)
+	if err != nil {
+		log := logger.NewLogger(logLevel)
+		log.WithError(err).Fatal("Failed to load configuration")
+	}
+
+	effectiveLogLevel := logLevel
+	if logLevel == "info" && cfg.Logging.Level != "" {
+		effectiveLogLevel = cfg.Logging.Level
+	}
+
+	log, err := logger.NewFileLoggerWithSeparateFormats(effectiveLogLevel, cfg.Logging.FilePath, cfg.Logging.Format, cfg.Logging.FileFormat)
+	if err != nil {
+		log = logger.NewLogger(effectiveLogLevel)
+		log.WithError(err).Warn("Failed to initialize file logger, using stdout")
+	}
+
+	if !cfg.Upload.Enabled {
+		log.Fatal("Upload is not enabled in configuration (upload.enabled: false)")
+	}
+
+	if _, err := os.Stat(sourcePath); os.IsNotExist(err) {
+		log.WithField("source_path", sourcePath).Fatal("Source path does not exist")
+	}
+
+	log.WithField("source_path", sourcePath).WithField("destination", cfg.Upload.Destination).Info("Starting upload")
+
+	if dryRun {
+		log.Info("DRY RUN MODE: No actual upload will be performed")
+		log.WithField("source_path", sourcePath).Info("Would upload this path")
+		log.WithField("destination", cfg.Upload.Destination).Info("Upload destination")
+		return
+	}
+
+	uploader := upload.NewService(&cfg.Upload, log)
+	if err := uploader.Upload(ctx, sourcePath); err != nil {
+		log.WithError(err).Fatal("Upload failed")
+	}
+
+	log.Info("Upload completed successfully")
 }
