@@ -56,10 +56,9 @@ metrics:
 | `chunk_filesize` | int | `100` | Chunk size in MB |
 | `compress_method` | string | `gzip` | Compression: `gzip`, `lz4`, or empty |
 | `build_empty_files` | bool | `false` | Create empty files for empty tables |
-| `use_defer` | bool | `true` | Use deferred inserts (deprecated) |
-| `single_table` | bool | `false` | Single table mode (deprecated) |
 | `no_schemas` | bool | `false` | Skip schema dump |
 | `no_data` | bool | `false` | Skip data dump |
+| `skip_definer` | bool | `true` | Strip DEFINER clause from schemas |
 | `myloader` | — | — | Myloader config (see below) |
 
 ##### database.mydumper.myloader

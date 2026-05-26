@@ -98,11 +98,11 @@ Do you want to proceed with backup? [y/N]:
 ### Options
 | Option | Description | Default |
 |--------|-------------|---------|
-| `--config` | Path to configuration file | `config.yaml` |
-| `--log-level` | Log level (panic, fatal, error, warn, info, debug, trace) | `info` |
-| `--dry-run` | Preview actions without executing | `false` |
+| `--config` | Path to configuration file | Auto-discovery |
+| `--log-level` | Log level (debug, info, warn, error) | `info` |
 | `--databases` | Comma-separated list of databases to backup | All from config |
 | `--force` | Skip backup frequency confirmation prompts | `false` |
+| `--retry-failed` | Retry only databases that failed in the previous backup run | `false` |
 | `--yes, -y` | Skip all confirmation prompts (automated mode) | `false` |
 
 ### Examples
@@ -111,7 +111,7 @@ Do you want to proceed with backup? [y/N]:
 ./tenangdb backup --databases app_db,user_db --config config.yaml
 
 # Debug mode with verbose output
-./tenangdb backup --log-level trace --config config.yaml
+./tenangdb backup --log-level debug --config config.yaml
 
 # Test configuration without running backup
 ./tenangdb backup --dry-run --config config.yaml
@@ -121,6 +121,9 @@ Do you want to proceed with backup? [y/N]:
 
 # Force backup without frequency checks
 ./tenangdb backup --force --config config.yaml
+
+# Retry only failed databases from previous run
+./tenangdb backup --retry-failed --config config.yaml
 ```
 
 ## 🚀 Restore Command
@@ -172,12 +175,11 @@ Do you want to create and restore database 'new_db'? [y/N]:
 ### Options
 | Option | Description | Required |
 |--------|-------------|----------|
-| `--backup-path` | Path to backup directory | ✅ |
-| `--database` | Target database name | ✅ |
+| `--backup-path, -b` | Path to backup directory or SQL file | ✅ |
+| `--database, -d` | Target database name | ✅ |
 | `--config` | Path to configuration file | ❌ |
-| `--log-level` | Log level | ❌ |
-| `--dry-run` | Preview actions without executing | ❌ |
-| `--yes, -y` | Skip confirmation prompts (for automated mode) | ❌ |
+| `--log-level` | Log level (debug, info, warn, error) | `info` |
+| `--yes, -y` | Skip confirmation prompts (for automated mode) | `false` |
 
 ### Examples
 ```bash
@@ -239,21 +241,17 @@ Do you want to proceed with cleanup? [y/N]:
 ### Options
 | Option | Description | Default |
 |--------|-------------|---------|
-| `--config` | Path to configuration file | `config.yaml` |
+| `--config` | Path to configuration file | Auto-discovery |
 | `--force` | Force cleanup (bypass weekend-only) | `false` |
 | `--dry-run` | Preview actions without executing | `false` |
 | `--databases` | Comma-separated list of databases to clean | All from config |
-| `--max-age-days` | Override max age from config | From config |
-| `--log-level` | Log level | `info` |
+| `--log-level` | Log level (debug, info, warn, error) | `info` |
 | `--yes, -y` | Skip confirmation prompts (for automated mode) | `false` |
 
 ### Examples
 ```bash
 # Cleanup specific databases
 ./tenangdb cleanup --databases app_db,logs_db --force --config config.yaml
-
-# Cleanup with custom age limit
-./tenangdb cleanup --max-age-days 3 --force --config config.yaml
 
 # Preview cleanup for all databases
 ./tenangdb cleanup --dry-run --config config.yaml
@@ -271,9 +269,6 @@ Do you want to proceed with cleanup? [y/N]:
 ```bash
 # Show version
 ./tenangdb version
-
-# Show build information
-./tenangdb version --build-info
 ```
 
 ### Help

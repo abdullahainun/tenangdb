@@ -69,8 +69,6 @@ type MydumperConfig struct {
 	ChunkFilesize   int             `mapstructure:"chunk_filesize"`
 	CompressMethod  string          `mapstructure:"compress_method"`
 	BuildEmptyFiles bool            `mapstructure:"build_empty_files"`
-	UseDefer        bool            `mapstructure:"use_defer"`
-	SingleTable     bool            `mapstructure:"single_table"`
 	NoSchemas       bool            `mapstructure:"no_schemas"`
 	NoData          bool            `mapstructure:"no_data"`
 	SkipDefiner     bool            `mapstructure:"skip_definer"`
@@ -479,8 +477,6 @@ func setDefaults() {
 	viper.SetDefault("database.mydumper.chunk_filesize", 100)
 	viper.SetDefault("database.mydumper.compress_method", "gzip")
 	viper.SetDefault("database.mydumper.build_empty_files", false)
-	viper.SetDefault("database.mydumper.use_defer", true)
-	viper.SetDefault("database.mydumper.single_table", false)
 	viper.SetDefault("database.mydumper.no_schemas", false)
 	viper.SetDefault("database.mydumper.no_data", false)
 	viper.SetDefault("database.mydumper.skip_definer", true)
