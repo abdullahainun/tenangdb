@@ -197,6 +197,39 @@ rclone copy minio:backups/db-2025-07-05_10-30-15 /tmp/restore/
 ./tenangdb restore --backup-path /backup/db-2025-07-05_10-30-15.tar.gz --database restored_db
 ```
 
+## ☁️ Upload Command
+
+Upload an existing backup file or directory to cloud storage without running a backup first.
+
+### Basic Usage
+```bash
+# Upload a backup directory
+./tenangdb upload --source-path /backup/myapp/2025-05/myapp-2025-05-26_10-30-15
+
+# Upload a compressed backup file
+./tenangdb upload --source-path /backup/myapp/2025-05/myapp-2025-05-26_10-30-15.tar.gz
+```
+
+### Options
+| Option | Description | Required |
+|--------|-------------|----------|
+| `--source-path, -s` | Path to backup file or directory to upload | ✅ |
+| `--config` | Path to configuration file | ❌ |
+| `--log-level` | Log level (debug, info, warn, error) | ❌ |
+| `--dry-run` | Preview what would be uploaded without executing | ❌ |
+
+### Examples
+```bash
+# Upload a mydumper backup directory
+./tenangdb upload --source-path /backup/prod_db-2025-05-26_10-30-15 --config config.yaml
+
+# Upload a compressed backup
+./tenangdb upload -s /backup/db-2025-05-26_10-30-15.tar.gz
+
+# Dry-run to preview upload destination
+./tenangdb upload --source-path /backup/prod_db-2025-05-26 --dry-run --config config.yaml
+```
+
 ## 🧹 Cleanup Command
 
 ### Confirmation Feature
