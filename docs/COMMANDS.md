@@ -163,17 +163,17 @@ Do you want to create and restore database 'new_db'? [y/N]:
 ### Basic Usage
 ```bash
 # Restore database from backup
-./tenangdb restore --backup-path /backup/db-2025-07-05_10-30-15 --target-database restored_db
+./tenangdb restore --backup-path /backup/db-2025-07-05_10-30-15 --database restored_db
 
 # Restore with custom config
-./tenangdb restore --backup-path /backup/db-2025-07-05_10-30-15 --target-database restored_db --config config.yaml
+./tenangdb restore --backup-path /backup/db-2025-07-05_10-30-15 --database restored_db --config config.yaml
 ```
 
 ### Options
 | Option | Description | Required |
 |--------|-------------|----------|
 | `--backup-path` | Path to backup directory | ✅ |
-| `--target-database` | Target database name | ✅ |
+| `--database` | Target database name | ✅ |
 | `--config` | Path to configuration file | ❌ |
 | `--log-level` | Log level | ❌ |
 | `--dry-run` | Preview actions without executing | ❌ |
@@ -182,17 +182,17 @@ Do you want to create and restore database 'new_db'? [y/N]:
 ### Examples
 ```bash
 # Restore with different name
-./tenangdb restore --backup-path /backup/prod_db-2025-07-05_10-30-15 --target-database prod_db_restored
+./tenangdb restore --backup-path /backup/prod_db-2025-07-05_10-30-15 --database prod_db_restored
 
 # Restore from cloud backup (download first)
 rclone copy minio:backups/db-2025-07-05_10-30-15 /tmp/restore/
-./tenangdb restore --backup-path /tmp/restore/db-2025-07-05_10-30-15 --target-database restored_db
+./tenangdb restore --backup-path /tmp/restore/db-2025-07-05_10-30-15 --database restored_db
 
 # Automated restore (skip confirmation)
-./tenangdb restore --backup-path /backup/db-2025-07-05_10-30-15 --target-database restored_db --yes
+./tenangdb restore --backup-path /backup/db-2025-07-05_10-30-15 --database restored_db --yes
 
 # Restore from compressed backup (auto-decompression)
-./tenangdb restore --backup-path /backup/db-2025-07-05_10-30-15.tar.gz --target-database restored_db
+./tenangdb restore --backup-path /backup/db-2025-07-05_10-30-15.tar.gz --database restored_db
 ```
 
 ## 🧹 Cleanup Command
@@ -321,7 +321,7 @@ These options work with all commands:
 ./tenangdb cleanup --force --config /etc/tenangdb/config.yaml
 
 # Monthly restore test
-./tenangdb restore --backup-path /backup/latest --target-database test_restore
+./tenangdb restore --backup-path /backup/latest --database test_restore
 ```
 
 ### Development Workflows
@@ -330,7 +330,7 @@ These options work with all commands:
 ./tenangdb --databases dev_db --log-level debug
 
 # Restore from production backup
-./tenangdb restore --backup-path /backup/prod-2025-07-05 --target-database dev_db_copy
+./tenangdb restore --backup-path /backup/prod-2025-07-05 --database dev_db_copy
 ```
 
 ### Monitoring Integration
