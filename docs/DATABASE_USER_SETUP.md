@@ -13,8 +13,8 @@ CREATE USER 'tenangdb'@'%' IDENTIFIED BY 'your-strong-password';
 GRANT SELECT, SHOW DATABASES, SHOW VIEW, LOCK TABLES, EVENT, TRIGGER ON *.* TO 'tenangdb'@'%';
 GRANT REPLICATION CLIENT ON *.* TO 'tenangdb'@'%';
 
--- Restore: CREATE + DROP + INSERT
-GRANT CREATE, DROP, ALTER, INDEX, INSERT, UPDATE, DELETE ON *.* TO 'tenangdb'@'%';
+-- Restore: CREATE + DROP + INSERT + views & routines
+GRANT CREATE, DROP, ALTER, INDEX, INSERT, UPDATE, DELETE, CREATE VIEW, CREATE ROUTINE ON *.* TO 'tenangdb'@'%';
 
 FLUSH PRIVILEGES;
 ```
@@ -39,6 +39,8 @@ mysql -u tenangdb -p -h 127.0.0.1 -e "SELECT @@version;"
 | `EVENT, TRIGGER` | Backup event scheduler + triggers |
 | `REPLICATION CLIENT` | Check binary log position (mydumper) |
 | `CREATE, DROP, ALTER` | Create/replace database during restore |
+| `CREATE VIEW` | Recreate views during restore (needed since --skip-definer strips original definer) |
+| `CREATE ROUTINE` | Recreate stored procedures/functions during restore |
 | `INSERT` | Insert data during restore |
 | `INDEX` | Rebuild indexes after restore |
 
