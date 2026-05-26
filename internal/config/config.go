@@ -73,6 +73,7 @@ type MydumperConfig struct {
 	SingleTable     bool            `mapstructure:"single_table"`
 	NoSchemas       bool            `mapstructure:"no_schemas"`
 	NoData          bool            `mapstructure:"no_data"`
+	SkipDefiner     bool            `mapstructure:"skip_definer"`
 	Myloader        *MyloaderConfig `mapstructure:"myloader"`
 }
 
@@ -482,6 +483,7 @@ func setDefaults() {
 	viper.SetDefault("database.mydumper.single_table", false)
 	viper.SetDefault("database.mydumper.no_schemas", false)
 	viper.SetDefault("database.mydumper.no_data", false)
+	viper.SetDefault("database.mydumper.skip_definer", true)
 
 	// Myloader defaults
 	viper.SetDefault("database.mydumper.myloader.enabled", false)
