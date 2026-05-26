@@ -1,13 +1,17 @@
 package database
 
 import (
+	"bufio"
 	"bytes"
+	"compress/gzip"
 	"context"
 	"database/sql"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -358,6 +362,10 @@ func (c *MySQLClient) RestoreBackup(ctx context.Context, backupPath, dbName stri
 }
 
 func (c *MySQLClient) restoreWithMyloader(ctx context.Context, backupDir, dbName string) error {
+	if err := sanitizeSchemaFiles(backupDir); err != nil {
+		return fmt.Errorf("failed to sanitize schema files: %w", err)
+	}
+
 	// Build myloader command
 	args := []string{
 		"--overwrite-tables",
@@ -387,6 +395,99 @@ func (c *MySQLClient) restoreWithMyloader(ctx context.Context, backupDir, dbName
 
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("myloader failed: %w, stderr: %s", err, stderr.String())
+	}
+
+	return nil
+}
+
+var definerRe = regexp.MustCompile("DEFINER=`[^`]+`@`[^`]+`\\s*")
+
+func sanitizeSchemaFiles(backupDir string) error {
+	entries, err := os.ReadDir(backupDir)
+	if err != nil {
+		return fmt.Errorf("failed to read backup directory: %w", err)
+	}
+
+	for _, entry := range entries {
+		name := entry.Name()
+		if !strings.Contains(name, "-schema-") || !strings.HasSuffix(name, ".sql.gz") {
+			continue
+		}
+
+		schemaPath := filepath.Join(backupDir, name)
+		if err := stripDefinerFromGzip(schemaPath); err != nil {
+			return fmt.Errorf("failed to sanitize %s: %w", name, err)
+		}
+	}
+
+	return nil
+}
+
+func stripDefinerFromGzip(filePath string) error {
+	inFile, err := os.Open(filePath)
+	if err != nil {
+		return fmt.Errorf("failed to open file: %w", err)
+	}
+	defer inFile.Close()
+
+	gzReader, err := gzip.NewReader(inFile)
+	if err != nil {
+		return fmt.Errorf("failed to create gzip reader: %w", err)
+	}
+	defer gzReader.Close()
+
+	tmpFile, err := os.CreateTemp(filepath.Dir(filePath), "tenangdb-sanitize-*.sql.gz")
+	if err != nil {
+		return fmt.Errorf("failed to create temp file: %w", err)
+	}
+	tmpPath := tmpFile.Name()
+	cleanup := func() { os.Remove(tmpPath) }
+
+	gzWriter, err := gzip.NewWriterLevel(tmpFile, gzip.BestSpeed)
+	if err != nil {
+		tmpFile.Close()
+		cleanup()
+		return fmt.Errorf("failed to create gzip writer: %w", err)
+	}
+
+	scanner := bufio.NewScanner(gzReader)
+	scanner.Buffer(make([]byte, 1024*1024), 10*1024*1024)
+
+	sanitized := false
+	for scanner.Scan() {
+		line := scanner.Text()
+		cleaned := definerRe.ReplaceAllLiteralString(line, "")
+		if _, err := io.WriteString(gzWriter, cleaned+"\n"); err != nil {
+			gzWriter.Close()
+			tmpFile.Close()
+			cleanup()
+			return fmt.Errorf("failed to write sanitized line: %w", err)
+		}
+		if cleaned != line {
+			sanitized = true
+		}
+	}
+
+	if err := gzWriter.Close(); err != nil {
+		tmpFile.Close()
+		cleanup()
+		return fmt.Errorf("failed to close gzip writer: %w", err)
+	}
+	tmpFile.Close()
+
+	if err := scanner.Err(); err != nil {
+		cleanup()
+		return fmt.Errorf("failed to scan file: %w", err)
+	}
+
+	if sanitized {
+		_ = os.Chmod(tmpPath, 0644)
+		if err := os.Rename(tmpPath, filePath); err != nil {
+			cleanup()
+			return fmt.Errorf("failed to replace original file: %w", err)
+		}
+	} else {
+		cleanup()
 	}
 
 	return nil
@@ -438,6 +539,10 @@ func (c *MySQLClient) buildMydumperArgs(dbBackupDir, dbName string) []string {
 		fmt.Sprintf("--database=%s", dbName),
 		fmt.Sprintf("--threads=%d", c.config.Mydumper.Threads),
 		fmt.Sprintf("--chunk-filesize=%d", c.config.Mydumper.ChunkFilesize),
+	}
+
+	if c.config.Mydumper.SkipDefiner {
+		args = append(args, "--skip-definer")
 	}
 
 	// Version-aware parameter selection for cross-platform compatibility
