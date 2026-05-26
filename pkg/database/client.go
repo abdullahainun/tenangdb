@@ -23,8 +23,9 @@ import (
 )
 
 type MySQLClient struct {
-	config *config.DatabaseConfig
-	db     *sql.DB
+	config             *config.DatabaseConfig
+	db                 *sql.DB
+	mydumperHelpCache  string
 }
 
 func NewMySQLClient(config *config.DatabaseConfig) (*MySQLClient, error) {
@@ -541,7 +542,7 @@ func (c *MySQLClient) buildMydumperArgs(dbBackupDir, dbName string) []string {
 		fmt.Sprintf("--chunk-filesize=%d", c.config.Mydumper.ChunkFilesize),
 	}
 
-	if c.config.Mydumper.SkipDefiner {
+	if c.config.Mydumper.SkipDefiner && strings.Contains(c.getMydumperHelp(), "--skip-definer") {
 		args = append(args, "--skip-definer")
 	}
 
@@ -558,23 +559,22 @@ func (c *MySQLClient) buildMydumperArgs(dbBackupDir, dbName string) []string {
 }
 
 func (c *MySQLClient) isMydumperVersionCompatible() bool {
-	// Detect mydumper version by checking for modern parameters in --help output
-	// Returns true for v0.19.x+ (modern), false for v0.9.1-v0.10.x (legacy)
-	// Tested versions:
-	//   - v0.9.1 (Ubuntu 18.04) → legacy parameters
-	//   - v0.10.0 (most Linux distros) → legacy parameters  
-	//   - v0.19.3 (macOS Homebrew) → modern parameters
+	helpOutput := c.getMydumperHelp()
+	return strings.Contains(helpOutput, "--sync-thread-lock-mode") && 
+		   strings.Contains(helpOutput, "--trx-tables")
+}
+
+func (c *MySQLClient) getMydumperHelp() string {
+	if c.mydumperHelpCache != "" {
+		return c.mydumperHelpCache
+	}
 	cmd := exec.Command(c.config.Mydumper.BinaryPath, "--help")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		// If help fails, assume legacy version for safety
-		return false
+		return ""
 	}
-
-	outputStr := string(output)
-	// Check for modern parameters that exist in v0.19.x+
-	return strings.Contains(outputStr, "--sync-thread-lock-mode") && 
-		   strings.Contains(outputStr, "--trx-tables")
+	c.mydumperHelpCache = string(output)
+	return c.mydumperHelpCache
 }
 
 func (c *MySQLClient) Close() error {
