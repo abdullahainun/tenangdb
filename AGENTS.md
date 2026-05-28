@@ -121,6 +121,42 @@ bd automatically syncs with git:
 
 For more details, see README.md and docs/QUICKSTART.md.
 
+## Branching Convention
+
+**ALWAYS create a new branch for each bd ticket:**
+
+```bash
+bd create "Feature description" -t feature -p 2 --json
+# Use the returned ticket id for the branch name:
+git checkout -b feat/<ticket-id>
+
+# Or for bug fixes:
+git checkout -b fix/<ticket-id>
+```
+
+Common branch prefixes: `feat/`, `fix/`, `chore/`.
+
+## Quality Gates
+
+### Before Committing
+
+**ALWAYS run tests before committing feature code:**
+
+```bash
+go test ./... -count=1 -timeout 120s
+```
+
+If tests fail, fix them before committing. Never commit broken tests.
+
+### Post-Feature Checklist
+
+After implementing a new feature or changing behavior:
+- [ ] Update `docs/COMMANDS.md` if CLI command added or changed
+- [ ] Update `docs/CONFIGURATION.md` if config options changed
+- [ ] Update `README.md` if feature warrants top-level mention
+- [ ] Run `go build ./...` to verify compilation
+- [ ] Run `go test ./...` to verify tests pass
+
 ## Landing the Plane (Session Completion)
 
 **When ending a work session**, you MUST complete ALL steps below. Work is NOT complete until `git push` succeeds.

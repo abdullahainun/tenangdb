@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/abdullahainun/tenangdb/internal/backup"
+	"github.com/abdullahainun/tenangdb/internal/compression"
 	"github.com/abdullahainun/tenangdb/internal/config"
 	"github.com/abdullahainun/tenangdb/internal/logger"
 	"github.com/abdullahainun/tenangdb/internal/metrics"
@@ -74,6 +75,9 @@ func main() {
 
 	// Add upload command
 	rootCmd.AddCommand(newUploadCommand())
+
+	// Add dump command
+	rootCmd.AddCommand(newDumpCommand())
 
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
@@ -2186,4 +2190,113 @@ func runUpload(configFile, logLevel, sourcePath string, dryRun bool) {
 	}
 
 	log.Info("Upload completed successfully")
+}
+
+func newDumpCommand() *cobra.Command {
+	var configFile string
+	var logLevel string
+	var dbName string
+	var outputDir string
+	var compress bool
+	var doUpload bool
+	var dryRun bool
+
+	cmd := &cobra.Command{
+		Use:   "dump",
+		Short: "Dump a single database without the full backup pipeline",
+		Long:  `Dump a single database directly to a local directory, with optional compression and cloud upload. Bypasses batch processing, frequency checks, confirmation prompts, and metrics.`,
+		Run: func(cmd *cobra.Command, args []string) {
+			runDump(configFile, logLevel, dbName, outputDir, compress, doUpload, dryRun)
+		},
+	}
+
+	cmd.Flags().StringVar(&configFile, "config", "", "config file path (auto-discovery if not specified)")
+	cmd.Flags().StringVar(&logLevel, "log-level", "info", "log level (debug, info, warn, error)")
+	cmd.Flags().StringVarP(&dbName, "database", "d", "", "database name to dump (required)")
+	cmd.Flags().StringVarP(&outputDir, "output", "o", "", "output directory (default: config backup.directory)")
+	cmd.Flags().BoolVar(&compress, "compress", false, "compress after dump (uses config backup.compression settings)")
+	cmd.Flags().BoolVar(&doUpload, "upload", false, "upload to cloud storage after dump")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "show what would be dumped without executing")
+
+	if err := cmd.MarkFlagRequired("database"); err != nil {
+		fmt.Printf("Error: Failed to mark database flag as required: %v\n", err)
+	}
+
+	return cmd
+}
+
+func runDump(configFile, logLevel, dbName, outputDir string, compress, doUpload, dryRun bool) {
+	ctx := context.Background()
+
+	cfg, err := config.LoadConfig(configFile)
+	if err != nil {
+		log := logger.NewLogger(logLevel)
+		log.WithError(err).Fatal("Failed to load configuration")
+	}
+
+	effectiveLogLevel := logLevel
+	if logLevel == "info" && cfg.Logging.Level != "" {
+		effectiveLogLevel = cfg.Logging.Level
+	}
+
+	log, err := logger.NewFileLoggerWithSeparateFormats(effectiveLogLevel, cfg.Logging.FilePath, cfg.Logging.Format, cfg.Logging.FileFormat)
+	if err != nil {
+		log = logger.NewLogger(effectiveLogLevel)
+		log.WithError(err).Warn("Failed to initialize file logger, using stdout")
+	}
+
+	if outputDir == "" {
+		outputDir = cfg.Backup.Directory
+	}
+
+	if _, err := os.Stat(outputDir); os.IsNotExist(err) {
+		log.WithField("output_dir", outputDir).Fatal("Output directory does not exist")
+	}
+
+	log.WithField("database", dbName).WithField("output", outputDir).Info("Starting dump")
+
+	if dryRun {
+		log.Info("DRY RUN MODE: No actual dump will be performed")
+		log.WithField("database", dbName).Info("Would dump this database")
+		log.WithField("output_directory", outputDir).Info("Output directory")
+		if compress {
+			log.WithField("format", cfg.Backup.Compression.Format).Info("Would compress after dump")
+		}
+		if doUpload {
+			log.WithField("destination", cfg.Upload.Destination).Info("Would upload after dump")
+		}
+		return
+	}
+
+	dbClient, err := database.NewClient(&cfg.Database)
+	if err != nil {
+		log.WithError(err).Fatal("Failed to initialize database client")
+	}
+	defer dbClient.Close()
+
+	backupPath, err := dbClient.CreateBackup(ctx, dbName, outputDir)
+	if err != nil {
+		log.WithError(err).Fatal("Dump failed")
+	}
+
+	finalPath := backupPath
+
+	if compress && cfg.Backup.Compression.Enabled {
+		comp := compression.NewCompressor(&cfg.Backup.Compression, log)
+		compressedPath, err := comp.CompressBackup(backupPath)
+		if err != nil {
+			log.WithError(err).Fatal("Compression failed")
+		}
+		finalPath = compressedPath
+	}
+
+	if doUpload && cfg.Upload.Enabled {
+		uploader := upload.NewService(&cfg.Upload, log)
+		if err := uploader.Upload(ctx, finalPath); err != nil {
+			log.WithError(err).Fatal("Upload failed")
+		}
+		log.Info("Upload completed")
+	}
+
+	log.WithField("output", finalPath).Info("Dump completed successfully")
 }
