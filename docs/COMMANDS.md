@@ -11,7 +11,9 @@ tenangdb [command] [options]
 ### Available Commands
 - `init` - Interactive setup wizard (NEW!)
 - `backup` - Run database backup (default)
+- `dump` - Dump a single database directly
 - `restore` - Restore database from backup
+- `upload` - Upload existing backup to cloud storage
 - `cleanup` - Clean up old backup files
 - `config` - Show configuration information
 - `version` - Show version information
@@ -228,6 +230,51 @@ Upload an existing backup file or directory to cloud storage without running a b
 
 # Dry-run to preview upload destination
 ./tenangdb upload --source-path /backup/prod_db-2025-05-26 --dry-run --config config.yaml
+```
+
+## 📤 Dump Command
+
+Dump a single database directly without running the full backup pipeline. Bypasses batch processing, frequency checks, confirmation prompts, and metrics tracking.
+
+### Basic Usage
+```bash
+# Dump a single database
+./tenangdb dump --database mydb
+
+# Dump to a specific output directory
+./tenangdb dump -d mydb -o /custom/backup/path
+
+# Dump, compress, and upload in one step
+./tenangdb dump -d mydb --compress --upload --config config.yaml
+```
+
+### Options
+| Option | Description | Required |
+|--------|-------------|----------|
+| `--database, -d` | Database name to dump | ✅ |
+| `--output, -o` | Output directory (default: config backup.directory) | ❌ |
+| `--config` | Path to configuration file | ❌ |
+| `--log-level` | Log level (debug, info, warn, error) | ❌ |
+| `--compress` | Compress after dump (uses config backup.compression settings) | ❌ |
+| `--upload` | Upload to cloud storage after dump | ❌ |
+| `--dry-run` | Preview what would be dumped without executing | ❌ |
+
+### Examples
+```bash
+# Dump a single database using default config and output directory
+./tenangdb dump --database prod_db --config config.yaml
+
+# Dump to a specific directory with compression
+./tenangdb dump -d mydb -o /var/backups/adhoc --compress
+
+# Dump, compress, and upload to cloud in one command
+./tenangdb dump -d critical_db --compress --upload --config config.yaml
+
+# Preview what would happen without executing
+./tenangdb dump -d mydb --compress --upload --dry-run
+
+# Chain with upload standalone for manual workflow
+./tenangdb dump -d mydb -o /tmp && tenangdb upload -s /tmp/mydb/2026-05/mydb-2026-05-28_10-30-15.tar.gz
 ```
 
 ## 🧹 Cleanup Command
